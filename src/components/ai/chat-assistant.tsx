@@ -30,9 +30,9 @@ const THEME_COLOR_MAP: Record<string, { primary: string; background: string; for
 const getColorClasses = (color?: string) => {
   if (!color) return undefined;
   const c = color.toLowerCase();
-  if (c === 'rouge' || c.includes('red')) return 'bg-destructive text-destructive-foreground shadow-lg';
-  if (c === 'vert' || c.includes('green')) return 'bg-emerald-500 text-white shadow-lg';
-  if (c === 'bleu' || c.includes('blue')) return 'bg-sky-500 text-white shadow-lg';
+  if (c === 'rouge' || c.includes('red')) return 'bg-red-600 text-white shadow-lg';
+  if (c === 'vert' || c.includes('green')) return 'bg-emerald-600 text-white shadow-lg';
+  if (c === 'bleu' || c.includes('blue')) return 'bg-blue-600 text-white shadow-lg';
   if (c === 'jaune' || c.includes('yellow')) return 'bg-amber-400 text-amber-950 shadow-lg';
   if (c === 'noir' || c.includes('black')) return 'bg-slate-900 text-white shadow-lg';
   return `bg-${c}-500 text-white shadow-lg`;
@@ -106,7 +106,7 @@ export function ChatAssistant() {
 
       setMessages(prev => [...prev, { role: 'assistant', content: "C'est fait ! La modification est appliquée." }]);
     } catch (error) {
-      setMessages(prev => [...prev, { role: 'assistant', content: "Désolé, une erreur technique est survenue." }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: "Désolé, une erreur technique est survenue lors de l'application." }]);
     }
     setPendingAction(null);
   };
@@ -143,7 +143,8 @@ export function ChatAssistant() {
         content: result.analysisResult || "Je suis prêt. Souhaitez-vous confirmer cette modification ?" 
       }]);
     } catch (error) {
-      setMessages(prev => [...prev, { role: 'assistant', content: "Je rencontre une petite interférence dans mes circuits d'architecte, mais je suis toujours là. Que voulez-vous modifier ?" }]);
+      console.error("Chat analysis error:", error);
+      setMessages(prev => [...prev, { role: 'assistant', content: "Je suis toujours là et prêt à transformer votre site. Que voulez-vous modifier ?" }]);
     } finally {
       setIsLoading(false);
     }

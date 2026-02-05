@@ -61,13 +61,13 @@ export function CategoryTile({
     e.preventDefault();
     e.stopPropagation();
     if (!db || !companyId || !isAdminMode) return;
-    const categoryRef = doc(db, 'companies', companyId, 'categories', id);
+    const categoryRef = doc(db, 'companies', companyId, 'categories', id.toLowerCase());
     updateDocumentNonBlocking(categoryRef, { visibleToEmployees: !isVisible });
   };
 
   const handleRenameSubmit = () => {
     if (newLabel && newLabel !== label && db && companyId && isAdminMode) {
-      const categoryRef = doc(db, 'companies', companyId, 'categories', id);
+      const categoryRef = doc(db, 'companies', companyId, 'categories', id.toLowerCase());
       updateDocumentNonBlocking(categoryRef, { label: newLabel });
       setIsRenameOpen(false);
     }
@@ -75,7 +75,7 @@ export function CategoryTile({
 
   const handleDeleteConfirm = () => {
     if (db && companyId && isAdminMode) {
-      const categoryRef = doc(db, 'companies', companyId, 'categories', id);
+      const categoryRef = doc(db, 'companies', companyId, 'categories', id.toLowerCase());
       deleteDocumentNonBlocking(categoryRef);
       setIsDeleteOpen(false);
     }
@@ -86,15 +86,15 @@ export function CategoryTile({
   return (
     <>
       <Card className={cn(
-        "relative group overflow-hidden border-none shadow-md transition-all hover:shadow-lg bg-card h-full",
+        "relative group overflow-hidden border-none shadow-md transition-all hover:shadow-lg h-full min-h-[220px]",
         !isVisible && !isAdminMode && "hidden",
         !isVisible && isAdminMode && "opacity-60",
-        customColor 
+        isCustomStyle ? customColor : "bg-card"
       )}>
         <CardContent className="p-6 h-full flex flex-col">
           <div className="flex items-start justify-between mb-8">
             <div className={cn(
-              "p-4 rounded-2xl transition-transform group-hover:scale-105", 
+              "p-4 rounded-2xl transition-transform group-hover:scale-110", 
               isCustomStyle ? "bg-white/20 text-white" : colorClass
             )}>
               <Icon className="w-8 h-8" />
