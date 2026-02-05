@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, FileText, CheckCircle2, AlertCircle, Clock, Archive } from 'lucide-react';
+import { MoreHorizontal, FileText, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,6 +20,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { BusinessDocument, DocumentStatus } from '@/lib/types';
+import { useFirestore, useCollection, useMemoFirebase, deleteDocumentNonBlocking } from '@/firebase';
+import { collection, query, where, doc } from 'firebase/firestore';
 
 const statusConfig: Record<DocumentStatus, { label: string; icon: any; color: string }> = {
   pending_analysis: { label: 'Analyse IA', icon: Clock, color: 'bg-amber-100 text-amber-700 border-amber-200' },
@@ -28,52 +30,42 @@ const statusConfig: Record<DocumentStatus, { label: string; icon: any; color: st
   archived: { label: 'Archivé', icon: CheckCircle2, color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
 };
 
-const MOCK_DOCS: BusinessDocument[] = [
-  {
-    id: '1',
-    category_id: 'finance',
-    name: 'Facture Amazon Web Services - Janvier.pdf',
-    status: 'waiting_verification',
-    project_column: 'budget',
-    extracted_data: { montant: '124.50€', tva: '20.75€' },
-    file_url: '#',
-    created_at: '2023-11-01',
-  },
-  {
-    id: '2',
-    category_id: 'finance',
-    name: 'Loyer Bureau - Quittance.pdf',
-    status: 'archived',
-    project_column: 'administrative',
-    extracted_data: { montant: '1500€' },
-    file_url: '#',
-    created_at: '2023-10-25',
-  },
-  {
-    id: '3',
-    category_id: 'finance',
-    name: 'Note de frais - Déjeuner Client.jpg',
-    status: 'pending_analysis',
-    project_column: 'budget',
-    extracted_data: {},
-    file_url: '#',
-    created_at: '2023-11-02',
-  },
-  {
-    id: '4',
-    category_id: 'finance',
-    name: 'Contrat Maintenance Serveur.pdf',
-    status: 'waiting_validation',
-    project_column: 'administrative',
-    extracted_data: { client: 'TechCorp' },
-    file_url: '#',
-    created_at: '2023-10-30',
-  },
-];
-
 export function DocumentList({ categoryId }: { categoryId: string }) {
+  const db = useFirestore();
+  const companyId = 'default-company';
+
+  const docsQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return query(
+      collection(db, 'companies', companyId, 'documents'),
+      where('category_id', '==', categoryId)
+    );
+  }, [db, categoryId, companyId]);
+
+  const { data: documents, isLoading } = useCollection<BusinessDocument>(docsQuery);
+
+  const handleDelete = (docId: string) => {
+    if (!db) return;
+    const docRef = doc(db, 'companies', companyId, 'documents', docId);
+    deleteDocumentNonBlocking(docRef);
+  };
+
+  if (isLoading) {
+    return <div className="p-8 text-center text-muted-foreground animate-pulse">Chargement des documents...</div>;
+  }
+
+  if (!documents || documents.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed rounded-xl bg-card text-muted-foreground">
+        <FileText className="w-12 h-12 mb-4 opacity-20" />
+        <p className="font-medium text-lg">Aucun document trouvé</p>
+        <p className="text-sm">Importez votre premier fichier pour commencer l'analyse.</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+    <div className="rounded-xl border bg-card shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2">
       <Table>
         <TableHeader className="bg-muted/30">
           <TableRow>
@@ -86,8 +78,8 @@ export function DocumentList({ categoryId }: { categoryId: string }) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {MOCK_DOCS.map((doc) => {
-            const status = statusConfig[doc.status];
+          {documents.map((doc) => {
+            const status = statusConfig[doc.status] || statusConfig.pending_analysis;
             return (
               <TableRow key={doc.id} className="hover:bg-muted/10 transition-colors">
                 <TableCell className="font-medium">
@@ -95,7 +87,7 @@ export function DocumentList({ categoryId }: { categoryId: string }) {
                     <div className="p-2 bg-muted rounded-lg">
                       <FileText className="w-5 h-5 text-muted-foreground" />
                     </div>
-                    <span className="truncate max-w-[250px]">{doc.name}</span>
+                    <span className="truncate max-w-[250px]">{doc.name || 'Sans titre'}</span>
                   </div>
                 </TableCell>
                 <TableCell>
@@ -114,13 +106,13 @@ export function DocumentList({ categoryId }: { categoryId: string }) {
                 </TableCell>
                 <TableCell>
                   <div className="text-xs space-y-0.5">
-                    {Object.entries(doc.extracted_data).map(([k, v]) => (
+                    {Object.entries(doc.extracted_data || {}).map(([k, v]) => (
                       <div key={k}>
-                        <span className="text-muted-foreground uppercase text-[10px] font-bold">{k}:</span> {v}
+                        <span className="text-muted-foreground uppercase text-[10px] font-bold">{k}:</span> {String(v)}
                       </div>
                     ))}
-                    {Object.keys(doc.extracted_data).length === 0 && (
-                      <span className="italic text-muted-foreground">En cours...</span>
+                    {Object.keys(doc.extracted_data || {}).length === 0 && (
+                      <span className="italic text-muted-foreground">Analyse en cours...</span>
                     )}
                   </div>
                 </TableCell>
@@ -136,7 +128,12 @@ export function DocumentList({ categoryId }: { categoryId: string }) {
                       <DropdownMenuItem>Voir le document</DropdownMenuItem>
                       <DropdownMenuItem>Vérifier l'extraction</DropdownMenuItem>
                       <DropdownMenuItem>Valider</DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive">Supprimer</DropdownMenuItem>
+                      <DropdownMenuItem 
+                        className="text-destructive"
+                        onClick={() => handleDelete(doc.id)}
+                      >
+                        Supprimer
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>

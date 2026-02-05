@@ -7,6 +7,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import { useFirestore, updateDocumentNonBlocking } from '@/firebase';
+import { doc } from 'firebase/firestore';
 
 interface CategoryTileProps {
   id: string;
@@ -16,6 +18,7 @@ interface CategoryTileProps {
   isVisible: boolean;
   isAdminMode: boolean;
   colorClass: string;
+  companyId: string;
 }
 
 export function CategoryTile({
@@ -25,8 +28,25 @@ export function CategoryTile({
   badgeCount,
   isVisible,
   isAdminMode,
-  colorClass
+  colorClass,
+  companyId
 }: CategoryTileProps) {
+  const db = useFirestore();
+
+  const toggleVisibility = () => {
+    if (!db) return;
+    const categoryRef = doc(db, 'companies', companyId, 'categories', id);
+    updateDocumentNonBlocking(categoryRef, { visible_to_employees: !isVisible });
+  };
+
+  const handleRename = () => {
+    const newName = prompt('Nouveau nom pour la catégorie :', label);
+    if (newName && newName !== label && db) {
+      const categoryRef = doc(db, 'companies', companyId, 'categories', id);
+      updateDocumentNonBlocking(categoryRef, { label: newName });
+    }
+  };
+
   return (
     <Card className={cn(
       "relative group overflow-hidden border-none shadow-md transition-all hover:shadow-lg",
@@ -39,7 +59,7 @@ export function CategoryTile({
             <Icon className="w-8 h-8" />
           </div>
           {badgeCount > 0 && (
-            <Badge className="bg-destructive text-destructive-foreground font-bold px-2.5 py-1 rounded-lg">
+            <Badge className="bg-destructive text-destructive-foreground font-bold px-2.5 py-1 rounded-lg animate-in zoom-in">
               {badgeCount}
             </Badge>
           )}
@@ -64,10 +84,20 @@ export function CategoryTile({
 
           {isAdminMode && (
             <div className="flex items-center gap-1">
-              <Button size="icon" variant="ghost" className="h-8 w-8 rounded-full">
+              <Button 
+                size="icon" 
+                variant="ghost" 
+                className="h-8 w-8 rounded-full"
+                onClick={toggleVisibility}
+              >
                 {isVisible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
               </Button>
-              <Button size="icon" variant="ghost" className="h-8 w-8 rounded-full">
+              <Button 
+                size="icon" 
+                variant="ghost" 
+                className="h-8 w-8 rounded-full"
+                onClick={handleRename}
+              >
                 <Edit3 className="h-4 w-4" />
               </Button>
             </div>
