@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -31,13 +32,13 @@ const THEME_COLOR_MAP: Record<string, { primary: string; background: string; for
 const getColorClasses = (color?: string) => {
   if (!color) return undefined;
   const c = color.toLowerCase();
-  if (c === 'vert' || c.includes('emerald')) return 'bg-emerald-500 text-white shadow-emerald-200';
+  if (c === 'vert' || c.includes('emerald') || c.includes('green')) return 'bg-emerald-500 text-white shadow-emerald-200';
   if (c === 'rouge' || c.includes('rose') || c.includes('red')) return 'bg-rose-500 text-white shadow-rose-200';
   if (c === 'bleu' || c.includes('sky') || c.includes('blue')) return 'bg-sky-500 text-white shadow-sky-200';
   if (c === 'jaune' || c.includes('amber') || c.includes('yellow')) return 'bg-amber-400 text-amber-950 shadow-amber-200';
   if (c === 'noir' || c.includes('slate') || c.includes('black')) return 'bg-slate-900 text-white shadow-slate-400';
-  if (c === 'blanc') return 'bg-white text-slate-900 shadow-sm border';
-  return color;
+  if (c === 'blanc' || c.includes('white')) return 'bg-white text-slate-900 shadow-sm border';
+  return undefined;
 };
 
 export function ChatAssistant() {
@@ -108,7 +109,7 @@ export function ChatAssistant() {
 
       setMessages(prev => [...prev, { role: 'assistant', content: "Tâche effectuée !" }]);
     } catch (error) {
-      setMessages(prev => [...prev, { role: 'assistant', content: "Désolé, une erreur est survenue." }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: "Désolé, une erreur est survenue lors de l'exécution." }]);
     }
     setPendingAction(null);
   };
@@ -116,10 +117,9 @@ export function ChatAssistant() {
   const handleSend = async () => {
     if (!input.trim() || isLoading || !db || !companyId) return;
 
-    const userMessage: Message = { role: 'user', content: input };
-    setMessages(prev => [...prev, userMessage]);
     const currentInput = input;
     setInput('');
+    setMessages(prev => [...prev, { role: 'user', content: currentInput }]);
     setIsLoading(true);
 
     if (!adminMode) {
@@ -143,10 +143,11 @@ export function ChatAssistant() {
 
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: result.analysisResult || "Je n'ai pas bien compris, pouvez-vous reformuler ?" 
+        content: result.analysisResult || "Je n'ai pas bien compris votre demande, pouvez-vous reformuler ?" 
       }]);
     } catch (error) {
-      setMessages(prev => [...prev, { role: 'assistant', content: "Désolé, une erreur est survenue." }]);
+      console.error("Chat error:", error);
+      setMessages(prev => [...prev, { role: 'assistant', content: "Désolé, une erreur technique est survenue." }]);
     } finally {
       setIsLoading(false);
     }

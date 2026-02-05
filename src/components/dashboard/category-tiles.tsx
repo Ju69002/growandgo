@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -13,7 +14,8 @@ import {
   Home,
   Briefcase,
   Settings,
-  Bell
+  Bell,
+  HomeIcon
 } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, query, doc } from 'firebase/firestore';
@@ -85,20 +87,26 @@ export function CategoryTiles({ isAdminMode }: CategoryTilesProps) {
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-      {sortedCategories.map((category) => (
-        <CategoryTile
-          key={category.id}
-          id={category.id}
-          label={category.label}
-          icon={ICON_MAP[category.icon || category.id] || ICON_MAP.default}
-          badgeCount={category.badgeCount || 0}
-          isVisible={category.visibleToEmployees}
-          isAdminMode={isAdminMode}
-          colorClass={COLOR_MAP[category.id] || COLOR_MAP.default}
-          companyId={companyId}
-          customColor={category.color}
-        />
-      ))}
+      {sortedCategories.map((category) => {
+        // Normalisation de l'icône pour la recherche dans ICON_MAP
+        const iconKey = (category.icon || category.id).toLowerCase();
+        const Icon = ICON_MAP[iconKey] || ICON_MAP.default;
+        
+        return (
+          <CategoryTile
+            key={category.id}
+            id={category.id}
+            label={category.label}
+            icon={Icon}
+            badgeCount={category.badgeCount || 0}
+            isVisible={category.visibleToEmployees}
+            isAdminMode={isAdminMode}
+            colorClass={COLOR_MAP[category.id] || COLOR_MAP.default}
+            companyId={companyId}
+            customColor={category.color}
+          />
+        );
+      })}
       
       {isAdminMode && (
         <button 
