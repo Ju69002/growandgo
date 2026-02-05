@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -27,7 +26,6 @@ const ICON_MAP: Record<string, any> = {
   rh: Users,
   agenda: Calendar,
   signatures: PenTool,
-  custom_cee: FolderLock,
   default: LayoutGrid
 };
 
@@ -37,7 +35,6 @@ const COLOR_MAP: Record<string, string> = {
   rh: 'text-indigo-600 bg-indigo-50',
   agenda: 'text-amber-600 bg-amber-50',
   signatures: 'text-purple-600 bg-purple-50',
-  custom_cee: 'text-teal-600 bg-teal-50',
   default: 'text-gray-600 bg-gray-50'
 };
 
@@ -70,7 +67,7 @@ export function CategoryTiles({ isAdminMode }: CategoryTilesProps) {
     );
   }
 
-  // Sort categories: standard first, then custom
+  // Trier les catégories : standards d'abord, puis personnalisées
   const sortedCategories = [...(categories || [])].sort((a, b) => {
     if (a.type === 'standard' && b.type !== 'standard') return -1;
     if (a.type !== 'standard' && b.type === 'standard') return 1;

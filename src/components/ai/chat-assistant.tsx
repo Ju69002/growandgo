@@ -8,9 +8,9 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { bossAiDataAnalysis } from '@/ai/flows/boss-ai-data-analysis';
-import { useUser, useFirestore, setDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking, useDoc, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, setDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking, useDoc, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
 import { doc, collection } from 'firebase/firestore';
-import { User, Category } from '@/lib/types';
+import { User } from '@/lib/types';
 
 type Message = {
   role: 'user' | 'assistant';
@@ -22,7 +22,7 @@ export function ChatAssistant() {
   const { user } = useUser();
   const db = useFirestore();
   const [messages, setMessages] = React.useState<Message[]>([
-    { role: 'assistant', content: 'Bonjour ! Je suis votre assistant BusinessPilot. Comment puis-je vous aider ?' }
+    { role: 'assistant', content: 'Bonjour ! Je suis votre assistant BusinessPilot propulsé par Gemini. Comment puis-je vous aider ?' }
   ]);
   const [input, setInput] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
@@ -45,7 +45,7 @@ export function ChatAssistant() {
   }, []);
 
   const handleSend = async () => {
-    if (!input.trim() || isLoading || !db) return;
+    if (!input.trim() || isLoading || !db || !companyId) return;
 
     const userMessage: Message = { role: 'user', content: input };
     setMessages(prev => [...prev, userMessage]);
@@ -54,42 +54,60 @@ export function ChatAssistant() {
     setIsLoading(true);
 
     try {
-      // Direct detection for instant action as requested for "create tile"
-      const lowerInput = currentInput.toLowerCase();
-      if (lowerInput.includes('crée') && (lowerInput.includes('catégorie') || lowerInput.includes('tuile'))) {
-        const nameMatch = currentInput.match(/(?:nommée|appelée|nom|est)\s+['"]?([^.'"]+)['"]?/i);
-        const categoryName = nameMatch ? nameMatch[1].trim() : 'Nouvelle Tuile';
-        const categoryId = categoryName.toLowerCase().replace(/[^a-z0-9]/g, '_');
-        
-        const categoryRef = doc(db, 'companies', companyId, 'categories', categoryId);
-        setDocumentNonBlocking(categoryRef, {
-          id: categoryId,
-          label: categoryName,
-          badgeCount: 0,
-          visibleToEmployees: false,
-          type: 'custom',
-          aiInstructions: `Analyse les documents pour la catégorie ${categoryName}.`,
-          companyId: companyId
-        }, { merge: true });
+      const result = await bossAiDataAnalysis({
+        query: currentInput,
+        companyId: companyId,
+      });
 
-        setMessages(prev => [...prev, { role: 'assistant', content: "Tâche effectuée !" }]);
-      } else if (lowerInput.includes('supprime') && (lowerInput.includes('catégorie') || lowerInput.includes('tuile'))) {
-        const nameMatch = currentInput.match(/(?:la tuile|la catégorie)\s+['"]?([^.'"]+)['"]?/i);
-        if (nameMatch) {
-          const categoryId = nameMatch[1].trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
-          const categoryRef = doc(db, 'companies', companyId, 'categories', categoryId);
-          deleteDocumentNonBlocking(categoryRef);
-          setMessages(prev => [...prev, { role: 'assistant', content: "Tâche effectuée !" }]);
+      if (result.action) {
+        const { type, categoryId, label, visibleToEmployees, documentName, documentId } = result.action;
+        
+        // Exécution de l'action demandée par Gemini
+        if (type === 'create_category' && label) {
+          const id = label.toLowerCase().replace(/[^a-z0-9]/g, '_');
+          const ref = doc(db, 'companies', companyId, 'categories', id);
+          setDocumentNonBlocking(ref, {
+            id,
+            label,
+            badgeCount: 0,
+            visibleToEmployees: false,
+            type: 'custom',
+            aiInstructions: `Analyse pour la catégorie ${label}.`,
+            companyId
+          }, { merge: true });
+        } else if (type === 'delete_category' && categoryId) {
+          const ref = doc(db, 'companies', companyId, 'categories', categoryId);
+          deleteDocumentNonBlocking(ref);
+        } else if (type === 'rename_category' && categoryId && label) {
+          const ref = doc(db, 'companies', companyId, 'categories', categoryId);
+          updateDocumentNonBlocking(ref, { label });
+        } else if (type === 'toggle_visibility' && categoryId) {
+          const ref = doc(db, 'companies', companyId, 'categories', categoryId);
+          updateDocumentNonBlocking(ref, { visibleToEmployees: visibleToEmployees ?? true });
+        } else if (type === 'add_document' && categoryId && documentName) {
+          const ref = collection(db, 'companies', companyId, 'documents');
+          addDocumentNonBlocking(ref, {
+            name: documentName,
+            categoryId,
+            projectColumn: 'budget',
+            status: 'pending_analysis',
+            extractedData: {},
+            fileUrl: 'https://picsum.photos/seed/doc/200/300',
+            createdAt: new Date().toLocaleDateString(),
+            companyId
+          });
+        } else if (type === 'delete_document' && documentId) {
+          const ref = doc(db, 'companies', companyId, 'documents', documentId);
+          deleteDocumentNonBlocking(ref);
         }
-      } else {
-        const result = await bossAiDataAnalysis({
-          query: currentInput,
-          companyId: companyId,
-        });
-        setMessages(prev => [...prev, { role: 'assistant', content: result.analysisResult || "Tâche effectuée !" }]);
       }
+
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: result.analysisResult || "Tâche effectuée !" 
+      }]);
     } catch (error) {
-      setMessages(prev => [...prev, { role: 'assistant', content: "Une erreur est survenue." }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: "Une erreur est survenue lors de l'analyse." }]);
     } finally {
       setIsLoading(false);
     }
@@ -109,7 +127,7 @@ export function ChatAssistant() {
           <CardHeader className="bg-primary text-primary-foreground rounded-t-xl p-4 flex flex-row items-center justify-between space-y-0">
             <div className="flex items-center gap-2">
               <Bot className="h-5 w-5" />
-              <CardTitle className="text-base font-bold">Assistant IA</CardTitle>
+              <CardTitle className="text-base font-bold">Assistant Gemini</CardTitle>
             </div>
             <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)} className="h-8 w-8 text-white hover:bg-white/10">
               <X className="h-4 w-4" />

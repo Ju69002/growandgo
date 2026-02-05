@@ -1,76 +1,54 @@
 'use server';
 
 /**
- * @fileOverview Assistant IA pour les propriétaires d'entreprise avec outils de gestion.
+ * @fileOverview Assistant IA pour les propriétaires d'entreprise utilisant Gemini 2.5 Flash.
+ * Extrait les intentions d'action pour la gestion des catégories et documents.
  */
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
+const BossActionSchema = z.object({
+  type: z.enum(['create_category', 'delete_category', 'rename_category', 'toggle_visibility', 'add_document', 'delete_document']).describe('Le type d\'action à effectuer.'),
+  categoryId: z.string().optional().describe('L\'identifiant de la catégorie (souvent le nom en minuscules).'),
+  label: z.string().optional().describe('Le nouveau nom pour la catégorie.'),
+  visibleToEmployees: z.boolean().optional().describe('Le statut de visibilité souhaité.'),
+  documentName: z.string().optional().describe('Le nom du document/sous-dossier à créer.'),
+  documentId: z.string().optional().describe('L\'identifiant du document à supprimer.'),
+});
+
 const BossAiDataAnalysisInputSchema = z.object({
   query: z.string().describe('La requête du propriétaire.'),
   companyId: z.string().describe('L\'identifiant de l\'entreprise.'),
-  context: z.string().optional().describe('Contexte additionnel sur les données.'),
 });
 export type BossAiDataAnalysisInput = z.infer<typeof BossAiDataAnalysisInputSchema>;
 
 const BossAiDataAnalysisOutputSchema = z.object({
-  analysisResult: z.string().describe('Le résultat court de l\'opération.'),
+  analysisResult: z.string().describe('Le message court à afficher (réponds "Tâche effectuée !" pour les succès).'),
+  action: BossActionSchema.optional().describe('L\'action structurée identifiée par l\'IA.'),
 });
 export type BossAiDataAnalysisOutput = z.infer<typeof BossAiDataAnalysisOutputSchema>;
 
-// Tool to manage categories
-const manageCategoryTool = ai.defineTool(
-  {
-    name: 'manageCategory',
-    description: 'Crée, renomme ou modifie la visibilité d\'une catégorie (tuile).',
-    inputSchema: z.object({
-      action: z.enum(['create', 'rename', 'toggleVisibility', 'delete']),
-      categoryId: z.string().optional(),
-      label: z.string().optional(),
-      visibleToEmployees: z.boolean().optional(),
-    }),
-    outputSchema: z.string(),
-  },
-  async (input) => {
-    // This is a server-side signal, the client will pick this up or we return instructions
-    return `Action ${input.action} programmée pour la catégorie ${input.label || input.categoryId}`;
-  }
-);
-
-// Tool to manage documents (sub-folders/files)
-const manageDocumentTool = ai.defineTool(
-  {
-    name: 'manageDocument',
-    description: 'Ajoute ou supprime un document (sous-dossier) dans une catégorie.',
-    inputSchema: z.object({
-      action: z.enum(['add', 'delete']),
-      documentId: z.string().optional(),
-      categoryId: z.string(),
-      name: z.string().optional(),
-    }),
-    outputSchema: z.string(),
-  },
-  async (input) => {
-    return `Action ${input.action} programmée pour le document dans ${input.categoryId}`;
-  }
-);
-
-const prompt = ai.definePrompt({
+const bossPrompt = ai.definePrompt({
   name: 'bossAiDataAnalysisPrompt',
   input: {schema: BossAiDataAnalysisInputSchema},
   output: {schema: BossAiDataAnalysisOutputSchema},
-  tools: [manageCategoryTool, manageDocumentTool],
-  system: `Tu es l'assistant BusinessPilot.
+  system: `Tu es l'assistant BusinessPilot, connecté à Gemini 2.5 Flash.
+  Tu aides le propriétaire (Boss Architect) à gérer son entreprise.
+  
   Tes réponses doivent être EXTRÊMEMENT CONCISES. 
-  Si l'utilisateur te demande une action technique (créer, supprimer, renommer), utilise les outils fournis.
-  Une fois l'outil appelé, réponds TOUJOURS exactement : "Tâche effectuée !".
-  Ne fais jamais de longs paragraphes.
-  Toutes les nouvelles tuiles créées doivent être vides par défaut.`,
+  Si l'utilisateur te demande une action technique (créer, supprimer, renommer une tuile ou un document), remplis l'objet 'action' avec les paramètres extraits.
+  Une fois l'action identifiée, réponds TOUJOURS exactement : "Tâche effectuée !".
+  
+  Règles importantes :
+  - Les nouvelles tuiles créées doivent être vides par défaut.
+  - Pour renommer une tuile, identifie son ID probable (ex: "finance" pour "Finance").
+  - 'add_document' crée un sous-dossier/fichier dans une catégorie spécifiée.
+  - Ne fais jamais de longs paragraphes.`,
   prompt: `Requête de l'utilisateur : {{{query}}} (Entreprise: {{{companyId}}})`,
 });
 
 export async function bossAiDataAnalysis(input: BossAiDataAnalysisInput): Promise<BossAiDataAnalysisOutput> {
-  const {output} = await prompt(input);
+  const {output} = await bossPrompt(input);
   return output!;
 }

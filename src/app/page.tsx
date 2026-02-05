@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -11,11 +10,11 @@ import { doc } from 'firebase/firestore';
 import { User } from '@/lib/types';
 
 const DEFAULT_CATEGORIES = [
-  { id: 'finance', label: 'Finance', icon: 'finance', aiInstructions: 'Analyse des factures et trésorerie.' },
-  { id: 'admin', label: 'Administration', icon: 'admin', aiInstructions: 'Gestion des documents administratifs et courriers.' },
-  { id: 'rh', label: 'RH', icon: 'rh', aiInstructions: 'Gestion des contrats et documents employés.' },
-  { id: 'agenda', label: 'Agenda', icon: 'agenda', aiInstructions: 'Organisation du planning et rappels.' },
-  { id: 'signatures', label: 'Signatures', icon: 'signatures', aiInstructions: 'Suivi des documents à signer.' }
+  { id: 'finance', label: 'Finance', aiInstructions: 'Analyse des factures et trésorerie.' },
+  { id: 'admin', label: 'Administration', aiInstructions: 'Gestion des documents administratifs.' },
+  { id: 'rh', label: 'RH', aiInstructions: 'Gestion des contrats et documents employés.' },
+  { id: 'agenda', label: 'Agenda', aiInstructions: 'Organisation du planning.' },
+  { id: 'signatures', label: 'Signatures', aiInstructions: 'Suivi des signatures.' }
 ];
 
 export default function Home() {
@@ -24,7 +23,6 @@ export default function Home() {
   const db = useFirestore();
   const [isInitializing, setIsInitializing] = useState(true);
 
-  // Auto-login for prototype
   useEffect(() => {
     if (!isUserLoading && !user && auth) {
       initiateAnonymousSignIn(auth);
@@ -38,12 +36,10 @@ export default function Home() {
 
   const { data: profile, isLoading: isProfileLoading } = useDoc<User>(userProfileRef);
 
-  // Initialize user profile and default categories
   useEffect(() => {
     if (user && !isProfileLoading && !profile && db) {
       const companyId = 'default-company';
       
-      // 1. Create User Profile
       const newUser: User = {
         uid: user.uid,
         companyId: companyId,
@@ -55,7 +51,6 @@ export default function Home() {
       const userRef = doc(db, 'users', user.uid);
       setDocumentNonBlocking(userRef, newUser, { merge: true });
 
-      // 2. Seed Default Categories
       DEFAULT_CATEGORIES.forEach(cat => {
         const catRef = doc(db, 'companies', companyId, 'categories', cat.id);
         setDocumentNonBlocking(catRef, {
@@ -93,7 +88,7 @@ export default function Home() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-primary">Tableau de bord</h1>
             <p className="text-muted-foreground mt-1">
-              Bienvenue sur BusinessPilot. Voici vos modules de gestion.
+              Bienvenue sur BusinessPilot. Vos catégories par défaut sont prêtes.
             </p>
           </div>
           {userRole !== 'employee' && (
@@ -109,7 +104,7 @@ export default function Home() {
             <Info className="h-4 w-4 text-teal-600" />
             <AlertTitle className="text-teal-800 font-bold">Mode Architecte</AlertTitle>
             <AlertDescription className="text-teal-700">
-              Vous pouvez personnaliser les tuiles (nom, visibilité) ou en créer de nouvelles via l'assistant.
+              Vous pouvez personnaliser les tuiles ou en créer de nouvelles via l'assistant Gemini.
             </AlertDescription>
           </Alert>
         )}
