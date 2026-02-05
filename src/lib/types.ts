@@ -7,41 +7,42 @@ export type CategoryType = 'standard' | 'custom';
 export interface Company {
   id: string;
   name: string;
-  subscription_status: 'active' | 'trial';
-  modules_config: {
-    show_rh: boolean;
-    show_finance: boolean;
-    custom_labels: Record<string, string>;
+  subscriptionStatus: 'active' | 'trial';
+  modulesConfig: {
+    showRh: boolean;
+    showFinance: boolean;
+    customLabels: Record<string, string>;
   };
 }
 
 export interface User {
   uid: string;
-  company_id: string;
+  companyId: string;
   role: UserRole;
-  admin_mode: boolean;
+  adminMode: boolean;
   name: string;
   email: string;
 }
 
 export interface Category {
   id: string;
-  company_id: string;
+  companyId: string;
   label: string;
-  badge_count: number;
+  badgeCount: number;
   type: CategoryType;
-  visible_to_employees: boolean;
-  ai_instructions: string;
+  visibleToEmployees: boolean;
+  aiInstructions: string;
   icon?: string;
 }
 
 export interface BusinessDocument {
   id: string;
-  category_id: string;
-  project_column: 'technical' | 'administrative' | 'budget';
+  companyId: string;
+  categoryId: string;
+  projectColumn: 'technical' | 'administrative' | 'budget';
   status: DocumentStatus;
-  extracted_data: Record<string, any>;
-  file_url: string;
+  extractedData: Record<string, any>;
+  fileUrl: string;
   name: string;
-  created_at: string;
+  createdAt: string;
 }

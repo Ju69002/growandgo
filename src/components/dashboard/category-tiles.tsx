@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -51,7 +50,7 @@ export function CategoryTiles({ isAdminMode }: CategoryTilesProps) {
   }, [db, user]);
 
   const { data: profile } = useDoc<User>(userProfileRef);
-  const companyId = profile?.company_id || 'default-company';
+  const companyId = profile?.companyId || 'default-company';
 
   const categoriesQuery = useMemoFirebase(() => {
     if (!db || !user || !profile) return null;
@@ -78,8 +77,8 @@ export function CategoryTiles({ isAdminMode }: CategoryTilesProps) {
           id={category.id}
           label={category.label}
           icon={ICON_MAP[category.id] || ICON_MAP.default}
-          badgeCount={category.badge_count || 0}
-          isVisible={category.visible_to_employees}
+          badgeCount={category.badgeCount || 0}
+          isVisible={category.visibleToEmployees}
           isAdminMode={isAdminMode}
           colorClass={COLOR_MAP[category.id] || COLOR_MAP.default}
           companyId={companyId}

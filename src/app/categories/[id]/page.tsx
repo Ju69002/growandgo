@@ -6,15 +6,23 @@ import { Button } from '@/components/ui/button';
 import { Upload, ChevronLeft, Filter, Download } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useFirestore, useDoc, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
+import { useFirestore, useDoc, useMemoFirebase, addDocumentNonBlocking, useUser } from '@/firebase';
 import { doc, collection } from 'firebase/firestore';
-import { Category } from '@/lib/types';
+import { Category, User } from '@/lib/types';
 
 export default function CategoryPage() {
   const params = useParams();
   const categoryId = params.id as string;
   const db = useFirestore();
-  const companyId = 'default-company';
+  const { user } = useUser();
+
+  const userProfileRef = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return doc(db, 'users', user.uid);
+  }, [db, user]);
+
+  const { data: profile } = useDoc<User>(userProfileRef);
+  const companyId = profile?.companyId || 'default-company';
 
   const categoryRef = useMemoFirebase(() => {
     if (!db) return null;
@@ -24,7 +32,7 @@ export default function CategoryPage() {
   const { data: category, isLoading } = useDoc<Category>(categoryRef);
 
   const handleImport = () => {
-    if (!db) return;
+    if (!db || !companyId) return;
     const docsRef = collection(db, 'companies', companyId, 'documents');
     
     // Simulate an import for the prototype
@@ -32,12 +40,12 @@ export default function CategoryPage() {
     if (name) {
       addDocumentNonBlocking(docsRef, {
         name,
-        category_id: categoryId,
-        project_column: 'budget',
+        categoryId: categoryId,
+        projectColumn: 'budget',
         status: 'pending_analysis',
-        extracted_data: {},
-        file_url: 'https://picsum.photos/seed/doc/200/300',
-        created_at: new Date().toLocaleDateString(),
+        extractedData: {},
+        fileUrl: 'https://picsum.photos/seed/doc/200/300',
+        createdAt: new Date().toLocaleDateString(),
         companyId: companyId
       });
     }
@@ -56,7 +64,7 @@ export default function CategoryPage() {
               {isLoading ? 'Chargement...' : (category?.label || 'Catégorie')}
             </h1>
             <p className="text-muted-foreground">
-              {category?.ai_instructions || "Gérez vos documents et validez les extractions de l'IA."}
+              {category?.aiInstructions || "Gérez vos documents et validez les extractions de l'IA."}
             </p>
           </div>
           <div className="flex items-center gap-2">

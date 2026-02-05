@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -29,7 +28,7 @@ export function ChatAssistant() {
   }, [db, user]);
 
   const { data: profile } = useDoc<User>(userProfileRef);
-  const companyId = profile?.company_id || 'default-company';
+  const companyId = profile?.companyId || 'default-company';
   
   const [messages, setMessages] = React.useState<Message[]>([
     { role: 'assistant', content: 'Bonjour ! Je suis votre assistant BusinessPilot. Comment puis-je vous aider ?' }
@@ -68,10 +67,10 @@ export function ChatAssistant() {
         setDocumentNonBlocking(categoryRef, {
           id: categoryId,
           label: categoryName,
-          badge_count: 0,
-          visible_to_employees: false,
+          badgeCount: 0,
+          visibleToEmployees: false,
           type: 'custom',
-          ai_instructions: `Analyse les documents pour la catégorie ${categoryName}.`,
+          aiInstructions: `Analyse les documents pour la catégorie ${categoryName}.`,
           companyId: companyId
         }, { merge: true });
 

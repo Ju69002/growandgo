@@ -19,8 +19,8 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { BusinessDocument, DocumentStatus } from '@/lib/types';
-import { useFirestore, useCollection, useMemoFirebase, deleteDocumentNonBlocking } from '@/firebase';
+import { BusinessDocument, DocumentStatus, User } from '@/lib/types';
+import { useFirestore, useCollection, useMemoFirebase, deleteDocumentNonBlocking, useUser, useDoc } from '@/firebase';
 import { collection, query, where, doc } from 'firebase/firestore';
 
 const statusConfig: Record<DocumentStatus, { label: string; icon: any; color: string }> = {
@@ -32,20 +32,28 @@ const statusConfig: Record<DocumentStatus, { label: string; icon: any; color: st
 
 export function DocumentList({ categoryId }: { categoryId: string }) {
   const db = useFirestore();
-  const companyId = 'default-company';
+  const { user } = useUser();
+
+  const userProfileRef = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return doc(db, 'users', user.uid);
+  }, [db, user]);
+
+  const { data: profile } = useDoc<User>(userProfileRef);
+  const companyId = profile?.companyId || 'default-company';
 
   const docsQuery = useMemoFirebase(() => {
-    if (!db) return null;
+    if (!db || !companyId) return null;
     return query(
       collection(db, 'companies', companyId, 'documents'),
-      where('category_id', '==', categoryId)
+      where('categoryId', '==', categoryId)
     );
   }, [db, categoryId, companyId]);
 
   const { data: documents, isLoading } = useCollection<BusinessDocument>(docsQuery);
 
   const handleDelete = (docId: string) => {
-    if (!db) return;
+    if (!db || !companyId) return;
     const docRef = doc(db, 'companies', companyId, 'documents', docId);
     deleteDocumentNonBlocking(docRef);
   };
@@ -92,7 +100,7 @@ export function DocumentList({ categoryId }: { categoryId: string }) {
                 </TableCell>
                 <TableCell>
                   <Badge variant="outline" className="capitalize">
-                    {doc.project_column}
+                    {doc.projectColumn}
                   </Badge>
                 </TableCell>
                 <TableCell>
@@ -102,16 +110,16 @@ export function DocumentList({ categoryId }: { categoryId: string }) {
                   </Badge>
                 </TableCell>
                 <TableCell className="text-muted-foreground text-sm">
-                  {doc.created_at}
+                  {doc.createdAt}
                 </TableCell>
                 <TableCell>
                   <div className="text-xs space-y-0.5">
-                    {Object.entries(doc.extracted_data || {}).map(([k, v]) => (
+                    {Object.entries(doc.extractedData || {}).map(([k, v]) => (
                       <div key={k}>
                         <span className="text-muted-foreground uppercase text-[10px] font-bold">{k}:</span> {String(v)}
                       </div>
                     ))}
-                    {Object.keys(doc.extracted_data || {}).length === 0 && (
+                    {Object.keys(doc.extractedData || {}).length === 0 && (
                       <span className="italic text-muted-foreground">Analyse en cours...</span>
                     )}
                   </div>

@@ -50,10 +50,10 @@ export function Header() {
             <Switch 
               id="admin-mode" 
               size="sm"
-              checked={profile?.admin_mode || false}
+              checked={profile?.adminMode || false}
               onCheckedChange={(checked) => {
                 if (userRef) {
-                  updateDocumentNonBlocking(userRef, { admin_mode: checked });
+                  updateDocumentNonBlocking(userRef, { adminMode: checked });
                 }
               }}
             />

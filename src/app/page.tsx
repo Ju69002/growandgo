@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect } from 'react';
@@ -34,9 +33,9 @@ export default function Home() {
     if (user && !isProfileLoading && !profile && db) {
       const newUser: User = {
         uid: user.uid,
-        company_id: 'default-company',
+        companyId: 'default-company',
         role: 'admin',
-        admin_mode: true,
+        adminMode: true,
         name: user.displayName || 'Utilisateur Démo',
         email: user.email || 'demo@businesspilot.ai'
       };
@@ -53,7 +52,7 @@ export default function Home() {
     );
   }
 
-  const adminMode = profile?.admin_mode || false;
+  const adminMode = profile?.adminMode || false;
   const userRole = profile?.role || 'employee';
 
   return (

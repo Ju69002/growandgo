@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -39,7 +38,7 @@ export function CategoryTile({
     e.stopPropagation();
     if (!db) return;
     const categoryRef = doc(db, 'companies', companyId, 'categories', id);
-    updateDocumentNonBlocking(categoryRef, { visible_to_employees: !isVisible });
+    updateDocumentNonBlocking(categoryRef, { visibleToEmployees: !isVisible });
   };
 
   const handleRename = (e: React.MouseEvent) => {
