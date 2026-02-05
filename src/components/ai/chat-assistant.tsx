@@ -18,12 +18,23 @@ type Message = {
   action?: any;
 };
 
+// Mappage des noms de couleurs vers des valeurs HSL valides pour le thème global
+const THEME_COLOR_MAP: Record<string, { primary: string; background: string; foreground: string }> = {
+  'noir': { primary: '0 0% 100%', background: '222 47% 11%', foreground: '210 40% 98%' },
+  'blanc': { primary: '231 48% 48%', background: '0 0% 96%', foreground: '222 47% 11%' },
+  'rouge': { primary: '0 84% 60%', background: '0 0% 96%', foreground: '222 47% 11%' },
+  'vert': { primary: '142 76% 36%', background: '0 0% 96%', foreground: '222 47% 11%' },
+  'bleu': { primary: '221 83% 53%', background: '0 0% 96%', foreground: '222 47% 11%' },
+  'jaune': { primary: '47 95% 55%', background: '0 0% 96%', foreground: '222 47% 11%' },
+  'sombre': { primary: '210 40% 98%', background: '222 47% 11%', foreground: '210 40% 98%' },
+};
+
 export function ChatAssistant() {
   const [isOpen, setIsOpen] = React.useState(false);
   const { user } = useUser();
   const db = useFirestore();
   const [messages, setMessages] = React.useState<Message[]>([
-    { role: 'assistant', content: 'Bonjour ! Je suis votre Architecte Suprême. Je peux modifier absolument tout l\'aspect visuel de votre site. Que souhaitez-vous changer ?' }
+    { role: 'assistant', content: 'Bonjour ! Je suis votre Architecte Suprême. Je peux modifier absolument tout l\'aspect visuel de votre site, y compris les couleurs de fond. Que souhaitez-vous changer ?' }
   ]);
   const [input, setInput] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
@@ -46,8 +57,6 @@ export function ChatAssistant() {
     if (!db || !companyId || !companyRef) return;
 
     const { type, categoryId, label, visibleToEmployees, color, moduleName, enabled } = action;
-    
-    // Normalisation de l'ID en minuscules pour éviter les erreurs de permission/casse
     const normalizedId = categoryId ? categoryId.toLowerCase() : (label ? label.toLowerCase().replace(/[^a-z0-9]/g, '_') : '');
 
     try {
@@ -70,25 +79,27 @@ export function ChatAssistant() {
         updateDocumentNonBlocking(ref, { label });
       } else if (type === 'update_category_style' && normalizedId && color) {
         const ref = doc(db, 'companies', companyId, 'categories', normalizedId);
-        
         let finalColor = color;
-        if (color.toLowerCase() === 'vert') finalColor = 'bg-emerald-500 text-white shadow-emerald-200';
-        if (color.toLowerCase() === 'rouge') finalColor = 'bg-rose-500 text-white shadow-rose-200';
-        if (color.toLowerCase() === 'bleu') finalColor = 'bg-sky-500 text-white shadow-sky-200';
-        if (color.toLowerCase() === 'jaune') finalColor = 'bg-amber-400 text-amber-950 shadow-amber-200';
-        
+        const c = color.toLowerCase();
+        if (c === 'vert') finalColor = 'bg-emerald-500 text-white shadow-emerald-200';
+        else if (c === 'rouge') finalColor = 'bg-rose-500 text-white shadow-rose-200';
+        else if (c === 'bleu') finalColor = 'bg-sky-500 text-white shadow-sky-200';
+        else if (c === 'jaune') finalColor = 'bg-amber-400 text-amber-950 shadow-amber-200';
+        else if (c === 'noir') finalColor = 'bg-slate-900 text-white shadow-slate-400';
         updateDocumentNonBlocking(ref, { color: finalColor });
       } else if (type === 'change_theme_color' && color) {
-        updateDocumentNonBlocking(companyRef, { primaryColor: color });
+        const theme = THEME_COLOR_MAP[color.toLowerCase()] || { primary: color, background: '0 0% 96%', foreground: '222 47% 11%' };
+        updateDocumentNonBlocking(companyRef, { 
+          primaryColor: theme.primary,
+          backgroundColor: theme.background,
+          foregroundColor: theme.foreground
+        });
       } else if (type === 'toggle_module' && moduleName) {
         const key = moduleName.toLowerCase() === 'rh' ? 'showRh' : 'showFinance';
         updateDocumentNonBlocking(companyRef, { [`modulesConfig.${key}`]: enabled ?? true });
       }
 
-      setMessages(prev => [...prev, { 
-        role: 'assistant', 
-        content: "Tâche effectuée !" 
-      }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: "Tâche effectuée !" }]);
     } catch (error) {
       setMessages(prev => [...prev, { role: 'assistant', content: "Désolé, une erreur est survenue lors de l'exécution." }]);
     }
@@ -197,7 +208,7 @@ export function ChatAssistant() {
           <CardFooter className="p-3 border-t bg-card">
             <div className="flex w-full items-center gap-2">
               <Input
-                placeholder={pendingAction ? "Veuillez confirmer ci-dessus..." : "Ex: Mets la tuile RH en vert..."}
+                placeholder={pendingAction ? "Veuillez confirmer ci-dessus..." : "Ex: Mets le site en noir..."}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}

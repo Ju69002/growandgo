@@ -8,7 +8,9 @@ export interface Company {
   id: string;
   name: string;
   subscriptionStatus: 'active' | 'trial';
-  primaryColor?: string; // HSL value or hex
+  primaryColor?: string; // HSL value
+  backgroundColor?: string; // HSL value
+  foregroundColor?: string; // HSL value
   modulesConfig: {
     showRh: boolean;
     showFinance: boolean;
