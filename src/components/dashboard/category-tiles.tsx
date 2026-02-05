@@ -9,7 +9,6 @@ import {
   Calendar, 
   PenTool, 
   Plus, 
-  FolderLock,
   LayoutGrid
 } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useMemoFirebase, useDoc } from '@/firebase';
@@ -67,7 +66,6 @@ export function CategoryTiles({ isAdminMode }: CategoryTilesProps) {
     );
   }
 
-  // Trier les catégories : standards d'abord, puis personnalisées
   const sortedCategories = [...(categories || [])].sort((a, b) => {
     if (a.type === 'standard' && b.type !== 'standard') return -1;
     if (a.type !== 'standard' && b.type === 'standard') return 1;
@@ -87,12 +85,14 @@ export function CategoryTiles({ isAdminMode }: CategoryTilesProps) {
           isAdminMode={isAdminMode}
           colorClass={COLOR_MAP[category.id] || COLOR_MAP.default}
           companyId={companyId}
+          customColor={category.color}
         />
       ))}
       
       {isAdminMode && (
         <button 
           onClick={() => {
+            // Déclenche l'ouverture du chat avec une instruction spécifique via un événement personnalisé
             window.dispatchEvent(new CustomEvent('open-chat-category-creation'));
           }}
           className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-muted-foreground/20 rounded-2xl hover:bg-muted/50 hover:border-primary/50 transition-all group h-full min-h-[220px]"

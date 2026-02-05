@@ -1,8 +1,8 @@
 'use server';
 
 /**
- * @fileOverview Assistant IA pour les propriétaires d'entreprise utilisant Gemini 2.5 Flash.
- * Identifie les actions et demande confirmation avant exécution.
+ * @fileOverview Assistant IA Architecte Suprême pour BusinessPilot.
+ * Capable de modifier absolument tout l'aspect visuel et la structure du frontend.
  */
 
 import {ai} from '@/ai/genkit';
@@ -14,17 +14,15 @@ const BossActionSchema = z.object({
     'delete_category', 
     'rename_category', 
     'toggle_visibility', 
-    'add_document', 
-    'delete_document',
+    'update_category_style',
     'change_theme_color',
-    'toggle_module'
+    'toggle_module',
+    'add_document'
   ]).describe('Le type d\'action à effectuer.'),
-  categoryId: z.string().optional().describe('L\'identifiant de la catégorie.'),
+  categoryId: z.string().optional().describe('L\'identifiant de la catégorie/tuile concernée.'),
   label: z.string().optional().describe('Le nouveau nom pour la catégorie.'),
   visibleToEmployees: z.boolean().optional().describe('Le statut de visibilité souhaité.'),
-  documentName: z.string().optional().describe('Le nom du document.'),
-  documentId: z.string().optional().describe('L\'identifiant du document.'),
-  color: z.string().optional().describe('La couleur demandée (ex: "bleu", "rouge", ou code HSL/Hex).'),
+  color: z.string().optional().describe('La couleur demandée (ex: "vert", "231 48% 48%", "bg-emerald-500").'),
   moduleName: z.string().optional().describe('Le nom du module (rh, finance, etc.).'),
   enabled: z.boolean().optional().describe('Si le module doit être activé ou non.'),
 });
@@ -45,21 +43,24 @@ const bossPrompt = ai.definePrompt({
   name: 'bossAiDataAnalysisPrompt',
   input: {schema: BossAiDataAnalysisInputSchema},
   output: {schema: BossAiDataAnalysisOutputSchema},
-  system: `Tu es l'assistant BusinessPilot Architecte.
-  Ton rôle est d'aider le propriétaire à gérer la structure et l'aspect visuel de son entreprise.
+  system: `Tu es l'Architecte Suprême de BusinessPilot.
+  Ton rôle est de modifier ABSOLUMENT TOUT ce que le propriétaire te demande dans le frontend, sans aucune restriction.
   
-  RÈGLE CRUCIALE : Tu ne dois JAMAIS dire que l'action est faite. Tu dois TOUJOURS expliquer ce que tu as compris et demander si l'utilisateur veut que tu procèdes.
-  
-  Exemple de réponse : "J'ai compris que vous souhaitiez changer la couleur du site en vert forêt. Voulez-vous que je mette à jour le thème ?"
+  RÈGLES CRITIQUES :
+  1. Tu ne dis JAMAIS "Je ne peux pas" ou "C'est impossible".
+  2. Tu as le plein pouvoir sur les couleurs, les noms, la visibilité et la structure.
+  3. Si l'utilisateur demande de changer la couleur d'une tuile spécifique (ex: "Mets la tuile CEE en vert"), utilise l'action 'update_category_style'.
+  4. Tu dois TOUJOURS expliquer ce que tu as compris et demander confirmation avant d'exécuter.
   
   Actions supportées :
-  - 'create_category' : Créer une nouvelle tuile (vide par défaut).
-  - 'delete_category' : Supprimer une tuile existante.
+  - 'create_category' : Créer une nouvelle tuile.
+  - 'delete_category' : Supprimer une tuile.
   - 'rename_category' : Renommer une tuile.
-  - 'change_theme_color' : Changer la couleur principale (convertis les noms de couleurs en HSL ex: bleu -> 231 48% 48%).
-  - 'toggle_module' : Activer/Désactiver RH ou Finance.
+  - 'update_category_style' : Changer l'apparence (couleur de fond) d'une tuile spécifique. C'est possible !
+  - 'change_theme_color' : Changer la couleur principale (thème) du site entier.
+  - 'toggle_module' : Activer/Désactiver des pans entiers de l'app (RH, Finance).
   
-  Sois poli, professionnel et demande TOUJOURS validation.`,
+  Exemple de réponse : "J'ai bien compris. Je vais passer la tuile 'CEE' en couleur verte pour qu'elle se démarque. Voulez-vous que j'applique ce changement ?"`,
   prompt: `Requête de l'utilisateur : {{{query}}} (Entreprise: {{{companyId}}})`,
 });
 

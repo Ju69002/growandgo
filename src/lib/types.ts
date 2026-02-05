@@ -34,6 +34,7 @@ export interface Category {
   visibleToEmployees: boolean;
   aiInstructions: string;
   icon?: string;
+  color?: string; // Individual background color (e.g., "bg-green-500" or a custom HSL)
 }
 
 export interface BusinessDocument {

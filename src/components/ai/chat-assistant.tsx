@@ -23,7 +23,7 @@ export function ChatAssistant() {
   const { user } = useUser();
   const db = useFirestore();
   const [messages, setMessages] = React.useState<Message[]>([
-    { role: 'assistant', content: 'Bonjour ! Je suis votre Architecte IA. Quelle modification souhaitez-vous apporter à votre espace ?' }
+    { role: 'assistant', content: 'Bonjour ! Je suis votre Architecte IA. Je peux modifier absolument tout l\'aspect visuel de votre site. Que souhaitez-vous changer ?' }
   ]);
   const [input, setInput] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
@@ -45,7 +45,7 @@ export function ChatAssistant() {
   const executeAction = (action: any) => {
     if (!db || !companyId || !companyRef) return;
 
-    const { type, categoryId, label, visibleToEmployees, documentName, color, moduleName, enabled } = action;
+    const { type, categoryId, label, visibleToEmployees, color, moduleName, enabled } = action;
     
     try {
       if (type === 'create_category' && label) {
@@ -66,21 +66,15 @@ export function ChatAssistant() {
       } else if (type === 'rename_category' && categoryId && label) {
         const ref = doc(db, 'companies', companyId, 'categories', categoryId);
         updateDocumentNonBlocking(ref, { label });
-      } else if (type === 'toggle_visibility' && categoryId) {
+      } else if (type === 'update_category_style' && categoryId && color) {
         const ref = doc(db, 'companies', companyId, 'categories', categoryId);
-        updateDocumentNonBlocking(ref, { visibleToEmployees: visibleToEmployees ?? true });
-      } else if (type === 'add_document' && categoryId && documentName) {
-        const ref = collection(db, 'companies', companyId, 'documents');
-        addDocumentNonBlocking(ref, {
-          name: documentName,
-          categoryId,
-          projectColumn: 'budget',
-          status: 'pending_analysis',
-          extractedData: {},
-          fileUrl: 'https://picsum.photos/seed/doc/200/300',
-          createdAt: new Date().toLocaleDateString(),
-          companyId
-        });
+        // On convertit les noms simples en classes ou HSL si besoin
+        let finalColor = color;
+        if (color.toLowerCase() === 'vert') finalColor = 'bg-emerald-500 text-white';
+        if (color.toLowerCase() === 'rouge') finalColor = 'bg-rose-500 text-white';
+        if (color.toLowerCase() === 'bleu') finalColor = 'bg-sky-500 text-white';
+        
+        updateDocumentNonBlocking(ref, { color: finalColor });
       } else if (type === 'change_theme_color' && color) {
         updateDocumentNonBlocking(companyRef, { primaryColor: color });
       } else if (type === 'toggle_module' && moduleName) {
@@ -90,7 +84,7 @@ export function ChatAssistant() {
 
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: "C'est fait ! La modification a été appliquée." 
+        content: "Tâche effectuée !" 
       }]);
     } catch (error) {
       setMessages(prev => [...prev, { role: 'assistant', content: "Désolé, une erreur est survenue lors de l'exécution." }]);
@@ -129,7 +123,7 @@ export function ChatAssistant() {
   };
 
   const handleCancel = () => {
-    setMessages(prev => [...prev, { role: 'assistant', content: "Action annulée. Je reste à votre écoute pour autre chose !" }]);
+    setMessages(prev => [...prev, { role: 'assistant', content: "Action annulée. Je reste à votre écoute !" }]);
     setPendingAction(null);
   };
 
@@ -200,7 +194,7 @@ export function ChatAssistant() {
           <CardFooter className="p-3 border-t bg-card">
             <div className="flex w-full items-center gap-2">
               <Input
-                placeholder={pendingAction ? "Veuillez confirmer ci-dessus..." : "Ex: Renomme la tuile RH en Équipe..."}
+                placeholder={pendingAction ? "Veuillez confirmer ci-dessus..." : "Ex: Mets la tuile RH en vert..."}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}

@@ -40,6 +40,7 @@ interface CategoryTileProps {
   isAdminMode: boolean;
   colorClass: string;
   companyId: string;
+  customColor?: string;
 }
 
 export function CategoryTile({
@@ -50,7 +51,8 @@ export function CategoryTile({
   isVisible,
   isAdminMode,
   colorClass,
-  companyId
+  companyId,
+  customColor
 }: CategoryTileProps) {
   const db = useFirestore();
   const [isRenameOpen, setIsRenameOpen] = React.useState(false);
@@ -86,11 +88,15 @@ export function CategoryTile({
       <Card className={cn(
         "relative group overflow-hidden border-none shadow-md transition-all hover:shadow-lg bg-card h-full",
         !isVisible && !isAdminMode && "hidden",
-        !isVisible && isAdminMode && "opacity-60"
+        !isVisible && isAdminMode && "opacity-60",
+        customColor // Applique la classe de couleur personnalisée si elle existe
       )}>
         <CardContent className="p-6 h-full flex flex-col">
           <div className="flex items-start justify-between mb-8">
-            <div className={cn("p-4 rounded-2xl transition-transform group-hover:scale-105", colorClass)}>
+            <div className={cn(
+              "p-4 rounded-2xl transition-transform group-hover:scale-105", 
+              customColor ? "bg-white/20 text-white" : colorClass
+            )}>
               <Icon className="w-8 h-8" />
             </div>
             {badgeCount > 0 && (
@@ -101,8 +107,8 @@ export function CategoryTile({
           </div>
 
           <div className="space-y-1 flex-1">
-            <h3 className="text-xl font-bold tracking-tight text-foreground">{label}</h3>
-            <p className="text-sm text-muted-foreground">
+            <h3 className={cn("text-xl font-bold tracking-tight", customColor ? "text-white" : "text-foreground")}>{label}</h3>
+            <p className={cn("text-sm", customColor ? "text-white/80" : "text-muted-foreground")}>
               {badgeCount > 0 
                 ? `${badgeCount} actions en attente` 
                 : "Tout est à jour"}
@@ -110,7 +116,7 @@ export function CategoryTile({
           </div>
 
           <div className="mt-8 flex items-center justify-between">
-            <Button asChild variant="link" className="p-0 text-primary font-semibold group/link h-auto">
+            <Button asChild variant="link" className={cn("p-0 font-semibold group/link h-auto", customColor ? "text-white hover:text-white/90" : "text-primary")}>
               <Link href={`/categories/${id}`} className="flex items-center gap-2">
                 Explorer
                 <ArrowRight className="w-4 h-4 group-hover/link:translate-x-1 transition-transform" />
@@ -122,36 +128,33 @@ export function CategoryTile({
                 <Button 
                   size="icon" 
                   variant="ghost" 
-                  className="h-8 w-8 rounded-full hover:bg-muted"
+                  className={cn("h-8 w-8 rounded-full hover:bg-black/10", customColor && "text-white")}
                   onClick={toggleVisibility}
-                  title={isVisible ? "Masquer pour les employés" : "Afficher pour les employés"}
                 >
-                  {isVisible ? <Eye className="h-4 w-4 text-primary" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
+                  {isVisible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
                 </Button>
                 <Button 
                   size="icon" 
                   variant="ghost" 
-                  className="h-8 w-8 rounded-full hover:bg-muted"
+                  className={cn("h-8 w-8 rounded-full hover:bg-black/10", customColor && "text-white")}
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
                     setNewLabel(label);
                     setIsRenameOpen(true);
                   }}
-                  title="Renommer la tuile"
                 >
-                  <Edit3 className="h-4 w-4 text-muted-foreground" />
+                  <Edit3 className="h-4 w-4" />
                 </Button>
                 <Button 
                   size="icon" 
                   variant="ghost" 
-                  className="h-8 w-8 rounded-full hover:bg-destructive/10 text-destructive"
+                  className={cn("h-8 w-8 rounded-full hover:bg-destructive/10 text-destructive", customColor && "hover:bg-destructive/20")}
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
                     setIsDeleteOpen(true);
                   }}
-                  title="Supprimer la tuile"
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -161,26 +164,17 @@ export function CategoryTile({
         </CardContent>
       </Card>
 
-      {/* Fenêtre de modification du nom */}
       <Dialog open={isRenameOpen} onOpenChange={setIsRenameOpen}>
         <DialogContent onClick={(e) => e.stopPropagation()}>
           <DialogHeader>
             <DialogTitle>Renommer la catégorie</DialogTitle>
-            <DialogDescription>
-              Modifiez le nom affiché pour la tuile "{label}".
-            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid items-center gap-4">
-              <Label htmlFor="name">Nouveau nom</Label>
-              <Input
-                id="name"
-                value={newLabel}
-                onChange={(e) => setNewLabel(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleRenameSubmit()}
-                autoFocus
-              />
-            </div>
+            <Input
+              value={newLabel}
+              onChange={(e) => setNewLabel(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleRenameSubmit()}
+            />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsRenameOpen(false)}>Annuler</Button>
@@ -189,19 +183,15 @@ export function CategoryTile({
         </DialogContent>
       </Dialog>
 
-      {/* Fenêtre de confirmation de suppression */}
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <AlertDialogContent onClick={(e) => e.stopPropagation()}>
           <AlertDialogHeader>
             <AlertDialogTitle>Supprimer la catégorie ?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Êtes-vous sûr de vouloir supprimer "{label}" ? Toutes les données liées à cette catégorie seront inaccessibles. Cette action est irréversible.
-            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Annuler</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Supprimer définitivement
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive text-white hover:bg-destructive/90">
+              Supprimer
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
