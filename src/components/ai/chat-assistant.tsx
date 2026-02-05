@@ -18,7 +18,6 @@ type Message = {
   action?: any;
 };
 
-// Mappage des noms de couleurs vers des valeurs HSL valides pour le thème global
 const THEME_COLOR_MAP: Record<string, { primary: string; background: string; foreground: string }> = {
   'noir': { primary: '0 0% 100%', background: '222 47% 11%', foreground: '210 40% 98%' },
   'blanc': { primary: '231 48% 48%', background: '0 0% 96%', foreground: '222 47% 11%' },
@@ -34,7 +33,7 @@ export function ChatAssistant() {
   const { user } = useUser();
   const db = useFirestore();
   const [messages, setMessages] = React.useState<Message[]>([
-    { role: 'assistant', content: 'Bonjour ! Je suis votre Architecte Suprême. Je peux modifier absolument tout l\'aspect visuel de votre site, y compris les couleurs de fond. Que souhaitez-vous changer ?' }
+    { role: 'assistant', content: 'Bonjour ! Je suis votre Architecte Suprême. Activez le Mode Architecte dans la barre supérieure pour que je puisse modifier votre site.' }
   ]);
   const [input, setInput] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
@@ -47,6 +46,7 @@ export function ChatAssistant() {
 
   const { data: profile } = useDoc<User>(userProfileRef);
   const companyId = profile?.companyId || 'default-company';
+  const adminMode = profile?.adminMode || false;
 
   const companyRef = useMemoFirebase(() => {
     if (!db || !companyId) return null;
@@ -54,7 +54,7 @@ export function ChatAssistant() {
   }, [db, companyId]);
 
   const executeAction = (action: any) => {
-    if (!db || !companyId || !companyRef) return;
+    if (!db || !companyId || !companyRef || !adminMode) return;
 
     const { type, categoryId, label, visibleToEmployees, color, moduleName, enabled } = action;
     const normalizedId = categoryId ? categoryId.toLowerCase() : (label ? label.toLowerCase().replace(/[^a-z0-9]/g, '_') : '');
@@ -115,6 +115,16 @@ export function ChatAssistant() {
     setInput('');
     setIsLoading(true);
 
+    // Vérification du Mode Architecte avant d'appeler l'IA de modification
+    if (!adminMode) {
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: "Je ne suis pas habilité à effectuer des modifications car le Mode Architecte est désactivé. Veuillez l'activer dans la barre de navigation pour continuer." 
+      }]);
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const result = await bossAiDataAnalysis({
         query: currentInput,
@@ -140,6 +150,12 @@ export function ChatAssistant() {
     setMessages(prev => [...prev, { role: 'assistant', content: "Action annulée. Je reste à votre écoute !" }]);
     setPendingAction(null);
   };
+
+  React.useEffect(() => {
+    const handleOpenChat = () => setIsOpen(true);
+    window.addEventListener('open-chat-category-creation', handleOpenChat);
+    return () => window.removeEventListener('open-chat-category-creation', handleOpenChat);
+  }, []);
 
   return (
     <div className="fixed bottom-6 right-6 z-50">

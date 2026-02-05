@@ -62,13 +62,13 @@ export function CategoryTile({
   const toggleVisibility = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!db || !companyId) return;
+    if (!db || !companyId || !isAdminMode) return;
     const categoryRef = doc(db, 'companies', companyId, 'categories', id);
     updateDocumentNonBlocking(categoryRef, { visibleToEmployees: !isVisible });
   };
 
   const handleRenameSubmit = () => {
-    if (newLabel && newLabel !== label && db && companyId) {
+    if (newLabel && newLabel !== label && db && companyId && isAdminMode) {
       const categoryRef = doc(db, 'companies', companyId, 'categories', id);
       updateDocumentNonBlocking(categoryRef, { label: newLabel });
       setIsRenameOpen(false);
@@ -76,7 +76,7 @@ export function CategoryTile({
   };
 
   const handleDeleteConfirm = () => {
-    if (db && companyId) {
+    if (db && companyId && isAdminMode) {
       const categoryRef = doc(db, 'companies', companyId, 'categories', id);
       deleteDocumentNonBlocking(categoryRef);
       setIsDeleteOpen(false);
@@ -89,7 +89,7 @@ export function CategoryTile({
         "relative group overflow-hidden border-none shadow-md transition-all hover:shadow-lg bg-card h-full",
         !isVisible && !isAdminMode && "hidden",
         !isVisible && isAdminMode && "opacity-60",
-        customColor // Applique la classe de couleur personnalisée si elle existe
+        customColor 
       )}>
         <CardContent className="p-6 h-full flex flex-col">
           <div className="flex items-start justify-between mb-8">
