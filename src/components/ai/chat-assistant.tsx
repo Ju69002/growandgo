@@ -37,7 +37,7 @@ const getColorClasses = (color?: string) => {
   if (c === 'jaune' || c.includes('amber') || c.includes('yellow')) return 'bg-amber-400 text-amber-950 shadow-amber-200';
   if (c === 'noir' || c.includes('slate') || c.includes('black')) return 'bg-slate-900 text-white shadow-slate-400';
   if (c === 'blanc' || c.includes('white')) return 'bg-white text-slate-900 shadow-sm border';
-  return undefined;
+  return `bg-${c}-500 text-white`; // Fallback dynamique
 };
 
 export function ChatAssistant() {
@@ -71,7 +71,8 @@ export function ChatAssistant() {
     const { type, categoryId, label, color, icon, moduleName, enabled } = action;
     
     // Normalisation forcée en minuscules pour les IDs pour éviter les erreurs de permission/casse
-    const normalizedId = (categoryId || label || '').toLowerCase().replace(/[^a-z0-9]/g, '_');
+    const baseId = categoryId || label || '';
+    const normalizedId = baseId.toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
 
     try {
       if (type === 'create_category' && label) {
@@ -110,6 +111,7 @@ export function ChatAssistant() {
 
       setMessages(prev => [...prev, { role: 'assistant', content: "Tâche effectuée !" }]);
     } catch (error) {
+      console.error("Execution error:", error);
       setMessages(prev => [...prev, { role: 'assistant', content: "Désolé, une erreur est survenue lors de l'exécution." }]);
     }
     setPendingAction(null);
@@ -147,8 +149,8 @@ export function ChatAssistant() {
         content: result.analysisResult || "Je n'ai pas bien compris votre demande, pouvez-vous reformuler ?" 
       }]);
     } catch (error) {
-      console.error("Chat error:", error);
-      setMessages(prev => [...prev, { role: 'assistant', content: "Désolé, une erreur technique est survenue." }]);
+      console.error("Chat flow error:", error);
+      setMessages(prev => [...prev, { role: 'assistant', content: "Désolé, une erreur technique est survenue lors de l'analyse." }]);
     } finally {
       setIsLoading(false);
     }

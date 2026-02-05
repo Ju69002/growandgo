@@ -4,62 +4,32 @@ service cloud.firestore {
 
     /**
      * BUSINESS PILOT SECURITY RULES
-     * Partitionnement par 'companyId' avec flexibilité pour l'initialisation.
+     * Prototype permissive rules for authenticated users.
      */
 
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function getUserData() {
-      let path = /databases/$(database)/documents/users/$(request.auth.uid);
-      return exists(path) ? get(path).data : null;
-    }
-
-    function belongsToCompany(companyId) {
-      let data = getUserData();
-      // On autorise si l'utilisateur appartient à l'entreprise OU si son profil n'existe pas encore (initialisation)
-      return isSignedIn() && (data == null || data.companyId == companyId);
-    }
-
-    function isCompanyAdmin() {
-      let data = getUserData();
-      // Par défaut admin pour le prototype si le profil n'existe pas encore
-      return isSignedIn() && (data == null || data.role == 'admin' || data.role == 'super_admin');
-    }
-
-    function isGlobalAdmin() {
-      return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
-    }
-
     match /roles_admin/{userId} {
-      allow get: if isSignedIn();
-      allow list, create, update, delete: if isGlobalAdmin();
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
     }
 
     match /users/{userId} {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn() && isCompanyAdmin();
-      allow create, update: if isSignedIn() && (request.auth.uid == userId || isGlobalAdmin());
-      allow delete: if isGlobalAdmin();
+      allow read, write: if isSignedIn();
     }
 
     match /companies/{companyId} {
-      allow get, list: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn() && (belongsToCompany(companyId) || isGlobalAdmin());
-      allow delete: if isGlobalAdmin();
+      allow read, write: if isSignedIn();
     }
 
     match /companies/{companyId}/categories/{categoryId} {
-      allow get, list: if isSignedIn() && belongsToCompany(companyId);
-      allow create, update, delete: if isSignedIn() && belongsToCompany(companyId);
+      allow read, write: if isSignedIn();
     }
 
     match /companies/{companyId}/documents/{documentId} {
-      allow get, list: if isSignedIn() && belongsToCompany(companyId);
-      allow create, update: if isSignedIn() && belongsToCompany(companyId);
-      allow delete: if isSignedIn() && belongsToCompany(companyId) && isCompanyAdmin();
+      allow read, write: if isSignedIn();
     }
   }
 }
