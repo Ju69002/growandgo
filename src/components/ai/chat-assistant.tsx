@@ -1,17 +1,16 @@
-
 'use client';
 
 import * as React from 'react';
-import { MessageSquare, X, Send, Bot, Sparkles } from 'lucide-react';
+import { MessageSquare, X, Send, Bot, Sparkles, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { bossAiDataAnalysis } from '@/ai/flows/boss-ai-data-analysis';
-import { useUser, useFirestore, setDocumentNonBlocking, useDoc, useMemoFirebase } from '@/firebase';
-import { doc } from 'firebase/firestore';
-import { User } from '@/lib/types';
+import { useUser, useFirestore, setDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking, useDoc, useMemoFirebase } from '@/firebase';
+import { doc, collection } from 'firebase/firestore';
+import { User, Category } from '@/lib/types';
 
 type Message = {
   role: 'user' | 'assistant';
@@ -22,6 +21,11 @@ export function ChatAssistant() {
   const [isOpen, setIsOpen] = React.useState(false);
   const { user } = useUser();
   const db = useFirestore();
+  const [messages, setMessages] = React.useState<Message[]>([
+    { role: 'assistant', content: 'Bonjour ! Je suis votre assistant BusinessPilot. Comment puis-je vous aider ?' }
+  ]);
+  const [input, setInput] = React.useState('');
+  const [isLoading, setIsLoading] = React.useState(false);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -30,17 +34,11 @@ export function ChatAssistant() {
 
   const { data: profile } = useDoc<User>(userProfileRef);
   const companyId = profile?.companyId || 'default-company';
-  
-  const [messages, setMessages] = React.useState<Message[]>([
-    { role: 'assistant', content: 'Bonjour ! Je suis votre assistant BusinessPilot. Comment puis-je vous aider ?' }
-  ]);
-  const [input, setInput] = React.useState('');
-  const [isLoading, setIsLoading] = React.useState(false);
 
   React.useEffect(() => {
     const handleOpenCreation = () => {
       setIsOpen(true);
-      setInput("Crée une nouvelle catégorie nommée ");
+      setInput("Crée une nouvelle tuile nommée ");
     };
     window.addEventListener('open-chat-category-creation', handleOpenCreation);
     return () => window.removeEventListener('open-chat-category-creation', handleOpenCreation);
@@ -56,15 +54,14 @@ export function ChatAssistant() {
     setIsLoading(true);
 
     try {
+      // Direct detection for instant action as requested for "create tile"
       const lowerInput = currentInput.toLowerCase();
       if (lowerInput.includes('crée') && (lowerInput.includes('catégorie') || lowerInput.includes('tuile'))) {
         const nameMatch = currentInput.match(/(?:nommée|appelée|nom|est)\s+['"]?([^.'"]+)['"]?/i);
-        const categoryName = nameMatch ? nameMatch[1].trim() : 'Nouvelle Catégorie';
-        
-        // Generate a simple slug from the name
+        const categoryName = nameMatch ? nameMatch[1].trim() : 'Nouvelle Tuile';
         const categoryId = categoryName.toLowerCase().replace(/[^a-z0-9]/g, '_');
-        const categoryRef = doc(db, 'companies', companyId, 'categories', categoryId);
         
+        const categoryRef = doc(db, 'companies', companyId, 'categories', categoryId);
         setDocumentNonBlocking(categoryRef, {
           id: categoryId,
           label: categoryName,
@@ -75,13 +72,21 @@ export function ChatAssistant() {
           companyId: companyId
         }, { merge: true });
 
-        setMessages(prev => [...prev, { role: 'assistant', content: "Tâche effectuée ! La tuile vide a été créée." }]);
+        setMessages(prev => [...prev, { role: 'assistant', content: "Tâche effectuée !" }]);
+      } else if (lowerInput.includes('supprime') && (lowerInput.includes('catégorie') || lowerInput.includes('tuile'))) {
+        const nameMatch = currentInput.match(/(?:la tuile|la catégorie)\s+['"]?([^.'"]+)['"]?/i);
+        if (nameMatch) {
+          const categoryId = nameMatch[1].trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
+          const categoryRef = doc(db, 'companies', companyId, 'categories', categoryId);
+          deleteDocumentNonBlocking(categoryRef);
+          setMessages(prev => [...prev, { role: 'assistant', content: "Tâche effectuée !" }]);
+        }
       } else {
         const result = await bossAiDataAnalysis({
           query: currentInput,
-          companyData: "Données synthétisées : Opérations normales."
+          companyId: companyId,
         });
-        setMessages(prev => [...prev, { role: 'assistant', content: "Tâche effectuée !" }]);
+        setMessages(prev => [...prev, { role: 'assistant', content: result.analysisResult || "Tâche effectuée !" }]);
       }
     } catch (error) {
       setMessages(prev => [...prev, { role: 'assistant', content: "Une erreur est survenue." }]);
@@ -97,7 +102,7 @@ export function ChatAssistant() {
           onClick={() => setIsOpen(true)}
           className="h-14 w-14 rounded-full shadow-xl bg-primary hover:bg-primary/90 transition-transform hover:scale-110"
         >
-          <Sparkles className="h-6 w-6" />
+          <Sparkles className="h-6 w-6 text-white" />
         </Button>
       ) : (
         <Card className="w-[380px] h-[500px] flex flex-col shadow-2xl border-none animate-in slide-in-from-bottom-5">
@@ -127,8 +132,8 @@ export function ChatAssistant() {
                 ))}
                 {isLoading && (
                   <div className="flex justify-start">
-                    <div className="bg-muted p-3 rounded-2xl text-sm animate-pulse italic">
-                      ...
+                    <div className="bg-muted p-3 rounded-2xl text-sm italic">
+                      <Loader2 className="w-4 h-4 animate-spin text-primary" />
                     </div>
                   </div>
                 )}

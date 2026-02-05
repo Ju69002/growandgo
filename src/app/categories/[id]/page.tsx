@@ -3,15 +3,16 @@
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { DocumentList } from '@/components/documents/document-list';
 import { Button } from '@/components/ui/button';
-import { Upload, ChevronLeft, Filter, Download } from 'lucide-react';
+import { Upload, ChevronLeft, Filter, Download, Trash2 } from 'lucide-react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import { useFirestore, useDoc, useMemoFirebase, addDocumentNonBlocking, useUser } from '@/firebase';
+import { useParams, useRouter } from 'next/navigation';
+import { useFirestore, useDoc, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, useUser } from '@/firebase';
 import { doc, collection } from 'firebase/firestore';
 import { Category, User } from '@/lib/types';
 
 export default function CategoryPage() {
   const params = useParams();
+  const router = useRouter();
   const categoryId = params.id as string;
   const db = useFirestore();
   const { user } = useUser();
@@ -23,6 +24,7 @@ export default function CategoryPage() {
 
   const { data: profile } = useDoc<User>(userProfileRef);
   const companyId = profile?.companyId || 'default-company';
+  const isAdmin = profile?.role === 'admin' && profile?.adminMode;
 
   const categoryRef = useMemoFirebase(() => {
     if (!db) return null;
@@ -35,8 +37,7 @@ export default function CategoryPage() {
     if (!db || !companyId) return;
     const docsRef = collection(db, 'companies', companyId, 'documents');
     
-    // Simulate an import for the prototype
-    const name = prompt("Nom du fichier à simuler :", "Facture_Achat.pdf");
+    const name = prompt("Nom du fichier à ajouter (sous-dossier) :", "Nouveau_Document.pdf");
     if (name) {
       addDocumentNonBlocking(docsRef, {
         name,
@@ -51,6 +52,12 @@ export default function CategoryPage() {
     }
   };
 
+  const handleDeleteCategory = () => {
+    if (!db || !categoryRef || !confirm("Voulez-vous vraiment supprimer cette tuile et tout son contenu ?")) return;
+    deleteDocumentNonBlocking(categoryRef);
+    router.push('/');
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -60,11 +67,23 @@ export default function CategoryPage() {
               <ChevronLeft className="w-4 h-4 mr-1" />
               Retour au dashboard
             </Link>
-            <h1 className="text-3xl font-bold tracking-tight text-primary">
-              {isLoading ? 'Chargement...' : (category?.label || 'Catégorie')}
-            </h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-3xl font-bold tracking-tight text-primary">
+                {isLoading ? 'Chargement...' : (category?.label || 'Catégorie')}
+              </h1>
+              {isAdmin && (
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="text-destructive hover:bg-destructive/10"
+                  onClick={handleDeleteCategory}
+                >
+                  <Trash2 className="w-5 h-5" />
+                </Button>
+              )}
+            </div>
             <p className="text-muted-foreground">
-              {category?.aiInstructions || "Gérez vos documents et validez les extractions de l'IA."}
+              {category?.aiInstructions || "Gérez vos documents et organisez vos sous-dossiers."}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -82,7 +101,7 @@ export default function CategoryPage() {
               onClick={handleImport}
             >
               <Upload className="w-4 h-4 mr-2" />
-              Importer
+              Ajouter un fichier
             </Button>
           </div>
         </div>
