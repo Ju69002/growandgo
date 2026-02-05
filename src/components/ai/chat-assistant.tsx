@@ -27,15 +27,15 @@ const THEME_COLOR_MAP: Record<string, { primary: string; background: string; for
   'jaune': { primary: '47 95% 55%', background: '0 0% 96%', foreground: '222 47% 11%' },
 };
 
-const getColorClasses = (color?: string) => {
+const getColorStyle = (color?: string) => {
   if (!color) return undefined;
   const c = color.toLowerCase();
-  if (c === 'rouge' || c.includes('red')) return 'bg-red-600 text-white shadow-lg';
-  if (c === 'vert' || c.includes('green')) return 'bg-emerald-600 text-white shadow-lg';
-  if (c === 'bleu' || c.includes('blue')) return 'bg-blue-600 text-white shadow-lg';
-  if (c === 'jaune' || c.includes('yellow')) return 'bg-amber-400 text-amber-950 shadow-lg';
-  if (c === 'noir' || c.includes('black')) return 'bg-slate-900 text-white shadow-lg';
-  return `bg-${c}-500 text-white shadow-lg`;
+  if (c === 'rouge') return 'bg-red-600 text-white shadow-lg';
+  if (c === 'vert') return 'bg-emerald-600 text-white shadow-lg';
+  if (c === 'bleu') return 'bg-blue-600 text-white shadow-lg';
+  if (c === 'jaune') return 'bg-amber-400 text-amber-950 shadow-lg';
+  if (c === 'noir') return 'bg-slate-900 text-white shadow-lg';
+  return undefined;
 };
 
 export function ChatAssistant() {
@@ -43,7 +43,7 @@ export function ChatAssistant() {
   const { user } = useUser();
   const db = useFirestore();
   const [messages, setMessages] = React.useState<Message[]>([
-    { role: 'assistant', content: 'Bonjour ! Je suis votre Architecte Suprême. Je peux tout modifier sur votre site. Activez le Mode Architecte pour commencer.' }
+    { role: 'assistant', content: 'Bonjour ! Je suis votre Architecte Suprême. Je peux transformer votre interface selon vos désirs. Que souhaitez-vous changer ?' }
   ]);
   const [input, setInput] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
@@ -67,33 +67,33 @@ export function ChatAssistant() {
     if (!db || !companyId || !companyRef || !adminMode) return;
 
     const { type, categoryId, label, color, icon, moduleName, enabled } = action;
-    const normalizedId = (categoryId || label || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
+    const targetId = (categoryId || label || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
 
     try {
       if (type === 'create_category' && label) {
-        const ref = doc(db, 'companies', companyId, 'categories', normalizedId);
+        const ref = doc(db, 'companies', companyId, 'categories', targetId);
         setDocumentNonBlocking(ref, {
-          id: normalizedId,
+          id: targetId,
           label,
           badgeCount: 0,
           visibleToEmployees: true,
           type: 'custom',
-          aiInstructions: `Analyse pour la catégorie ${label}.`,
+          aiInstructions: `Analyse pour ${label}.`,
           companyId,
-          color: getColorClasses(color),
-          icon: icon || 'default'
+          color: getColorStyle(color),
+          icon: icon || 'maison'
         }, { merge: true });
-      } else if (type === 'delete_category' && normalizedId) {
-        const ref = doc(db, 'companies', companyId, 'categories', normalizedId);
+      } else if (type === 'delete_category' && targetId) {
+        const ref = doc(db, 'companies', companyId, 'categories', targetId);
         deleteDocumentNonBlocking(ref);
-      } else if (type === 'rename_category' && normalizedId && label) {
-        const ref = doc(db, 'companies', companyId, 'categories', normalizedId);
+      } else if (type === 'rename_category' && targetId && label) {
+        const ref = doc(db, 'companies', companyId, 'categories', targetId);
         updateDocumentNonBlocking(ref, { label });
-      } else if (type === 'update_category_style' && normalizedId && color) {
-        const ref = doc(db, 'companies', companyId, 'categories', normalizedId);
-        updateDocumentNonBlocking(ref, { color: getColorClasses(color) });
+      } else if (type === 'update_category_style' && targetId && color) {
+        const ref = doc(db, 'companies', companyId, 'categories', targetId);
+        updateDocumentNonBlocking(ref, { color: getColorStyle(color) });
       } else if (type === 'change_theme_color' && color) {
-        const theme = THEME_COLOR_MAP[color.toLowerCase()] || { primary: '231 48% 48%', background: '0 0% 96%', foreground: '222 47% 11%' };
+        const theme = THEME_COLOR_MAP[color.toLowerCase()] || THEME_COLOR_MAP['blanc'];
         updateDocumentNonBlocking(companyRef, { 
           primaryColor: theme.primary,
           backgroundColor: theme.background,
@@ -104,9 +104,9 @@ export function ChatAssistant() {
         updateDocumentNonBlocking(companyRef, { [`modulesConfig.${key}`]: enabled ?? true });
       }
 
-      setMessages(prev => [...prev, { role: 'assistant', content: "C'est fait ! La modification est appliquée." }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: "C'est fait ! La transformation a été appliquée avec succès." }]);
     } catch (error) {
-      setMessages(prev => [...prev, { role: 'assistant', content: "Désolé, une erreur technique est survenue lors de l'application." }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: "Désolé, une erreur technique a empêché l'application. Veuillez réessayer." }]);
     }
     setPendingAction(null);
   };
@@ -140,11 +140,10 @@ export function ChatAssistant() {
 
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: result.analysisResult || "Je suis prêt. Souhaitez-vous confirmer cette modification ?" 
+        content: result.analysisResult || "Je suis prêt. Souhaitez-vous que j'applique cette modification ?" 
       }]);
     } catch (error) {
-      console.error("Chat analysis error:", error);
-      setMessages(prev => [...prev, { role: 'assistant', content: "Je suis toujours là et prêt à transformer votre site. Que voulez-vous modifier ?" }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: "Je suis prêt à transformer votre interface. Que souhaitez-vous modifier ?" }]);
     } finally {
       setIsLoading(false);
     }
@@ -185,7 +184,7 @@ export function ChatAssistant() {
                 {pendingAction && !isLoading && (
                   <div className="flex justify-start">
                     <div className="flex flex-col gap-2 p-3 bg-primary/5 border rounded-2xl max-w-[85%]">
-                      <p className="text-xs font-bold text-primary uppercase">Validation Requise</p>
+                      <p className="text-xs font-bold text-primary uppercase">Confirmation</p>
                       <div className="flex gap-2">
                         <Button size="sm" onClick={() => executeAction(pendingAction)} className="bg-emerald-600 hover:bg-emerald-700 h-8">
                           <Check className="w-4 h-4 mr-1" />

@@ -4,7 +4,7 @@ service cloud.firestore {
 
     /**
      * BUSINESS PILOT SECURITY RULES
-     * Permissive rules for authenticated users to allow the AI Architect to function.
+     * Règles permissives pour permettre l'initialisation et la modification par l'Architecte IA.
      */
 
     function isSignedIn() {
