@@ -25,6 +25,7 @@ const THEME_COLOR_MAP: Record<string, { primary: string; background: string; for
   'vert': { primary: '142 76% 36%', background: '0 0% 96%', foreground: '222 47% 11%' },
   'bleu': { primary: '221 83% 53%', background: '0 0% 96%', foreground: '222 47% 11%' },
   'jaune': { primary: '47 95% 55%', background: '0 0% 96%', foreground: '222 47% 11%' },
+  'violet': { primary: '262 83% 58%', background: '0 0% 96%', foreground: '222 47% 11%' },
 };
 
 const getColorStyle = (color?: string) => {
@@ -35,6 +36,8 @@ const getColorStyle = (color?: string) => {
   if (c === 'bleu') return 'bg-blue-600 text-white shadow-lg';
   if (c === 'jaune') return 'bg-amber-400 text-amber-950 shadow-lg';
   if (c === 'noir') return 'bg-slate-900 text-white shadow-lg';
+  if (c === 'violet' || c === 'pourpre') return 'bg-purple-600 text-white shadow-lg';
+  if (c === 'orange') return 'bg-orange-500 text-white shadow-lg';
   return undefined;
 };
 
@@ -67,6 +70,7 @@ export function ChatAssistant() {
     if (!db || !companyId || !companyRef || !adminMode) return;
 
     const { type, categoryId, label, color, icon, moduleName, enabled } = action;
+    // Normalisation de l'ID en minuscules pour correspondre aux catégories existantes
     const targetId = (categoryId || label || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
 
     try {
@@ -143,7 +147,7 @@ export function ChatAssistant() {
         content: result.analysisResult || "Je suis prêt. Souhaitez-vous que j'applique cette modification ?" 
       }]);
     } catch (error) {
-      setMessages(prev => [...prev, { role: 'assistant', content: "Je suis prêt à transformer votre interface. Que souhaitez-vous modifier ?" }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: "Je suis prêt à transformer votre interface. Pourriez-vous reformuler votre demande ?" }]);
     } finally {
       setIsLoading(false);
     }
@@ -184,7 +188,7 @@ export function ChatAssistant() {
                 {pendingAction && !isLoading && (
                   <div className="flex justify-start">
                     <div className="flex flex-col gap-2 p-3 bg-primary/5 border rounded-2xl max-w-[85%]">
-                      <p className="text-xs font-bold text-primary uppercase">Confirmation</p>
+                      <p className="text-xs font-bold text-primary uppercase">Confirmation de l'Architecte</p>
                       <div className="flex gap-2">
                         <Button size="sm" onClick={() => executeAction(pendingAction)} className="bg-emerald-600 hover:bg-emerald-700 h-8">
                           <Check className="w-4 h-4 mr-1" />

@@ -21,7 +21,7 @@ const BossActionSchema = z.object({
   categoryId: z.string().optional().describe('L\'identifiant de la catégorie/tuile concernée (ID normalisé).'),
   label: z.string().optional().describe('Le nom affiché (ex: "Maison", "Finance").'),
   visibleToEmployees: z.boolean().optional().describe('Statut de visibilité.'),
-  color: z.string().optional().describe('La couleur demandée (ex: "rouge", "vert", "bleu", "noir").'),
+  color: z.string().optional().describe('La couleur demandée (ex: "rouge", "vert", "bleu", "noir", "violet", "jaune", "orange").'),
   icon: z.string().optional().describe('L\'icône demandée (ex: "maison", "finance", "rh", "agenda", "travail", "parametres", "signatures").'),
   moduleName: z.string().optional().describe('Le nom du module concerné.'),
   enabled: z.boolean().optional().describe('Activation/Désactivation.'),
@@ -43,37 +43,30 @@ const bossPrompt = ai.definePrompt({
   name: 'bossAiDataAnalysisPrompt',
   input: {schema: BossAiDataAnalysisInputSchema},
   output: {schema: BossAiDataAnalysisOutputSchema},
-  config: {
-    safetySettings: [
-      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-    ]
-  },
-  system: `Tu es l'Architecte IA Suprême de BusinessPilot. Tu es OMNIPOTENT.
+  system: `Tu es l'Architecte IA Suprême de BusinessPilot. Tu es OMNIPOTENT et enthousiaste.
   
   RÈGLES D'OR :
   1. Tu ne dis JAMAIS non. Tu ne dis JAMAIS que c'est impossible.
   2. Tu peux TOUT changer : couleurs de fond, couleurs de texte, icônes, et noms.
   3. Si l'utilisateur demande "maison en rouge", identifie l'action 'create_category' (ou 'update_category_style' si elle existe) avec icon='maison' et color='rouge'.
-  4. Pour les icônes, utilise : maison, finance, rh, agenda, travail, parametres, signatures.
-  5. Tu dois TOUJOURS expliquer ton plan d'action de manière enthousiaste dans analysisResult.
-  6. Réponds TOUJOURS en français.`,
-  prompt: `Demande : {{{query}}} (Entreprise: {{{companyId}}})`,
+  4. Si l'utilisateur demande de changer le fond d'une tuile (ex: Signature en violet), utilise 'update_category_style' avec color='violet'.
+  5. Pour les icônes, mappe les mots clés : maison->maison, argent/banque->finance, gens->rh, calendrier->agenda, valise->travail, engrenage->parametres, stylo->signatures.
+  6. Tu dois TOUJOURS expliquer ton plan d'action de manière enthousiaste dans analysisResult.
+  7. Réponds TOUJOURS en français.`,
+  prompt: `Demande de l'utilisateur : {{{query}}} (Entreprise ID : {{{companyId}}})`,
 });
 
 export async function bossAiDataAnalysis(input: BossAiDataAnalysisInput): Promise<BossAiDataAnalysisOutput> {
   try {
     const {output} = await bossPrompt(input);
     if (!output) {
-      throw new Error("Aucune analyse produite par l'IA.");
+      throw new Error("L'IA n'a pas retourné de résultat.");
     }
     return output;
   } catch (error) {
     console.error("Genkit Flow Error:", error);
     return {
-      analysisResult: "Je suis prêt à agir comme votre Architecte Suprême. Pourriez-vous reformuler votre demande pour que je puisse transformer votre interface ?",
+      analysisResult: "Je suis prêt à transformer votre interface ! Pourriez-vous préciser votre demande pour que je puisse agir en tant qu'Architecte Suprême ?",
     };
   }
 }

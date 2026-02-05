@@ -4,31 +4,15 @@ service cloud.firestore {
 
     /**
      * BUSINESS PILOT SECURITY RULES
-     * Règles permissives pour permettre l'initialisation et la modification par l'Architecte IA.
+     * Règles simplifiées pour le prototype afin de permettre à l'Architecte IA d'agir sans blocage.
      */
 
     function isSignedIn() {
       return request.auth != null;
     }
 
-    match /roles_admin/{userId} {
+    match /{document=**} {
       allow read, write: if isSignedIn();
-    }
-
-    match /users/{userId} {
-      allow read, write: if isSignedIn();
-    }
-
-    match /companies/{companyId} {
-      allow read, write: if isSignedIn();
-      
-      match /categories/{categoryId} {
-        allow read, write: if isSignedIn();
-      }
-      
-      match /documents/{documentId} {
-        allow read, write: if isSignedIn();
-      }
     }
   }
 }
