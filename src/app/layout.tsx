@@ -34,10 +34,16 @@ function ThemeInjector({ children }: { children: React.ReactNode }) {
   const background = company?.backgroundColor || '0 0% 96%';
   const foreground = company?.foregroundColor || '222 47% 11%';
   
-  // Calcul simplifié pour les cartes et bordures si le fond change
-  const isDark = background.includes(' 0% 0%') || background.includes(' 20% 10%');
+  // Analyse de la luminosité du fond pour adapter le reste du thème
+  // On extrait le pourcentage de luminosité (le 3ème nombre de l'HSL)
+  const lightnessMatch = background.match(/(\d+)%$/);
+  const lightness = lightnessMatch ? parseInt(lightnessMatch[1]) : 96;
+  const isDark = lightness < 40;
+
   const card = isDark ? '222 47% 11%' : '0 0% 100%';
-  const border = isDark ? '217.2 32.6% 17.5%' : '214.3 31.8% 91.4%';
+  const border = isDark ? '222 47% 20%' : '214.3 31.8% 91.4%';
+  const muted = isDark ? '222 47% 15%' : '210 40% 96.1%';
+  const mutedForeground = isDark ? '215 20% 65%' : '215.4 16.3% 46.9%';
 
   const themeStyles = {
     '--primary': primary,
@@ -50,12 +56,15 @@ function ThemeInjector({ children }: { children: React.ReactNode }) {
     '--border': border,
     '--input': border,
     '--ring': primary,
-    '--muted': isDark ? '217.2 32.6% 17.5%' : '210 40% 96.1%',
-    '--muted-foreground': isDark ? '215 20.2% 65.1%' : '215.4 16.3% 46.9%',
+    '--muted': muted,
+    '--muted-foreground': mutedForeground,
   } as React.CSSProperties;
 
   return (
-    <div style={themeStyles} className="contents">
+    <div 
+      style={themeStyles} 
+      className="min-h-screen bg-background text-foreground transition-colors duration-500 flex flex-col"
+    >
       {children}
     </div>
   );
@@ -67,13 +76,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="fr">
+    <html lang="fr" className="h-full">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </head>
-      <body className="font-body antialiased selection:bg-primary/20 selection:text-primary min-h-screen bg-background text-foreground transition-colors duration-500">
+      <body className="font-body antialiased selection:bg-primary/20 selection:text-primary h-full">
         <FirebaseClientProvider>
           <ThemeInjector>
             {children}
