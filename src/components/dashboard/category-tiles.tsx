@@ -54,26 +54,32 @@ export function CategoryTiles({ isAdminMode }: CategoryTilesProps) {
   const companyId = profile?.companyId;
 
   const categoriesQuery = useMemoFirebase(() => {
-    // CRITICAL: Only run query if profile and companyId are available to avoid permission errors
-    if (!db || !user || !profile || !companyId) return null;
+    if (!db || !companyId) return null;
     return query(collection(db, 'companies', companyId, 'categories'));
-  }, [db, user, profile, companyId]);
+  }, [db, companyId]);
 
   const { data: categories, isLoading } = useCollection<Category>(categoriesQuery);
 
   if (isLoading || !profile || !companyId) {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {[1, 2, 3].map((i) => (
+        {[1, 2, 3, 4, 5].map((i) => (
           <div key={i} className="h-48 bg-muted rounded-2xl animate-pulse" />
         ))}
       </div>
     );
   }
 
+  // Sort categories: standard first, then custom
+  const sortedCategories = [...(categories || [])].sort((a, b) => {
+    if (a.type === 'standard' && b.type !== 'standard') return -1;
+    if (a.type !== 'standard' && b.type === 'standard') return 1;
+    return a.label.localeCompare(b.label);
+  });
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-      {categories?.map((category) => (
+      {sortedCategories.map((category) => (
         <CategoryTile
           key={category.id}
           id={category.id}
@@ -92,13 +98,13 @@ export function CategoryTiles({ isAdminMode }: CategoryTilesProps) {
           onClick={() => {
             window.dispatchEvent(new CustomEvent('open-chat-category-creation'));
           }}
-          className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-muted-foreground/20 rounded-2xl hover:bg-muted/50 hover:border-primary/50 transition-all group"
+          className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-muted-foreground/20 rounded-2xl hover:bg-muted/50 hover:border-primary/50 transition-all group h-full min-h-[220px]"
         >
           <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4 group-hover:scale-110 group-hover:bg-primary/10 transition-transform">
             <Plus className="w-6 h-6 text-muted-foreground group-hover:text-primary" />
           </div>
-          <span className="font-medium text-muted-foreground group-hover:text-primary">Nouvelle Catégorie</span>
-          <span className="text-xs text-muted-foreground mt-1">(Dites à l'IA de créer une tuile)</span>
+          <span className="font-medium text-muted-foreground group-hover:text-primary text-center">Nouvelle Catégorie</span>
+          <span className="text-xs text-muted-foreground mt-1 text-center">(Dites à l'IA de créer une tuile)</span>
         </button>
       )}
     </div>

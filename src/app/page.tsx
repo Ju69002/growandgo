@@ -10,6 +10,14 @@ import { useUser, useFirestore, useDoc, useMemoFirebase, setDocumentNonBlocking,
 import { doc } from 'firebase/firestore';
 import { User } from '@/lib/types';
 
+const DEFAULT_CATEGORIES = [
+  { id: 'finance', label: 'Finance', icon: 'finance', aiInstructions: 'Analyse des factures et trésorerie.' },
+  { id: 'admin', label: 'Administration', icon: 'admin', aiInstructions: 'Gestion des documents administratifs et courriers.' },
+  { id: 'rh', label: 'RH', icon: 'rh', aiInstructions: 'Gestion des contrats et documents employés.' },
+  { id: 'agenda', label: 'Agenda', icon: 'agenda', aiInstructions: 'Organisation du planning et rappels.' },
+  { id: 'signatures', label: 'Signatures', icon: 'signatures', aiInstructions: 'Suivi des documents à signer.' }
+];
+
 export default function Home() {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
@@ -30,19 +38,36 @@ export default function Home() {
 
   const { data: profile, isLoading: isProfileLoading } = useDoc<User>(userProfileRef);
 
-  // Initialize user profile if it doesn't exist
+  // Initialize user profile and default categories
   useEffect(() => {
     if (user && !isProfileLoading && !profile && db) {
+      const companyId = 'default-company';
+      
+      // 1. Create User Profile
       const newUser: User = {
         uid: user.uid,
-        companyId: 'default-company',
+        companyId: companyId,
         role: 'admin',
         adminMode: true,
         name: user.displayName || 'Utilisateur Démo',
         email: user.email || 'demo@businesspilot.ai'
       };
-      const ref = doc(db, 'users', user.uid);
-      setDocumentNonBlocking(ref, newUser, { merge: true });
+      const userRef = doc(db, 'users', user.uid);
+      setDocumentNonBlocking(userRef, newUser, { merge: true });
+
+      // 2. Seed Default Categories
+      DEFAULT_CATEGORIES.forEach(cat => {
+        const catRef = doc(db, 'companies', companyId, 'categories', cat.id);
+        setDocumentNonBlocking(catRef, {
+          id: cat.id,
+          label: cat.label,
+          badgeCount: 0,
+          visibleToEmployees: true,
+          type: 'standard',
+          aiInstructions: cat.aiInstructions,
+          companyId: companyId
+        }, { merge: true });
+      });
     }
     
     if (user && profile) {
@@ -68,7 +93,7 @@ export default function Home() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-primary">Tableau de bord</h1>
             <p className="text-muted-foreground mt-1">
-              Bienvenue sur BusinessPilot. Gérez vos documents et vos opérations en un seul endroit.
+              Bienvenue sur BusinessPilot. Voici vos modules de gestion.
             </p>
           </div>
           {userRole !== 'employee' && (
@@ -84,7 +109,7 @@ export default function Home() {
             <Info className="h-4 w-4 text-teal-600" />
             <AlertTitle className="text-teal-800 font-bold">Mode Architecte</AlertTitle>
             <AlertDescription className="text-teal-700">
-              Vous pouvez maintenant modifier les étiquettes des tuiles, leur visibilité pour vos employés et créer de nouvelles catégories via l'IA.
+              Vous pouvez personnaliser les tuiles (nom, visibilité) ou en créer de nouvelles via l'assistant.
             </AlertDescription>
           </Alert>
         )}
