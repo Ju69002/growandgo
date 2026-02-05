@@ -23,13 +23,11 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 
 interface CategoryTileProps {
   id: string;
@@ -128,7 +126,7 @@ export function CategoryTile({
                 <Button 
                   size="icon" 
                   variant="ghost" 
-                  className={cn("h-8 w-8 rounded-full hover:bg-black/10", customColor && "text-white")}
+                  className={cn("h-8 w-8 rounded-full hover:bg-black/10", customColor && "text-white hover:bg-white/20")}
                   onClick={toggleVisibility}
                 >
                   {isVisible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
@@ -136,7 +134,7 @@ export function CategoryTile({
                 <Button 
                   size="icon" 
                   variant="ghost" 
-                  className={cn("h-8 w-8 rounded-full hover:bg-black/10", customColor && "text-white")}
+                  className={cn("h-8 w-8 rounded-full hover:bg-black/10", customColor && "text-white hover:bg-white/20")}
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -149,7 +147,7 @@ export function CategoryTile({
                 <Button 
                   size="icon" 
                   variant="ghost" 
-                  className={cn("h-8 w-8 rounded-full hover:bg-destructive/10 text-destructive", customColor && "hover:bg-destructive/20")}
+                  className={cn("h-8 w-8 rounded-full hover:bg-destructive/10 text-destructive", customColor && "text-white hover:bg-destructive/20")}
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -187,6 +185,7 @@ export function CategoryTile({
         <AlertDialogContent onClick={(e) => e.stopPropagation()}>
           <AlertDialogHeader>
             <AlertDialogTitle>Supprimer la catégorie ?</AlertDialogTitle>
+            <AlertDialogDescription>Toutes les données associées seront perdues.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Annuler</AlertDialogCancel>

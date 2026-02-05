@@ -9,7 +9,11 @@ import {
   Calendar, 
   PenTool, 
   Plus, 
-  LayoutGrid
+  LayoutGrid,
+  Home,
+  Briefcase,
+  Settings,
+  Bell
 } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, query, doc } from 'firebase/firestore';
@@ -25,6 +29,13 @@ const ICON_MAP: Record<string, any> = {
   rh: Users,
   agenda: Calendar,
   signatures: PenTool,
+  maison: Home,
+  home: Home,
+  travail: Briefcase,
+  work: Briefcase,
+  parametres: Settings,
+  settings: Settings,
+  notifications: Bell,
   default: LayoutGrid
 };
 
@@ -79,7 +90,7 @@ export function CategoryTiles({ isAdminMode }: CategoryTilesProps) {
           key={category.id}
           id={category.id}
           label={category.label}
-          icon={ICON_MAP[category.id] || ICON_MAP.default}
+          icon={ICON_MAP[category.icon || category.id] || ICON_MAP.default}
           badgeCount={category.badgeCount || 0}
           isVisible={category.visibleToEmployees}
           isAdminMode={isAdminMode}
@@ -92,7 +103,6 @@ export function CategoryTiles({ isAdminMode }: CategoryTilesProps) {
       {isAdminMode && (
         <button 
           onClick={() => {
-            // Déclenche l'ouverture du chat avec une instruction spécifique via un événement personnalisé
             window.dispatchEvent(new CustomEvent('open-chat-category-creation'));
           }}
           className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-muted-foreground/20 rounded-2xl hover:bg-muted/50 hover:border-primary/50 transition-all group h-full min-h-[220px]"

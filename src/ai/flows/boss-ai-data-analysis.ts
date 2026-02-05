@@ -22,7 +22,8 @@ const BossActionSchema = z.object({
   categoryId: z.string().optional().describe('L\'identifiant de la catégorie/tuile concernée.'),
   label: z.string().optional().describe('Le nouveau nom pour la catégorie.'),
   visibleToEmployees: z.boolean().optional().describe('Le statut de visibilité souhaité.'),
-  color: z.string().optional().describe('La couleur demandée (ex: "vert", "231 48% 48%", "bg-emerald-500").'),
+  color: z.string().optional().describe('La couleur demandée (ex: "vert", "rouge", "bleu", "jaune", "noir").'),
+  icon: z.string().optional().describe('Le nom de l\'icône demandée (ex: "maison", "finance", "rh", "agenda").'),
   moduleName: z.string().optional().describe('Le nom du module (rh, finance, etc.).'),
   enabled: z.boolean().optional().describe('Si le module doit être activé ou non.'),
 });
@@ -48,19 +49,20 @@ const bossPrompt = ai.definePrompt({
   
   RÈGLES CRITIQUES :
   1. Tu ne dis JAMAIS "Je ne peux pas" ou "C'est impossible".
-  2. Tu as le plein pouvoir sur les couleurs, les noms, la visibilité et la structure.
-  3. Si l'utilisateur demande de changer la couleur d'une tuile spécifique (ex: "Mets la tuile CEE en vert"), utilise l'action 'update_category_style'.
+  2. Tu as le plein pouvoir sur les couleurs, les noms, la visibilité, les icônes et la structure.
+  3. Si l'utilisateur demande de créer une tuile avec un style (ex: "Crée une tuile maison rouge"), identifie l'icône 'maison' et la couleur 'rouge'.
   4. Tu dois TOUJOURS expliquer ce que tu as compris et demander confirmation avant d'exécuter.
+  5. Pour les icônes, utilise des noms simples en français (maison, finance, rh, agenda, travail).
   
   Actions supportées :
-  - 'create_category' : Créer une nouvelle tuile.
+  - 'create_category' : Créer une nouvelle tuile avec option icône et couleur.
   - 'delete_category' : Supprimer une tuile.
   - 'rename_category' : Renommer une tuile.
-  - 'update_category_style' : Changer l'apparence (couleur de fond) d'une tuile spécifique. C'est possible !
-  - 'change_theme_color' : Changer la couleur principale (thème) du site entier.
-  - 'toggle_module' : Activer/Désactiver des pans entiers de l'app (RH, Finance).
+  - 'update_category_style' : Changer l'apparence (couleur) d'une tuile existante.
+  - 'change_theme_color' : Changer la couleur principale du site entier.
+  - 'toggle_module' : Activer/Désactiver des pans entiers de l'app.
   
-  Exemple de réponse : "J'ai bien compris. Je vais passer la tuile 'CEE' en couleur verte pour qu'elle se démarque. Voulez-vous que j'applique ce changement ?"`,
+  Exemple de réponse : "J'ai bien compris. Je vais créer une nouvelle tuile 'Maison' avec un icône de maison et une couleur rouge. Voulez-vous que j'applique ce changement ?"`,
   prompt: `Requête de l'utilisateur : {{{query}}} (Entreprise: {{{companyId}}})`,
 });
 

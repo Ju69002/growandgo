@@ -28,12 +28,24 @@ const THEME_COLOR_MAP: Record<string, { primary: string; background: string; for
   'sombre': { primary: '210 40% 98%', background: '222 47% 11%', foreground: '210 40% 98%' },
 };
 
+const getColorClasses = (color?: string) => {
+  if (!color) return undefined;
+  const c = color.toLowerCase();
+  if (c === 'vert' || c.includes('emerald')) return 'bg-emerald-500 text-white shadow-emerald-200';
+  if (c === 'rouge' || c.includes('rose') || c.includes('red')) return 'bg-rose-500 text-white shadow-rose-200';
+  if (c === 'bleu' || c.includes('sky') || c.includes('blue')) return 'bg-sky-500 text-white shadow-sky-200';
+  if (c === 'jaune' || c.includes('amber') || c.includes('yellow')) return 'bg-amber-400 text-amber-950 shadow-amber-200';
+  if (c === 'noir' || c.includes('slate') || c.includes('black')) return 'bg-slate-900 text-white shadow-slate-400';
+  if (c === 'blanc') return 'bg-white text-slate-900 shadow-sm border';
+  return color;
+};
+
 export function ChatAssistant() {
   const [isOpen, setIsOpen] = React.useState(false);
   const { user } = useUser();
   const db = useFirestore();
   const [messages, setMessages] = React.useState<Message[]>([
-    { role: 'assistant', content: 'Bonjour ! Je suis votre Architecte Suprême. Activez le Mode Architecte dans la barre supérieure pour que je puisse modifier votre site.' }
+    { role: 'assistant', content: 'Bonjour ! Je suis votre Architecte Suprême. Activez le Mode Architecte pour que je puisse modifier votre site.' }
   ]);
   const [input, setInput] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
@@ -56,7 +68,7 @@ export function ChatAssistant() {
   const executeAction = (action: any) => {
     if (!db || !companyId || !companyRef || !adminMode) return;
 
-    const { type, categoryId, label, visibleToEmployees, color, moduleName, enabled } = action;
+    const { type, categoryId, label, visibleToEmployees, color, icon, moduleName, enabled } = action;
     const normalizedId = categoryId ? categoryId.toLowerCase() : (label ? label.toLowerCase().replace(/[^a-z0-9]/g, '_') : '');
 
     try {
@@ -69,7 +81,9 @@ export function ChatAssistant() {
           visibleToEmployees: true,
           type: 'custom',
           aiInstructions: `Analyse pour la catégorie ${label}.`,
-          companyId
+          companyId,
+          color: getColorClasses(color),
+          icon: icon || 'default'
         }, { merge: true });
       } else if (type === 'delete_category' && normalizedId) {
         const ref = doc(db, 'companies', companyId, 'categories', normalizedId);
@@ -79,14 +93,7 @@ export function ChatAssistant() {
         updateDocumentNonBlocking(ref, { label });
       } else if (type === 'update_category_style' && normalizedId && color) {
         const ref = doc(db, 'companies', companyId, 'categories', normalizedId);
-        let finalColor = color;
-        const c = color.toLowerCase();
-        if (c === 'vert') finalColor = 'bg-emerald-500 text-white shadow-emerald-200';
-        else if (c === 'rouge') finalColor = 'bg-rose-500 text-white shadow-rose-200';
-        else if (c === 'bleu') finalColor = 'bg-sky-500 text-white shadow-sky-200';
-        else if (c === 'jaune') finalColor = 'bg-amber-400 text-amber-950 shadow-amber-200';
-        else if (c === 'noir') finalColor = 'bg-slate-900 text-white shadow-slate-400';
-        updateDocumentNonBlocking(ref, { color: finalColor });
+        updateDocumentNonBlocking(ref, { color: getColorClasses(color) });
       } else if (type === 'change_theme_color' && color) {
         const theme = THEME_COLOR_MAP[color.toLowerCase()] || { primary: color, background: '0 0% 96%', foreground: '222 47% 11%' };
         updateDocumentNonBlocking(companyRef, { 
@@ -101,7 +108,7 @@ export function ChatAssistant() {
 
       setMessages(prev => [...prev, { role: 'assistant', content: "Tâche effectuée !" }]);
     } catch (error) {
-      setMessages(prev => [...prev, { role: 'assistant', content: "Désolé, une erreur est survenue lors de l'exécution." }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: "Désolé, une erreur est survenue." }]);
     }
     setPendingAction(null);
   };
@@ -115,11 +122,10 @@ export function ChatAssistant() {
     setInput('');
     setIsLoading(true);
 
-    // Vérification du Mode Architecte avant d'appeler l'IA de modification
     if (!adminMode) {
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: "Je ne suis pas habilité à effectuer des modifications car le Mode Architecte est désactivé. Veuillez l'activer dans la barre de navigation pour continuer." 
+        content: "Je ne suis pas habilité à effectuer des modifications car le Mode Architecte est désactivé. Veuillez l'activer pour continuer." 
       }]);
       setIsLoading(false);
       return;
@@ -147,7 +153,7 @@ export function ChatAssistant() {
   };
 
   const handleCancel = () => {
-    setMessages(prev => [...prev, { role: 'assistant', content: "Action annulée. Je reste à votre écoute !" }]);
+    setMessages(prev => [...prev, { role: 'assistant', content: "Action annulée." }]);
     setPendingAction(null);
   };
 
@@ -173,9 +179,7 @@ export function ChatAssistant() {
               <Bot className="h-5 w-5" />
               <CardTitle className="text-base font-bold">Architecte IA</CardTitle>
             </div>
-            <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)} className="h-8 w-8 text-white hover:bg-white/10">
-              <X className="h-4 w-4" />
-            </Button>
+            <X className="h-5 w-5 cursor-pointer hover:opacity-80" onClick={() => setIsOpen(false)} />
           </CardHeader>
           <CardContent className="flex-1 p-0 overflow-hidden bg-background">
             <ScrollArea className="h-full p-4">
@@ -224,7 +228,7 @@ export function ChatAssistant() {
           <CardFooter className="p-3 border-t bg-card">
             <div className="flex w-full items-center gap-2">
               <Input
-                placeholder={pendingAction ? "Veuillez confirmer ci-dessus..." : "Ex: Mets le site en noir..."}
+                placeholder={pendingAction ? "Veuillez confirmer..." : "Ex: Crée une tuile maison rouge..."}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
