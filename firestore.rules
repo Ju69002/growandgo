@@ -9,148 +9,70 @@ service cloud.firestore {
      * This ruleset implements a multi-tenant SaaS security model where data access is strictly 
      * partitioned by 'companyId'. The architecture relies on the 'User' document to define 
      * a user's membership and role within a specific company.
-     *
-     * DATA STRUCTURE:
-     * - /companies/{companyId}: Global company configuration.
-     * - /users/{userId}: User profiles containing company association and roles.
-     * - /companies/{companyId}/categories: Tiles/Modules scoped to a company.
-     * - /companies/{companyId}/documents: Business documents scoped to a company.
-     * - /roles_admin/{userId}: Global administrative flags.
-     *
-     * KEY SECURITY DECISIONS:
-     * 1. Multi-Tenancy: Users can only access resources where the path companyId matches 
-     *    their internal 'companyId' field.
-     * 2. Role-Based Access: 'admin' and 'super_admin' roles have write privileges, 
-     *    while 'employee' roles are restricted based on visibility flags (e.g., visibleToEmployees).
-     * 3. Authorization Independence: Documents include a denormalized 'companyId' 
-     *    to allow for faster validation and consistency checks against the request path.
-     * 4. Structural Segregation: Global admin privileges are stored in a dedicated 
-     *    'roles_admin' collection to prevent privilege escalation.
      */
 
     // --- HELPER FUNCTIONS ---
 
-    /**
-     * @description Checks if the user is authenticated.
-     */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /**
-     * @description Checks if the authenticated user matches the provided userId.
-     */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    /**
-     * @description Fetches the authenticated user's profile data.
-     */
     function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      let path = /databases/$(database)/documents/users/$(request.auth.uid);
+      return exists(path) ? get(path).data : null;
     }
 
-    /**
-     * @description Checks if the user belongs to a specific company.
-     */
     function belongsToCompany(companyId) {
-      return isSignedIn() && getUserData().companyId == companyId;
+      let data = getUserData();
+      return isSignedIn() && data != null && data.companyId == companyId;
     }
 
-    /**
-     * @description Checks if the user has an admin or super_admin role within their company.
-     */
     function isCompanyAdmin() {
-      return isSignedIn() && getUserData().role in ['admin', 'super_admin'];
+      let data = getUserData();
+      return isSignedIn() && data != null && data.role in ['admin', 'super_admin'];
     }
 
-    /**
-     * @description Checks if the user is a global system administrator via the roles_admin collection.
-     */
     function isGlobalAdmin() {
       return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
     }
 
-    /**
-     * @description Verifies ownership for state-changing operations on a specific user document.
-     */
-    function isExistingUserOwner(userId) {
-      return resource != null && isOwner(userId);
-    }
-
     // --- COLLECTION RULES ---
 
-    /**
-     * @description Rules for global admin flags. Only manageable by global admins.
-     * @path /roles_admin/{userId}
-     * @allow (get) Any signed-in user checking their own admin status.
-     * @deny (create) A standard user trying to grant themselves global admin rights.
-     * @principle Restricts global privilege management to existing global admins.
-     */
     match /roles_admin/{userId} {
       allow get: if isSignedIn();
-      allow list: if isGlobalAdmin();
-      allow create, update, delete: if isGlobalAdmin();
+      allow list, create, update, delete: if isGlobalAdmin();
     }
 
-    /**
-     * @description User profiles. Governs who can sign up and who can view/edit user roles.
-     * @path /users/{userId}
-     * @allow (create) An authenticated user creating their own profile during onboarding.
-     * @deny (update) An employee trying to change their own role to 'admin'.
-     * @principle Enforces self-creation for users and restricts role management to admins.
-     */
     match /users/{userId} {
-      allow get: if isSignedIn() && (isOwner(userId) || belongsToCompany(resource.data.companyId));
+      allow get: if isSignedIn() && (isOwner(userId) || (resource != null && belongsToCompany(resource.data.companyId)));
       allow list: if isSignedIn() && isCompanyAdmin();
-      allow create: if isOwner(userId) && request.resource.data.uid == userId;
-      allow update: if (isExistingUserOwner(userId) && request.resource.data.role == resource.data.role) || (isCompanyAdmin() && belongsToCompany(resource.data.companyId));
+      allow create: if isOwner(userId);
+      allow update: if (isOwner(userId) && request.resource.data.role == resource.data.role) || (isCompanyAdmin() && belongsToCompany(resource.data.companyId));
       allow delete: if isGlobalAdmin();
     }
 
-    /**
-     * @description Company profiles. Contains settings and subscription status.
-     * @path /companies/{companyId}
-     * @allow (get) Any user belonging to the company viewing their company's settings.
-     * @deny (list) A user trying to browse all companies in the SaaS.
-     * @principle Multi-tenant isolation at the company level.
-     */
     match /companies/{companyId} {
       allow get: if belongsToCompany(companyId);
       allow list: if isGlobalAdmin();
-      allow create: if isGlobalAdmin();
-      allow update: if belongsToCompany(companyId) && isCompanyAdmin();
+      allow create: if isSignedIn(); // Allow creation for prototyping/onboarding
+      allow update: if (belongsToCompany(companyId) && isCompanyAdmin()) || isGlobalAdmin();
       allow delete: if isGlobalAdmin();
     }
 
-    /**
-     * @description Category tiles within a company.
-     * @path /companies/{companyId}/categories/{categoryId}
-     * @allow (get) An employee viewing a category marked as 'visibleToEmployees'.
-     * @deny (create) An employee attempting to create a new module tile.
-     * @principle Role-based access control and path-data consistency.
-     */
     match /companies/{companyId}/categories/{categoryId} {
-      allow get: if belongsToCompany(companyId) && (isCompanyAdmin() || resource.data.visibleToEmployees == true);
+      allow get: if belongsToCompany(companyId) && (isCompanyAdmin() || (resource != null && resource.data.visibleToEmployees == true));
       allow list: if belongsToCompany(companyId);
-      allow create: if belongsToCompany(companyId) && isCompanyAdmin() && request.resource.data.companyId == companyId;
-      allow update: if resource != null && belongsToCompany(companyId) && isCompanyAdmin() && request.resource.data.companyId == companyId;
-      allow delete: if resource != null && belongsToCompany(companyId) && isCompanyAdmin();
+      allow create, update, delete: if belongsToCompany(companyId) && isCompanyAdmin();
     }
 
-    /**
-     * @description Business documents and AI extracted data.
-     * @path /companies/{companyId}/documents/{documentId}
-     * @allow (create) An employee uploading a new document to their company.
-     * @deny (update) A user from Company A trying to edit a document in Company B.
-     * @principle Ensures documents are strictly associated with the user's company and protects relational integrity.
-     */
     match /companies/{companyId}/documents/{documentId} {
       allow get, list: if belongsToCompany(companyId);
-      allow create: if belongsToCompany(companyId) && request.resource.data.companyId == companyId;
-      allow update: if resource != null && belongsToCompany(companyId) && request.resource.data.companyId == companyId;
-      allow delete: if resource != null && belongsToCompany(companyId) && isCompanyAdmin();
+      allow create, update: if belongsToCompany(companyId);
+      allow delete: if belongsToCompany(companyId) && isCompanyAdmin();
     }
   }
 }

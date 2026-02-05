@@ -23,6 +23,7 @@ export default function Home() {
   const db = useFirestore();
   const [isInitializing, setIsInitializing] = useState(true);
 
+  // Sign-in anonyme si non connecté
   useEffect(() => {
     if (!isUserLoading && !user && auth) {
       initiateAnonymousSignIn(auth);
@@ -36,23 +37,25 @@ export default function Home() {
 
   const { data: profile, isLoading: isProfileLoading } = useDoc<User>(userProfileRef);
 
+  // Initialisation des données de démo
   useEffect(() => {
     if (user && !isProfileLoading && !profile && db) {
       const companyId = 'default-company';
       
-      const newUser: User = {
+      // 1. Créer le profil utilisateur d'abord
+      const userRef = doc(db, 'users', user.uid);
+      setDocumentNonBlocking(userRef, {
         uid: user.uid,
         companyId: companyId,
         role: 'admin',
         adminMode: true,
         name: user.displayName || 'Utilisateur Démo',
         email: user.email || 'demo@businesspilot.ai'
-      };
-      const userRef = doc(db, 'users', user.uid);
-      setDocumentNonBlocking(userRef, newUser, { merge: true });
+      }, { merge: true });
 
+      // 2. Créer l'entreprise
       const companyRef = doc(db, 'companies', companyId);
-      const newCompany: Company = {
+      setDocumentNonBlocking(companyRef, {
         id: companyId,
         name: 'Ma Super Entreprise',
         subscriptionStatus: 'active',
@@ -62,9 +65,9 @@ export default function Home() {
           showFinance: true,
           customLabels: {}
         }
-      };
-      setDocumentNonBlocking(companyRef, newCompany, { merge: true });
+      }, { merge: true });
 
+      // 3. Créer les catégories par défaut
       DEFAULT_CATEGORIES.forEach(cat => {
         const catRef = doc(db, 'companies', companyId, 'categories', cat.id);
         setDocumentNonBlocking(catRef, {
@@ -79,15 +82,19 @@ export default function Home() {
       });
     }
     
+    // Une fois qu'on a un profil, on arrête le chargement d'initialisation
     if (user && profile) {
       setIsInitializing(false);
     }
   }, [user, isProfileLoading, profile, db]);
 
-  if (isUserLoading || isInitializing || (user && isProfileLoading)) {
+  if (isUserLoading || (user && isInitializing)) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <div className="text-center space-y-4">
+          <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto" />
+          <p className="text-muted-foreground animate-pulse">Initialisation de votre espace BusinessPilot...</p>
+        </div>
       </div>
     );
   }
@@ -106,7 +113,7 @@ export default function Home() {
             </p>
           </div>
           {userRole !== 'employee' && (
-            <div className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-colors ${adminMode ? 'bg-primary/10 text-primary border-primary/20' : 'bg-muted text-muted-foreground border-border'}`}>
+            <div className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-all duration-300 ${adminMode ? 'bg-primary/10 text-primary border-primary/20 shadow-sm' : 'bg-muted text-muted-foreground border-border'}`}>
               <ShieldCheck className="w-5 h-5" />
               <span className="text-sm font-semibold">Mode Architecte {adminMode ? 'Activé' : 'Désactivé'}</span>
             </div>
@@ -114,7 +121,7 @@ export default function Home() {
         </header>
 
         {adminMode && (
-          <Alert className="bg-primary/5 border-primary/20 animate-in slide-in-from-top-2">
+          <Alert className="bg-primary/5 border-primary/20 animate-in fade-in slide-in-from-top-4 duration-500">
             <Info className="h-4 w-4 text-primary" />
             <AlertTitle className="text-primary font-bold">Mode Architecte Visuel</AlertTitle>
             <AlertDescription className="text-primary/80">
