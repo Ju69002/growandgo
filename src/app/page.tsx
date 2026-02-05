@@ -1,23 +1,57 @@
+
 'use client';
 
+import { useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { CategoryTiles } from '@/components/dashboard/category-tiles';
-import { ShieldCheck, Info } from 'lucide-react';
+import { ShieldCheck, Info, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, useDoc, useMemoFirebase, setDocumentNonBlocking, initiateAnonymousSignIn, useAuth } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { User } from '@/lib/types';
 
 export default function Home() {
   const { user, isUserLoading } = useUser();
+  const auth = useAuth();
   const db = useFirestore();
+
+  // Auto-login for prototype
+  useEffect(() => {
+    if (!isUserLoading && !user && auth) {
+      initiateAnonymousSignIn(auth);
+    }
+  }, [user, isUserLoading, auth]);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user) return null;
     return doc(db, 'users', user.uid);
   }, [db, user]);
 
-  const { data: profile } = useDoc<User>(userProfileRef);
+  const { data: profile, isLoading: isProfileLoading } = useDoc<User>(userProfileRef);
+
+  // Initialize user profile if it doesn't exist
+  useEffect(() => {
+    if (user && !isProfileLoading && !profile && db) {
+      const newUser: User = {
+        uid: user.uid,
+        company_id: 'default-company',
+        role: 'admin',
+        admin_mode: true,
+        name: user.displayName || 'Utilisateur Démo',
+        email: user.email || 'demo@businesspilot.ai'
+      };
+      const ref = doc(db, 'users', user.uid);
+      setDocumentNonBlocking(ref, newUser, { merge: true });
+    }
+  }, [user, isProfileLoading, profile, db]);
+
+  if (isUserLoading || (user && isProfileLoading)) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   const adminMode = profile?.admin_mode || false;
   const userRole = profile?.role || 'employee';
@@ -33,7 +67,7 @@ export default function Home() {
             </p>
           </div>
           {userRole !== 'employee' && (
-            <div className={`flex items-center gap-2 px-4 py-2 rounded-full border ${adminMode ? 'bg-primary/10 text-primary border-primary/20' : 'bg-muted text-muted-foreground border-border'}`}>
+            <div className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-colors ${adminMode ? 'bg-primary/10 text-primary border-primary/20' : 'bg-muted text-muted-foreground border-border'}`}>
               <ShieldCheck className="w-5 h-5" />
               <span className="text-sm font-semibold">Mode Architecte {adminMode ? 'Activé' : 'Désactivé'}</span>
             </div>

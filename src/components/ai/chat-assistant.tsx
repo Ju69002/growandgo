@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -8,8 +9,9 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { bossAiDataAnalysis } from '@/ai/flows/boss-ai-data-analysis';
-import { useUser, useFirestore, addDocumentNonBlocking } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { useUser, useFirestore, setDocumentNonBlocking, useDoc, useMemoFirebase } from '@/firebase';
+import { doc } from 'firebase/firestore';
+import { User } from '@/lib/types';
 
 type Message = {
   role: 'user' | 'assistant';
@@ -20,6 +22,14 @@ export function ChatAssistant() {
   const [isOpen, setIsOpen] = React.useState(false);
   const { user } = useUser();
   const db = useFirestore();
+
+  const userProfileRef = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return doc(db, 'users', user.uid);
+  }, [db, user]);
+
+  const { data: profile } = useDoc<User>(userProfileRef);
+  const companyId = profile?.company_id || 'default-company';
   
   const [messages, setMessages] = React.useState<Message[]>([
     { role: 'assistant', content: 'Bonjour ! Je suis votre assistant BusinessPilot. Comment puis-je vous aider ?' }
@@ -46,21 +56,24 @@ export function ChatAssistant() {
     setIsLoading(true);
 
     try {
-      if (currentInput.toLowerCase().includes('crée') && (currentInput.toLowerCase().includes('catégorie') || currentInput.toLowerCase().includes('tuile'))) {
+      const lowerInput = currentInput.toLowerCase();
+      if (lowerInput.includes('crée') && (lowerInput.includes('catégorie') || lowerInput.includes('tuile'))) {
         const nameMatch = currentInput.match(/(?:nommée|appelée|nom|est)\s+['"]?([^.'"]+)['"]?/i);
         const categoryName = nameMatch ? nameMatch[1].trim() : 'Nouvelle Catégorie';
         
-        const companyId = 'default-company';
-        const categoriesRef = collection(db, 'companies', companyId, 'categories');
+        // Generate a simple slug from the name
+        const categoryId = categoryName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+        const categoryRef = doc(db, 'companies', companyId, 'categories', categoryId);
         
-        addDocumentNonBlocking(categoriesRef, {
+        setDocumentNonBlocking(categoryRef, {
+          id: categoryId,
           label: categoryName,
           badge_count: 0,
           visible_to_employees: false,
           type: 'custom',
-          ai_instructions: 'Analyse les documents pour cette nouvelle catégorie.',
+          ai_instructions: `Analyse les documents pour la catégorie ${categoryName}.`,
           companyId: companyId
-        });
+        }, { merge: true });
 
         setMessages(prev => [...prev, { role: 'assistant', content: "Tâche effectuée ! La tuile vide a été créée." }]);
       } else {

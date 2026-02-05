@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -12,9 +13,9 @@ import {
   FolderLock,
   LayoutGrid
 } from 'lucide-react';
-import { useFirestore, useCollection, useUser, useMemoFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
-import { Category } from '@/lib/types';
+import { useFirestore, useCollection, useUser, useMemoFirebase, useDoc } from '@/firebase';
+import { collection, query, doc } from 'firebase/firestore';
+import { Category, User } from '@/lib/types';
 
 interface CategoryTilesProps {
   isAdminMode: boolean;
@@ -44,21 +45,26 @@ export function CategoryTiles({ isAdminMode }: CategoryTilesProps) {
   const { user } = useUser();
   const db = useFirestore();
 
-  // For demo purposes, we'll use a hardcoded companyId if none is found on the user
-  const companyId = 'default-company';
+  const userProfileRef = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return doc(db, 'users', user.uid);
+  }, [db, user]);
+
+  const { data: profile } = useDoc<User>(userProfileRef);
+  const companyId = profile?.company_id || 'default-company';
 
   const categoriesQuery = useMemoFirebase(() => {
-    if (!db) return null;
+    if (!db || !user || !profile) return null;
     return query(collection(db, 'companies', companyId, 'categories'));
-  }, [db, companyId]);
+  }, [db, user, profile, companyId]);
 
   const { data: categories, isLoading } = useCollection<Category>(categoriesQuery);
 
-  if (isLoading) {
+  if (isLoading || !profile) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 animate-pulse">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="h-48 bg-muted rounded-2xl" />
+          <div key={i} className="h-48 bg-muted rounded-2xl animate-pulse" />
         ))}
       </div>
     );
@@ -83,16 +89,14 @@ export function CategoryTiles({ isAdminMode }: CategoryTilesProps) {
       {isAdminMode && (
         <button 
           onClick={() => {
-            // This is handled by the ChatAssistant through the context/global state if needed,
-            // but for now we'll just hint to the user to use the chatbot.
             window.dispatchEvent(new CustomEvent('open-chat-category-creation'));
           }}
-          className="flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-2xl hover:bg-muted/50 transition-colors group"
+          className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-muted-foreground/20 rounded-2xl hover:bg-muted/50 hover:border-primary/50 transition-all group"
         >
-          <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-            <Plus className="w-6 h-6 text-muted-foreground" />
+          <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4 group-hover:scale-110 group-hover:bg-primary/10 transition-transform">
+            <Plus className="w-6 h-6 text-muted-foreground group-hover:text-primary" />
           </div>
-          <span className="font-medium text-muted-foreground">Nouvelle Catégorie</span>
+          <span className="font-medium text-muted-foreground group-hover:text-primary">Nouvelle Catégorie</span>
           <span className="text-xs text-muted-foreground mt-1">(Dites à l'IA de créer une tuile)</span>
         </button>
       )}
