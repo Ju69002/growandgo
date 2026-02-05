@@ -81,6 +81,8 @@ export function CategoryTile({
     }
   };
 
+  const isCustomStyle = !!customColor;
+
   return (
     <>
       <Card className={cn(
@@ -93,7 +95,7 @@ export function CategoryTile({
           <div className="flex items-start justify-between mb-8">
             <div className={cn(
               "p-4 rounded-2xl transition-transform group-hover:scale-105", 
-              customColor ? "bg-white/20 text-white" : colorClass
+              isCustomStyle ? "bg-white/20 text-white" : colorClass
             )}>
               <Icon className="w-8 h-8" />
             </div>
@@ -105,8 +107,8 @@ export function CategoryTile({
           </div>
 
           <div className="space-y-1 flex-1">
-            <h3 className={cn("text-xl font-bold tracking-tight", customColor ? "text-white" : "text-foreground")}>{label}</h3>
-            <p className={cn("text-sm", customColor ? "text-white/80" : "text-muted-foreground")}>
+            <h3 className={cn("text-xl font-bold tracking-tight", isCustomStyle ? "text-white" : "text-foreground")}>{label}</h3>
+            <p className={cn("text-sm", isCustomStyle ? "text-white/80" : "text-muted-foreground")}>
               {badgeCount > 0 
                 ? `${badgeCount} actions en attente` 
                 : "Tout est à jour"}
@@ -114,7 +116,7 @@ export function CategoryTile({
           </div>
 
           <div className="mt-8 flex items-center justify-between">
-            <Button asChild variant="link" className={cn("p-0 font-semibold group/link h-auto", customColor ? "text-white hover:text-white/90" : "text-primary")}>
+            <Button asChild variant="link" className={cn("p-0 font-semibold group/link h-auto", isCustomStyle ? "text-white hover:text-white/90" : "text-primary")}>
               <Link href={`/categories/${id}`} className="flex items-center gap-2">
                 Explorer
                 <ArrowRight className="w-4 h-4 group-hover/link:translate-x-1 transition-transform" />
@@ -126,7 +128,7 @@ export function CategoryTile({
                 <Button 
                   size="icon" 
                   variant="ghost" 
-                  className={cn("h-8 w-8 rounded-full hover:bg-black/10", customColor && "text-white hover:bg-white/20")}
+                  className={cn("h-8 w-8 rounded-full hover:bg-black/10", isCustomStyle && "text-white hover:bg-white/20")}
                   onClick={toggleVisibility}
                 >
                   {isVisible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
@@ -134,7 +136,7 @@ export function CategoryTile({
                 <Button 
                   size="icon" 
                   variant="ghost" 
-                  className={cn("h-8 w-8 rounded-full hover:bg-black/10", customColor && "text-white hover:bg-white/20")}
+                  className={cn("h-8 w-8 rounded-full hover:bg-black/10", isCustomStyle && "text-white hover:bg-white/20")}
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -147,7 +149,7 @@ export function CategoryTile({
                 <Button 
                   size="icon" 
                   variant="ghost" 
-                  className={cn("h-8 w-8 rounded-full hover:bg-destructive/10 text-destructive", customColor && "text-white hover:bg-destructive/20")}
+                  className={cn("h-8 w-8 rounded-full hover:bg-destructive/10 text-destructive", isCustomStyle && "text-white hover:bg-destructive/20")}
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();

@@ -25,19 +25,17 @@ const THEME_COLOR_MAP: Record<string, { primary: string; background: string; for
   'vert': { primary: '142 76% 36%', background: '0 0% 96%', foreground: '222 47% 11%' },
   'bleu': { primary: '221 83% 53%', background: '0 0% 96%', foreground: '222 47% 11%' },
   'jaune': { primary: '47 95% 55%', background: '0 0% 96%', foreground: '222 47% 11%' },
-  'sombre': { primary: '210 40% 98%', background: '222 47% 11%', foreground: '210 40% 98%' },
 };
 
 const getColorClasses = (color?: string) => {
   if (!color) return undefined;
   const c = color.toLowerCase();
-  if (c === 'vert' || c.includes('emerald') || c.includes('green')) return 'bg-emerald-500 text-white shadow-emerald-200';
-  if (c === 'rouge' || c.includes('rose') || c.includes('red')) return 'bg-rose-500 text-white shadow-rose-200';
-  if (c === 'bleu' || c.includes('sky') || c.includes('blue')) return 'bg-sky-500 text-white shadow-sky-200';
-  if (c === 'jaune' || c.includes('amber') || c.includes('yellow')) return 'bg-amber-400 text-amber-950 shadow-amber-200';
-  if (c === 'noir' || c.includes('slate') || c.includes('black')) return 'bg-slate-900 text-white shadow-slate-400';
-  if (c === 'blanc' || c.includes('white')) return 'bg-white text-slate-900 shadow-sm border';
-  return `bg-${c}-500 text-white shadow-lg`; // Fallback dynamique
+  if (c === 'rouge' || c.includes('red')) return 'bg-destructive text-destructive-foreground shadow-lg';
+  if (c === 'vert' || c.includes('green')) return 'bg-emerald-500 text-white shadow-lg';
+  if (c === 'bleu' || c.includes('blue')) return 'bg-sky-500 text-white shadow-lg';
+  if (c === 'jaune' || c.includes('yellow')) return 'bg-amber-400 text-amber-950 shadow-lg';
+  if (c === 'noir' || c.includes('black')) return 'bg-slate-900 text-white shadow-lg';
+  return `bg-${c}-500 text-white shadow-lg`;
 };
 
 export function ChatAssistant() {
@@ -69,10 +67,7 @@ export function ChatAssistant() {
     if (!db || !companyId || !companyRef || !adminMode) return;
 
     const { type, categoryId, label, color, icon, moduleName, enabled } = action;
-    
-    // Normalisation forcée en minuscules pour les IDs
-    const baseId = categoryId || label || '';
-    const normalizedId = baseId.toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
+    const normalizedId = (categoryId || label || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
 
     try {
       if (type === 'create_category' && label) {
@@ -98,7 +93,7 @@ export function ChatAssistant() {
         const ref = doc(db, 'companies', companyId, 'categories', normalizedId);
         updateDocumentNonBlocking(ref, { color: getColorClasses(color) });
       } else if (type === 'change_theme_color' && color) {
-        const theme = THEME_COLOR_MAP[color.toLowerCase()] || { primary: color, background: '0 0% 96%', foreground: '222 47% 11%' };
+        const theme = THEME_COLOR_MAP[color.toLowerCase()] || { primary: '231 48% 48%', background: '0 0% 96%', foreground: '222 47% 11%' };
         updateDocumentNonBlocking(companyRef, { 
           primaryColor: theme.primary,
           backgroundColor: theme.background,
@@ -111,8 +106,7 @@ export function ChatAssistant() {
 
       setMessages(prev => [...prev, { role: 'assistant', content: "C'est fait ! La modification est appliquée." }]);
     } catch (error) {
-      console.error("Execution error:", error);
-      setMessages(prev => [...prev, { role: 'assistant', content: "Désolé, une erreur est survenue lors de l'application." }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: "Désolé, une erreur technique est survenue." }]);
     }
     setPendingAction(null);
   };
@@ -146,19 +140,13 @@ export function ChatAssistant() {
 
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: result.analysisResult || "Je suis prêt à transformer votre site. Que voulez-vous changer exactement ?" 
+        content: result.analysisResult || "Je suis prêt. Souhaitez-vous confirmer cette modification ?" 
       }]);
     } catch (error) {
-      console.error("Chat flow error:", error);
-      setMessages(prev => [...prev, { role: 'assistant', content: "Je rencontre une petite interférence, mais je suis toujours prêt à vous aider. Pouvez-vous reformuler ?" }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: "Je rencontre une petite interférence dans mes circuits d'architecte, mais je suis toujours là. Que voulez-vous modifier ?" }]);
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleCancel = () => {
-    setMessages(prev => [...prev, { role: 'assistant', content: "Action annulée. Je reste à votre disposition." }]);
-    setPendingAction(null);
   };
 
   return (
@@ -186,9 +174,7 @@ export function ChatAssistant() {
                   <div key={i} className={cn("flex", m.role === 'user' ? "justify-end" : "justify-start")}>
                     <div className={cn(
                       "max-w-[85%] p-3 rounded-2xl text-sm shadow-sm",
-                      m.role === 'user' 
-                        ? "bg-primary text-primary-foreground rounded-tr-none" 
-                        : "bg-muted text-foreground rounded-tl-none border"
+                      m.role === 'user' ? "bg-primary text-primary-foreground" : "bg-muted border"
                     )}>
                       {m.content}
                     </div>
@@ -196,15 +182,15 @@ export function ChatAssistant() {
                 ))}
                 
                 {pendingAction && !isLoading && (
-                  <div className="flex justify-start animate-in fade-in slide-in-from-left-2">
-                    <div className="flex flex-col gap-2 p-3 bg-muted/50 border rounded-2xl rounded-tl-none max-w-[85%]">
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Validation de l'Architecte</p>
+                  <div className="flex justify-start">
+                    <div className="flex flex-col gap-2 p-3 bg-primary/5 border rounded-2xl max-w-[85%]">
+                      <p className="text-xs font-bold text-primary uppercase">Validation Requise</p>
                       <div className="flex gap-2">
                         <Button size="sm" onClick={() => executeAction(pendingAction)} className="bg-emerald-600 hover:bg-emerald-700 h-8">
                           <Check className="w-4 h-4 mr-1" />
                           Confirmer
                         </Button>
-                        <Button size="sm" variant="outline" onClick={handleCancel} className="h-8">
+                        <Button size="sm" variant="outline" onClick={() => setPendingAction(null)} className="h-8">
                           <Ban className="w-4 h-4 mr-1" />
                           Annuler
                         </Button>
@@ -215,7 +201,7 @@ export function ChatAssistant() {
 
                 {isLoading && (
                   <div className="flex justify-start">
-                    <div className="bg-muted p-3 rounded-2xl text-sm italic">
+                    <div className="bg-muted p-3 rounded-2xl italic">
                       <Loader2 className="w-4 h-4 animate-spin text-primary" />
                     </div>
                   </div>
@@ -223,15 +209,15 @@ export function ChatAssistant() {
               </div>
             </ScrollArea>
           </CardContent>
-          <CardFooter className="p-3 border-t bg-card">
+          <CardFooter className="p-3 border-t">
             <div className="flex w-full items-center gap-2">
               <Input
-                placeholder={pendingAction ? "Confirmez ci-dessus..." : "Ex: Crée une tuile maison rouge..."}
+                placeholder={pendingAction ? "Validez ci-dessus..." : "Ex: Crée une tuile maison rouge..."}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                 disabled={isLoading || !!pendingAction}
-                className="flex-1 bg-muted/50 border-none focus-visible:ring-primary"
+                className="flex-1"
               />
               <Button size="icon" onClick={handleSend} disabled={isLoading || !input.trim() || !!pendingAction}>
                 <Send className="h-4 w-4" />
