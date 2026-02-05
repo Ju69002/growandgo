@@ -1,13 +1,13 @@
 'use client';
 
 import * as React from 'react';
-import { LucideIcon, Eye, EyeOff, Edit3, ArrowRight } from 'lucide-react';
+import { LucideIcon, Eye, EyeOff, Edit3, ArrowRight, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
-import { useFirestore, updateDocumentNonBlocking } from '@/firebase';
+import { useFirestore, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
 
 interface CategoryTileProps {
@@ -48,6 +48,16 @@ export function CategoryTile({
     if (newName && newName !== label && db) {
       const categoryRef = doc(db, 'companies', companyId, 'categories', id);
       updateDocumentNonBlocking(categoryRef, { label: newName });
+    }
+  };
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!confirm(`Voulez-vous vraiment supprimer la catégorie "${label}" ?`)) return;
+    if (db) {
+      const categoryRef = doc(db, 'companies', companyId, 'categories', id);
+      deleteDocumentNonBlocking(categoryRef);
     }
   };
 
@@ -93,7 +103,7 @@ export function CategoryTile({
                 variant="ghost" 
                 className="h-8 w-8 rounded-full hover:bg-muted"
                 onClick={toggleVisibility}
-                title={isVisible ? "Masquer pour les employés" : "Rendre visible pour les employés"}
+                title={isVisible ? "Masquer" : "Afficher"}
               >
                 {isVisible ? <Eye className="h-4 w-4 text-primary" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
               </Button>
@@ -102,9 +112,18 @@ export function CategoryTile({
                 variant="ghost" 
                 className="h-8 w-8 rounded-full hover:bg-muted"
                 onClick={handleRename}
-                title="Renommer la tuile"
+                title="Renommer"
               >
                 <Edit3 className="h-4 w-4 text-muted-foreground" />
+              </Button>
+              <Button 
+                size="icon" 
+                variant="ghost" 
+                className="h-8 w-8 rounded-full hover:bg-destructive/10 text-destructive"
+                onClick={handleDelete}
+                title="Supprimer"
+              >
+                <Trash2 className="h-4 w-4" />
               </Button>
             </div>
           )}
