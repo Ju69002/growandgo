@@ -8,8 +8,8 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { bossAiDataAnalysis } from '@/ai/flows/boss-ai-data-analysis';
-import { useUser, useFirestore, setDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking, useDoc, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
-import { doc, collection } from 'firebase/firestore';
+import { useUser, useFirestore, setDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking, useDoc, useMemoFirebase } from '@/firebase';
+import { doc } from 'firebase/firestore';
 import { User } from '@/lib/types';
 
 type Message = {
@@ -23,7 +23,7 @@ export function ChatAssistant() {
   const { user } = useUser();
   const db = useFirestore();
   const [messages, setMessages] = React.useState<Message[]>([
-    { role: 'assistant', content: 'Bonjour ! Je suis votre Architecte IA. Je peux modifier absolument tout l\'aspect visuel de votre site. Que souhaitez-vous changer ?' }
+    { role: 'assistant', content: 'Bonjour ! Je suis votre Architecte Suprême. Je peux modifier absolument tout l\'aspect visuel de votre site. Que souhaitez-vous changer ?' }
   ]);
   const [input, setInput] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
@@ -47,12 +47,14 @@ export function ChatAssistant() {
 
     const { type, categoryId, label, visibleToEmployees, color, moduleName, enabled } = action;
     
+    // Normalisation de l'ID en minuscules pour éviter les erreurs de permission/casse
+    const normalizedId = categoryId ? categoryId.toLowerCase() : (label ? label.toLowerCase().replace(/[^a-z0-9]/g, '_') : '');
+
     try {
       if (type === 'create_category' && label) {
-        const id = label.toLowerCase().replace(/[^a-z0-9]/g, '_');
-        const ref = doc(db, 'companies', companyId, 'categories', id);
+        const ref = doc(db, 'companies', companyId, 'categories', normalizedId);
         setDocumentNonBlocking(ref, {
-          id,
+          id: normalizedId,
           label,
           badgeCount: 0,
           visibleToEmployees: true,
@@ -60,19 +62,20 @@ export function ChatAssistant() {
           aiInstructions: `Analyse pour la catégorie ${label}.`,
           companyId
         }, { merge: true });
-      } else if (type === 'delete_category' && categoryId) {
-        const ref = doc(db, 'companies', companyId, 'categories', categoryId);
+      } else if (type === 'delete_category' && normalizedId) {
+        const ref = doc(db, 'companies', companyId, 'categories', normalizedId);
         deleteDocumentNonBlocking(ref);
-      } else if (type === 'rename_category' && categoryId && label) {
-        const ref = doc(db, 'companies', companyId, 'categories', categoryId);
+      } else if (type === 'rename_category' && normalizedId && label) {
+        const ref = doc(db, 'companies', companyId, 'categories', normalizedId);
         updateDocumentNonBlocking(ref, { label });
-      } else if (type === 'update_category_style' && categoryId && color) {
-        const ref = doc(db, 'companies', companyId, 'categories', categoryId);
-        // On convertit les noms simples en classes ou HSL si besoin
+      } else if (type === 'update_category_style' && normalizedId && color) {
+        const ref = doc(db, 'companies', companyId, 'categories', normalizedId);
+        
         let finalColor = color;
-        if (color.toLowerCase() === 'vert') finalColor = 'bg-emerald-500 text-white';
-        if (color.toLowerCase() === 'rouge') finalColor = 'bg-rose-500 text-white';
-        if (color.toLowerCase() === 'bleu') finalColor = 'bg-sky-500 text-white';
+        if (color.toLowerCase() === 'vert') finalColor = 'bg-emerald-500 text-white shadow-emerald-200';
+        if (color.toLowerCase() === 'rouge') finalColor = 'bg-rose-500 text-white shadow-rose-200';
+        if (color.toLowerCase() === 'bleu') finalColor = 'bg-sky-500 text-white shadow-sky-200';
+        if (color.toLowerCase() === 'jaune') finalColor = 'bg-amber-400 text-amber-950 shadow-amber-200';
         
         updateDocumentNonBlocking(ref, { color: finalColor });
       } else if (type === 'change_theme_color' && color) {

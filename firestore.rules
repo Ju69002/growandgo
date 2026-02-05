@@ -4,14 +4,10 @@ service cloud.firestore {
 
     /**
      * BUSINESS PILOT SECURITY RULES
-     *
-     * CORE PHILOSOPHY:
-     * This ruleset implements a multi-tenant SaaS security model where data access is strictly 
-     * partitioned by 'companyId'. The architecture relies on the 'User' document to define 
-     * a user's membership and role within a specific company.
+     * Partitionnement strict par 'companyId'.
      */
 
-    // --- HELPER FUNCTIONS ---
+    // --- FONCTIONS DE SECOURS ---
 
     function isSignedIn() {
       return request.auth != null;
@@ -22,8 +18,9 @@ service cloud.firestore {
     }
 
     function getUserData() {
+      // Simplification pour éviter les erreurs de lecture redondantes
       let path = /databases/$(database)/documents/users/$(request.auth.uid);
-      return exists(path) ? get(path).data : null;
+      return get(path).data;
     }
 
     function belongsToCompany(companyId) {
@@ -40,7 +37,7 @@ service cloud.firestore {
       return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
     }
 
-    // --- COLLECTION RULES ---
+    // --- RÈGLES DE COLLECTIONS ---
 
     match /roles_admin/{userId} {
       allow get: if isSignedIn();
@@ -48,17 +45,17 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow get: if isSignedIn() && (isOwner(userId) || (resource != null && belongsToCompany(resource.data.companyId)));
+      allow get: if isSignedIn() && (isOwner(userId) || belongsToCompany(getUserData().companyId));
       allow list: if isSignedIn() && isCompanyAdmin();
       allow create: if isOwner(userId);
-      allow update: if (isOwner(userId) && request.resource.data.role == resource.data.role) || (isCompanyAdmin() && belongsToCompany(resource.data.companyId));
+      allow update: if (isOwner(userId) && request.resource.data.role == resource.data.role) || (isCompanyAdmin() && belongsToCompany(getUserData().companyId));
       allow delete: if isGlobalAdmin();
     }
 
     match /companies/{companyId} {
       allow get: if belongsToCompany(companyId);
       allow list: if isGlobalAdmin();
-      allow create: if isSignedIn(); // Allow creation for prototyping/onboarding
+      allow create: if isSignedIn();
       allow update: if (belongsToCompany(companyId) && isCompanyAdmin()) || isGlobalAdmin();
       allow delete: if isGlobalAdmin();
     }
