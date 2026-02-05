@@ -18,9 +18,8 @@ service cloud.firestore {
     }
 
     function getUserData() {
-      // Simplification pour éviter les erreurs de lecture redondantes
       let path = /databases/$(database)/documents/users/$(request.auth.uid);
-      return get(path).data;
+      return exists(path) ? get(path).data : null;
     }
 
     function belongsToCompany(companyId) {
@@ -30,7 +29,7 @@ service cloud.firestore {
 
     function isCompanyAdmin() {
       let data = getUserData();
-      return isSignedIn() && data != null && data.role in ['admin', 'super_admin'];
+      return isSignedIn() && data != null && (data.role == 'admin' || data.role == 'super_admin');
     }
 
     function isGlobalAdmin() {

@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -69,8 +68,12 @@ export function ChatAssistant() {
   const executeAction = (action: any) => {
     if (!db || !companyId || !companyRef || !adminMode) return;
 
-    const { type, categoryId, label, visibleToEmployees, color, icon, moduleName, enabled } = action;
-    const normalizedId = categoryId ? categoryId.toLowerCase() : (label ? label.toLowerCase().replace(/[^a-z0-9]/g, '_') : '');
+    const { type, categoryId, label, color, icon, moduleName, enabled } = action;
+    
+    // Normalisation forcée en minuscules pour les IDs
+    const normalizedId = categoryId 
+      ? categoryId.toLowerCase() 
+      : (label ? label.toLowerCase().replace(/[^a-z0-9]/g, '_') : '');
 
     try {
       if (type === 'create_category' && label) {
@@ -157,12 +160,6 @@ export function ChatAssistant() {
     setMessages(prev => [...prev, { role: 'assistant', content: "Action annulée." }]);
     setPendingAction(null);
   };
-
-  React.useEffect(() => {
-    const handleOpenChat = () => setIsOpen(true);
-    window.addEventListener('open-chat-category-creation', handleOpenChat);
-    return () => window.removeEventListener('open-chat-category-creation', handleOpenChat);
-  }, []);
 
   return (
     <div className="fixed bottom-6 right-6 z-50">
