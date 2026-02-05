@@ -7,7 +7,7 @@ import { ShieldCheck, Info, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useUser, useFirestore, useDoc, useMemoFirebase, setDocumentNonBlocking, initiateAnonymousSignIn, useAuth } from '@/firebase';
 import { doc } from 'firebase/firestore';
-import { User } from '@/lib/types';
+import { User, Company } from '@/lib/types';
 
 const DEFAULT_CATEGORIES = [
   { id: 'finance', label: 'Finance', aiInstructions: 'Analyse des factures et trésorerie.' },
@@ -51,6 +51,20 @@ export default function Home() {
       const userRef = doc(db, 'users', user.uid);
       setDocumentNonBlocking(userRef, newUser, { merge: true });
 
+      const companyRef = doc(db, 'companies', companyId);
+      const newCompany: Company = {
+        id: companyId,
+        name: 'Ma Super Entreprise',
+        subscriptionStatus: 'active',
+        primaryColor: '231 48% 48%',
+        modulesConfig: {
+          showRh: true,
+          showFinance: true,
+          customLabels: {}
+        }
+      };
+      setDocumentNonBlocking(companyRef, newCompany, { merge: true });
+
       DEFAULT_CATEGORIES.forEach(cat => {
         const catRef = doc(db, 'companies', companyId, 'categories', cat.id);
         setDocumentNonBlocking(catRef, {
@@ -88,7 +102,7 @@ export default function Home() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-primary">Tableau de bord</h1>
             <p className="text-muted-foreground mt-1">
-              Bienvenue sur BusinessPilot. Vos catégories par défaut sont prêtes.
+              Bienvenue sur BusinessPilot. Votre Architecte IA peut changer la couleur du site si vous lui demandez.
             </p>
           </div>
           {userRole !== 'employee' && (
@@ -100,11 +114,11 @@ export default function Home() {
         </header>
 
         {adminMode && (
-          <Alert className="bg-teal-50 border-teal-200 animate-in slide-in-from-top-2">
-            <Info className="h-4 w-4 text-teal-600" />
-            <AlertTitle className="text-teal-800 font-bold">Mode Architecte</AlertTitle>
-            <AlertDescription className="text-teal-700">
-              Vous pouvez personnaliser les tuiles ou en créer de nouvelles via l'assistant Gemini.
+          <Alert className="bg-primary/5 border-primary/20 animate-in slide-in-from-top-2">
+            <Info className="h-4 w-4 text-primary" />
+            <AlertTitle className="text-primary font-bold">Mode Architecte Visuel</AlertTitle>
+            <AlertDescription className="text-primary/80">
+              Demandez au chatbot : "Change la couleur en vert" ou "Passe le site en rouge" pour personnaliser l'aspect visuel instantanément.
             </AlertDescription>
           </Alert>
         )}

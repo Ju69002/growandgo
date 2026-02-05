@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 import { bossAiDataAnalysis } from '@/ai/flows/boss-ai-data-analysis';
 import { useUser, useFirestore, setDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking, useDoc, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
 import { doc, collection } from 'firebase/firestore';
-import { User } from '@/lib/types';
+import { User, Company } from '@/lib/types';
 
 type Message = {
   role: 'user' | 'assistant';
@@ -22,7 +22,7 @@ export function ChatAssistant() {
   const { user } = useUser();
   const db = useFirestore();
   const [messages, setMessages] = React.useState<Message[]>([
-    { role: 'assistant', content: 'Bonjour ! Comment puis-je vous aider ?' }
+    { role: 'assistant', content: 'Bonjour ! Je suis votre Architecte IA. Comment puis-je modifier votre espace aujourd\'hui ?' }
   ]);
   const [input, setInput] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
@@ -35,17 +35,13 @@ export function ChatAssistant() {
   const { data: profile } = useDoc<User>(userProfileRef);
   const companyId = profile?.companyId || 'default-company';
 
-  React.useEffect(() => {
-    const handleOpenCreation = () => {
-      setIsOpen(true);
-      setInput("Crée une nouvelle tuile nommée ");
-    };
-    window.addEventListener('open-chat-category-creation', handleOpenCreation);
-    return () => window.removeEventListener('open-chat-category-creation', handleOpenCreation);
-  }, []);
+  const companyRef = useMemoFirebase(() => {
+    if (!db || !companyId) return null;
+    return doc(db, 'companies', companyId);
+  }, [db, companyId]);
 
   const handleSend = async () => {
-    if (!input.trim() || isLoading || !db || !companyId) return;
+    if (!input.trim() || isLoading || !db || !companyId || !companyRef) return;
 
     const userMessage: Message = { role: 'user', content: input };
     setMessages(prev => [...prev, userMessage]);
@@ -60,7 +56,7 @@ export function ChatAssistant() {
       });
 
       if (result.action) {
-        const { type, categoryId, label, visibleToEmployees, documentName, documentId } = result.action;
+        const { type, categoryId, label, visibleToEmployees, documentName, documentId, color, moduleName, enabled } = result.action;
         
         if (type === 'create_category' && label) {
           const id = label.toLowerCase().replace(/[^a-z0-9]/g, '_');
@@ -95,9 +91,11 @@ export function ChatAssistant() {
             createdAt: new Date().toLocaleDateString(),
             companyId
           });
-        } else if (type === 'delete_document' && documentId) {
-          const ref = doc(db, 'companies', companyId, 'documents', documentId);
-          deleteDocumentNonBlocking(ref);
+        } else if (type === 'change_theme_color' && color) {
+          updateDocumentNonBlocking(companyRef, { primaryColor: color });
+        } else if (type === 'toggle_module' && moduleName) {
+          const key = moduleName.toLowerCase() === 'rh' ? 'showRh' : 'showFinance';
+          updateDocumentNonBlocking(companyRef, { [`modulesConfig.${key}`]: enabled ?? true });
         }
       }
 
@@ -126,7 +124,7 @@ export function ChatAssistant() {
           <CardHeader className="bg-primary text-primary-foreground rounded-t-xl p-4 flex flex-row items-center justify-between space-y-0">
             <div className="flex items-center gap-2">
               <Bot className="h-5 w-5" />
-              <CardTitle className="text-base font-bold">Assistant Gemini</CardTitle>
+              <CardTitle className="text-base font-bold">Architecte IA</CardTitle>
             </div>
             <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)} className="h-8 w-8 text-white hover:bg-white/10">
               <X className="h-4 w-4" />
@@ -160,7 +158,7 @@ export function ChatAssistant() {
           <CardFooter className="p-3 border-t bg-card">
             <div className="flex w-full items-center gap-2">
               <Input
-                placeholder="Ex: Renomme la tuile RH en Équipe..."
+                placeholder="Ex: Change la couleur en vert..."
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}

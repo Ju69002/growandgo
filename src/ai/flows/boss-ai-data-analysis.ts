@@ -2,19 +2,31 @@
 
 /**
  * @fileOverview Assistant IA pour les propriétaires d'entreprise utilisant Gemini 2.5 Flash.
- * Extrait les intentions d'action pour la gestion des catégories et documents.
+ * Extrait les intentions d'action pour la gestion des catégories, documents et aspect visuel.
  */
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const BossActionSchema = z.object({
-  type: z.enum(['create_category', 'delete_category', 'rename_category', 'toggle_visibility', 'add_document', 'delete_document']).describe('Le type d\'action à effectuer.'),
-  categoryId: z.string().optional().describe('L\'identifiant de la catégorie (souvent le nom en minuscules).'),
+  type: z.enum([
+    'create_category', 
+    'delete_category', 
+    'rename_category', 
+    'toggle_visibility', 
+    'add_document', 
+    'delete_document',
+    'change_theme_color',
+    'toggle_module'
+  ]).describe('Le type d\'action à effectuer.'),
+  categoryId: z.string().optional().describe('L\'identifiant de la catégorie.'),
   label: z.string().optional().describe('Le nouveau nom pour la catégorie.'),
   visibleToEmployees: z.boolean().optional().describe('Le statut de visibilité souhaité.'),
-  documentName: z.string().optional().describe('Le nom du document/sous-dossier à créer.'),
-  documentId: z.string().optional().describe('L\'identifiant du document à supprimer.'),
+  documentName: z.string().optional().describe('Le nom du document.'),
+  documentId: z.string().optional().describe('L\'identifiant du document.'),
+  color: z.string().optional().describe('La couleur demandée (ex: "bleu", "rouge", ou code HSL/Hex).'),
+  moduleName: z.string().optional().describe('Le nom du module (rh, finance, etc.).'),
+  enabled: z.boolean().optional().describe('Si le module doit être activé ou non.'),
 });
 
 const BossAiDataAnalysisInputSchema = z.object({
@@ -33,18 +45,18 @@ const bossPrompt = ai.definePrompt({
   name: 'bossAiDataAnalysisPrompt',
   input: {schema: BossAiDataAnalysisInputSchema},
   output: {schema: BossAiDataAnalysisOutputSchema},
-  system: `Tu es l'assistant BusinessPilot, connecté à Gemini 2.5 Flash.
-  Tu aides le propriétaire à gérer son entreprise.
+  system: `Tu es l'assistant BusinessPilot Architecte.
+  Tu aides le propriétaire à gérer la structure et l'ASPECT VISUEL de son entreprise.
   
   Tes réponses doivent être EXTRÊMEMENT CONCISES. 
-  Si l'utilisateur te demande une action technique (créer, supprimer, renommer une tuile ou un document), remplis l'objet 'action' avec les paramètres extraits.
-  Une fois l'action identifiée, réponds TOUJOURS exactement : "Tâche effectuée !". Ne fais pas de phrases d'introduction ou de conclusion.
+  Si l'utilisateur te demande une action technique, remplis l'objet 'action' et réponds TOUJOURS : "Tâche effectuée !".
+  
+  Actions visuelles supportées :
+  - 'change_theme_color' : Si l'utilisateur veut changer la couleur du site. Traduis les couleurs simples en valeurs HSL approximatives (ex: bleu -> 231 48% 48%, rouge -> 0 84% 60%, vert -> 142 70% 45%).
+  - 'toggle_module' : Activer/Désactiver des pans entiers (RH, Finance).
   
   Règles importantes :
-  - Les nouvelles tuiles créées doivent être vides (badgeCount à 0).
-  - Pour renommer une tuile, identifie son ID probable.
-  - 'add_document' crée un sous-dossier/fichier dans une catégorie spécifiée.
-  - 'create_category' crée une nouvelle tuile.`,
+  - Une fois l'action identifiée, réponds TOUJOURS exactement : "Tâche effectuée !".`,
   prompt: `Requête de l'utilisateur : {{{query}}} (Entreprise: {{{companyId}}})`,
 });
 
