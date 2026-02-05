@@ -9,6 +9,17 @@ import { useParams, useRouter } from 'next/navigation';
 import { useFirestore, useDoc, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, useUser } from '@/firebase';
 import { doc, collection } from 'firebase/firestore';
 import { Category, User } from '@/lib/types';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 export default function CategoryPage() {
   const params = useParams();
@@ -37,23 +48,21 @@ export default function CategoryPage() {
     if (!db || !companyId) return;
     const docsRef = collection(db, 'companies', companyId, 'documents');
     
-    const name = prompt("Nom du fichier à ajouter (sous-dossier) :", "Nouveau_Document.pdf");
-    if (name) {
-      addDocumentNonBlocking(docsRef, {
-        name,
-        categoryId: categoryId,
-        projectColumn: 'budget',
-        status: 'pending_analysis',
-        extractedData: {},
-        fileUrl: 'https://picsum.photos/seed/doc/200/300',
-        createdAt: new Date().toLocaleDateString(),
-        companyId: companyId
-      });
-    }
+    // Pour le prototype, on simule l'ajout d'un document
+    addDocumentNonBlocking(docsRef, {
+      name: "Document_Analysé_" + Math.floor(Math.random() * 1000) + ".pdf",
+      categoryId: categoryId,
+      projectColumn: 'budget',
+      status: 'pending_analysis',
+      extractedData: {},
+      fileUrl: 'https://picsum.photos/seed/doc/200/300',
+      createdAt: new Date().toLocaleDateString(),
+      companyId: companyId
+    });
   };
 
   const handleDeleteCategory = () => {
-    if (!db || !categoryRef || !confirm("Voulez-vous vraiment supprimer cette tuile et tout son contenu ?")) return;
+    if (!db || !categoryRef) return;
     deleteDocumentNonBlocking(categoryRef);
     router.push('/');
   };
@@ -72,14 +81,31 @@ export default function CategoryPage() {
                 {isLoading ? 'Chargement...' : (category?.label || 'Catégorie')}
               </h1>
               {isAdmin && (
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="text-destructive hover:bg-destructive/10"
-                  onClick={handleDeleteCategory}
-                >
-                  <Trash2 className="w-5 h-5" />
-                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Supprimer cette catégorie ?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Toutes les données contenues dans cette tuile seront définitivement supprimées. Cette action est irréversible.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Annuler</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDeleteCategory} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                        Supprimer
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               )}
             </div>
             <p className="text-muted-foreground">
