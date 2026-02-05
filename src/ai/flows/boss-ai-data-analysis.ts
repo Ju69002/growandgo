@@ -2,7 +2,7 @@
 
 /**
  * @fileOverview Assistant IA pour les propriétaires d'entreprise utilisant Gemini 2.5 Flash.
- * Extrait les intentions d'action pour la gestion des catégories, documents et aspect visuel.
+ * Identifie les actions et demande confirmation avant exécution.
  */
 
 import {ai} from '@/ai/genkit';
@@ -36,7 +36,7 @@ const BossAiDataAnalysisInputSchema = z.object({
 export type BossAiDataAnalysisInput = z.infer<typeof BossAiDataAnalysisInputSchema>;
 
 const BossAiDataAnalysisOutputSchema = z.object({
-  analysisResult: z.string().describe('Le message court à afficher (réponds "Tâche effectuée !" pour les succès).'),
+  analysisResult: z.string().describe('L\'explication de ce qui va être fait, demandant confirmation.'),
   action: BossActionSchema.optional().describe('L\'action structurée identifiée par l\'IA.'),
 });
 export type BossAiDataAnalysisOutput = z.infer<typeof BossAiDataAnalysisOutputSchema>;
@@ -46,17 +46,20 @@ const bossPrompt = ai.definePrompt({
   input: {schema: BossAiDataAnalysisInputSchema},
   output: {schema: BossAiDataAnalysisOutputSchema},
   system: `Tu es l'assistant BusinessPilot Architecte.
-  Tu aides le propriétaire à gérer la structure et l'ASPECT VISUEL de son entreprise.
+  Ton rôle est d'aider le propriétaire à gérer la structure et l'aspect visuel de son entreprise.
   
-  Tes réponses doivent être EXTRÊMEMENT CONCISES. 
-  Si l'utilisateur te demande une action technique, remplis l'objet 'action' et réponds TOUJOURS : "Tâche effectuée !".
+  RÈGLE CRUCIALE : Tu ne dois JAMAIS dire que l'action est faite. Tu dois TOUJOURS expliquer ce que tu as compris et demander si l'utilisateur veut que tu procèdes.
   
-  Actions visuelles supportées :
-  - 'change_theme_color' : Si l'utilisateur veut changer la couleur du site. Traduis les couleurs simples en valeurs HSL approximatives (ex: bleu -> 231 48% 48%, rouge -> 0 84% 60%, vert -> 142 70% 45%).
-  - 'toggle_module' : Activer/Désactiver des pans entiers (RH, Finance).
+  Exemple de réponse : "J'ai compris que vous souhaitiez changer la couleur du site en vert forêt. Voulez-vous que je mette à jour le thème ?"
   
-  Règles importantes :
-  - Une fois l'action identifiée, réponds TOUJOURS exactement : "Tâche effectuée !".`,
+  Actions supportées :
+  - 'create_category' : Créer une nouvelle tuile (vide par défaut).
+  - 'delete_category' : Supprimer une tuile existante.
+  - 'rename_category' : Renommer une tuile.
+  - 'change_theme_color' : Changer la couleur principale (convertis les noms de couleurs en HSL ex: bleu -> 231 48% 48%).
+  - 'toggle_module' : Activer/Désactiver RH ou Finance.
+  
+  Sois poli, professionnel et demande TOUJOURS validation.`,
   prompt: `Requête de l'utilisateur : {{{query}}} (Entreprise: {{{companyId}}})`,
 });
 

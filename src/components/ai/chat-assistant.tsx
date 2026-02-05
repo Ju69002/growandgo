@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { X, Send, Bot, Sparkles, Loader2 } from 'lucide-react';
+import { X, Send, Bot, Sparkles, Loader2, Check, Ban } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -10,11 +10,12 @@ import { cn } from '@/lib/utils';
 import { bossAiDataAnalysis } from '@/ai/flows/boss-ai-data-analysis';
 import { useUser, useFirestore, setDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking, useDoc, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
 import { doc, collection } from 'firebase/firestore';
-import { User, Company } from '@/lib/types';
+import { User } from '@/lib/types';
 
 type Message = {
   role: 'user' | 'assistant';
   content: string;
+  action?: any;
 };
 
 export function ChatAssistant() {
@@ -22,10 +23,11 @@ export function ChatAssistant() {
   const { user } = useUser();
   const db = useFirestore();
   const [messages, setMessages] = React.useState<Message[]>([
-    { role: 'assistant', content: 'Bonjour ! Je suis votre Architecte IA. Comment puis-je modifier votre espace aujourd\'hui ?' }
+    { role: 'assistant', content: 'Bonjour ! Je suis votre Architecte IA. Quelle modification souhaitez-vous apporter à votre espace ?' }
   ]);
   const [input, setInput] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
+  const [pendingAction, setPendingAction] = React.useState<any | null>(null);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -40,8 +42,64 @@ export function ChatAssistant() {
     return doc(db, 'companies', companyId);
   }, [db, companyId]);
 
+  const executeAction = (action: any) => {
+    if (!db || !companyId || !companyRef) return;
+
+    const { type, categoryId, label, visibleToEmployees, documentName, color, moduleName, enabled } = action;
+    
+    try {
+      if (type === 'create_category' && label) {
+        const id = label.toLowerCase().replace(/[^a-z0-9]/g, '_');
+        const ref = doc(db, 'companies', companyId, 'categories', id);
+        setDocumentNonBlocking(ref, {
+          id,
+          label,
+          badgeCount: 0,
+          visibleToEmployees: true,
+          type: 'custom',
+          aiInstructions: `Analyse pour la catégorie ${label}.`,
+          companyId
+        }, { merge: true });
+      } else if (type === 'delete_category' && categoryId) {
+        const ref = doc(db, 'companies', companyId, 'categories', categoryId);
+        deleteDocumentNonBlocking(ref);
+      } else if (type === 'rename_category' && categoryId && label) {
+        const ref = doc(db, 'companies', companyId, 'categories', categoryId);
+        updateDocumentNonBlocking(ref, { label });
+      } else if (type === 'toggle_visibility' && categoryId) {
+        const ref = doc(db, 'companies', companyId, 'categories', categoryId);
+        updateDocumentNonBlocking(ref, { visibleToEmployees: visibleToEmployees ?? true });
+      } else if (type === 'add_document' && categoryId && documentName) {
+        const ref = collection(db, 'companies', companyId, 'documents');
+        addDocumentNonBlocking(ref, {
+          name: documentName,
+          categoryId,
+          projectColumn: 'budget',
+          status: 'pending_analysis',
+          extractedData: {},
+          fileUrl: 'https://picsum.photos/seed/doc/200/300',
+          createdAt: new Date().toLocaleDateString(),
+          companyId
+        });
+      } else if (type === 'change_theme_color' && color) {
+        updateDocumentNonBlocking(companyRef, { primaryColor: color });
+      } else if (type === 'toggle_module' && moduleName) {
+        const key = moduleName.toLowerCase() === 'rh' ? 'showRh' : 'showFinance';
+        updateDocumentNonBlocking(companyRef, { [`modulesConfig.${key}`]: enabled ?? true });
+      }
+
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: "C'est fait ! La modification a été appliquée." 
+      }]);
+    } catch (error) {
+      setMessages(prev => [...prev, { role: 'assistant', content: "Désolé, une erreur est survenue lors de l'exécution." }]);
+    }
+    setPendingAction(null);
+  };
+
   const handleSend = async () => {
-    if (!input.trim() || isLoading || !db || !companyId || !companyRef) return;
+    if (!input.trim() || isLoading || !db || !companyId) return;
 
     const userMessage: Message = { role: 'user', content: input };
     setMessages(prev => [...prev, userMessage]);
@@ -56,58 +114,23 @@ export function ChatAssistant() {
       });
 
       if (result.action) {
-        const { type, categoryId, label, visibleToEmployees, documentName, documentId, color, moduleName, enabled } = result.action;
-        
-        if (type === 'create_category' && label) {
-          const id = label.toLowerCase().replace(/[^a-z0-9]/g, '_');
-          const ref = doc(db, 'companies', companyId, 'categories', id);
-          setDocumentNonBlocking(ref, {
-            id,
-            label,
-            badgeCount: 0,
-            visibleToEmployees: true,
-            type: 'custom',
-            aiInstructions: `Analyse pour la catégorie ${label}.`,
-            companyId
-          }, { merge: true });
-        } else if (type === 'delete_category' && categoryId) {
-          const ref = doc(db, 'companies', companyId, 'categories', categoryId);
-          deleteDocumentNonBlocking(ref);
-        } else if (type === 'rename_category' && categoryId && label) {
-          const ref = doc(db, 'companies', companyId, 'categories', categoryId);
-          updateDocumentNonBlocking(ref, { label });
-        } else if (type === 'toggle_visibility' && categoryId) {
-          const ref = doc(db, 'companies', companyId, 'categories', categoryId);
-          updateDocumentNonBlocking(ref, { visibleToEmployees: visibleToEmployees ?? true });
-        } else if (type === 'add_document' && categoryId && documentName) {
-          const ref = collection(db, 'companies', companyId, 'documents');
-          addDocumentNonBlocking(ref, {
-            name: documentName,
-            categoryId,
-            projectColumn: 'budget',
-            status: 'pending_analysis',
-            extractedData: {},
-            fileUrl: 'https://picsum.photos/seed/doc/200/300',
-            createdAt: new Date().toLocaleDateString(),
-            companyId
-          });
-        } else if (type === 'change_theme_color' && color) {
-          updateDocumentNonBlocking(companyRef, { primaryColor: color });
-        } else if (type === 'toggle_module' && moduleName) {
-          const key = moduleName.toLowerCase() === 'rh' ? 'showRh' : 'showFinance';
-          updateDocumentNonBlocking(companyRef, { [`modulesConfig.${key}`]: enabled ?? true });
-        }
+        setPendingAction(result.action);
       }
 
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: result.analysisResult || "Tâche effectuée !" 
+        content: result.analysisResult || "Je n'ai pas bien compris, pouvez-vous reformuler ?" 
       }]);
     } catch (error) {
       setMessages(prev => [...prev, { role: 'assistant', content: "Désolé, une erreur est survenue." }]);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleCancel = () => {
+    setMessages(prev => [...prev, { role: 'assistant', content: "Action annulée. Je reste à votre écoute pour autre chose !" }]);
+    setPendingAction(null);
   };
 
   return (
@@ -145,6 +168,25 @@ export function ChatAssistant() {
                     </div>
                   </div>
                 ))}
+                
+                {pendingAction && !isLoading && (
+                  <div className="flex justify-start animate-in fade-in slide-in-from-left-2">
+                    <div className="flex flex-col gap-2 p-3 bg-muted/50 border rounded-2xl rounded-tl-none max-w-[85%]">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Validation requise</p>
+                      <div className="flex gap-2">
+                        <Button size="sm" onClick={() => executeAction(pendingAction)} className="bg-emerald-600 hover:bg-emerald-700 h-8">
+                          <Check className="w-4 h-4 mr-1" />
+                          Confirmer
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={handleCancel} className="h-8">
+                          <Ban className="w-4 h-4 mr-1" />
+                          Annuler
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {isLoading && (
                   <div className="flex justify-start">
                     <div className="bg-muted p-3 rounded-2xl text-sm italic">
@@ -158,13 +200,14 @@ export function ChatAssistant() {
           <CardFooter className="p-3 border-t bg-card">
             <div className="flex w-full items-center gap-2">
               <Input
-                placeholder="Ex: Change la couleur en vert..."
+                placeholder={pendingAction ? "Veuillez confirmer ci-dessus..." : "Ex: Renomme la tuile RH en Équipe..."}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                disabled={isLoading || !!pendingAction}
                 className="flex-1 bg-muted/50 border-none focus-visible:ring-primary"
               />
-              <Button size="icon" onClick={handleSend} disabled={isLoading || !input.trim()}>
+              <Button size="icon" onClick={handleSend} disabled={isLoading || !input.trim() || !!pendingAction}>
                 <Send className="h-4 w-4" />
               </Button>
             </div>
