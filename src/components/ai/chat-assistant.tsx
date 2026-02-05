@@ -70,10 +70,8 @@ export function ChatAssistant() {
 
     const { type, categoryId, label, color, icon, moduleName, enabled } = action;
     
-    // Normalisation forcée en minuscules pour les IDs
-    const normalizedId = categoryId 
-      ? categoryId.toLowerCase() 
-      : (label ? label.toLowerCase().replace(/[^a-z0-9]/g, '_') : '');
+    // Normalisation forcée en minuscules pour les IDs pour éviter les erreurs de permission/casse
+    const normalizedId = (categoryId || label || '').toLowerCase().replace(/[^a-z0-9]/g, '_');
 
     try {
       if (type === 'create_category' && label) {
