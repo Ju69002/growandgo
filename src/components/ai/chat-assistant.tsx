@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { MessageSquare, X, Send, Bot, Sparkles, Loader2 } from 'lucide-react';
+import { X, Send, Bot, Sparkles, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -22,7 +22,7 @@ export function ChatAssistant() {
   const { user } = useUser();
   const db = useFirestore();
   const [messages, setMessages] = React.useState<Message[]>([
-    { role: 'assistant', content: 'Bonjour ! Je suis votre assistant BusinessPilot propulsé par Gemini. Comment puis-je vous aider ?' }
+    { role: 'assistant', content: 'Bonjour ! Comment puis-je vous aider ?' }
   ]);
   const [input, setInput] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
@@ -62,7 +62,6 @@ export function ChatAssistant() {
       if (result.action) {
         const { type, categoryId, label, visibleToEmployees, documentName, documentId } = result.action;
         
-        // Exécution de l'action demandée par Gemini
         if (type === 'create_category' && label) {
           const id = label.toLowerCase().replace(/[^a-z0-9]/g, '_');
           const ref = doc(db, 'companies', companyId, 'categories', id);
@@ -70,7 +69,7 @@ export function ChatAssistant() {
             id,
             label,
             badgeCount: 0,
-            visibleToEmployees: false,
+            visibleToEmployees: true,
             type: 'custom',
             aiInstructions: `Analyse pour la catégorie ${label}.`,
             companyId
@@ -107,7 +106,7 @@ export function ChatAssistant() {
         content: result.analysisResult || "Tâche effectuée !" 
       }]);
     } catch (error) {
-      setMessages(prev => [...prev, { role: 'assistant', content: "Une erreur est survenue lors de l'analyse." }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: "Désolé, une erreur est survenue." }]);
     } finally {
       setIsLoading(false);
     }
@@ -123,7 +122,7 @@ export function ChatAssistant() {
           <Sparkles className="h-6 w-6 text-white" />
         </Button>
       ) : (
-        <Card className="w-[380px] h-[500px] flex flex-col shadow-2xl border-none animate-in slide-in-from-bottom-5">
+        <Card className="w-[350px] sm:w-[380px] h-[500px] flex flex-col shadow-2xl border-none animate-in slide-in-from-bottom-5">
           <CardHeader className="bg-primary text-primary-foreground rounded-t-xl p-4 flex flex-row items-center justify-between space-y-0">
             <div className="flex items-center gap-2">
               <Bot className="h-5 w-5" />
@@ -161,7 +160,7 @@ export function ChatAssistant() {
           <CardFooter className="p-3 border-t bg-card">
             <div className="flex w-full items-center gap-2">
               <Input
-                placeholder="Ex: Crée la tuile 'Archives'..."
+                placeholder="Ex: Renomme la tuile RH en Équipe..."
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}

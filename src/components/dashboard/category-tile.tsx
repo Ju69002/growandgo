@@ -36,7 +36,7 @@ export function CategoryTile({
   const toggleVisibility = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!db) return;
+    if (!db || !companyId) return;
     const categoryRef = doc(db, 'companies', companyId, 'categories', id);
     updateDocumentNonBlocking(categoryRef, { visibleToEmployees: !isVisible });
   };
@@ -45,7 +45,7 @@ export function CategoryTile({
     e.preventDefault();
     e.stopPropagation();
     const newName = prompt('Nouveau nom pour la catégorie :', label);
-    if (newName && newName !== label && db) {
+    if (newName && newName !== label && db && companyId) {
       const categoryRef = doc(db, 'companies', companyId, 'categories', id);
       updateDocumentNonBlocking(categoryRef, { label: newName });
     }
@@ -54,8 +54,8 @@ export function CategoryTile({
   const handleDelete = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!confirm(`Voulez-vous vraiment supprimer la catégorie "${label}" ?`)) return;
-    if (db) {
+    if (!confirm(`Voulez-vous vraiment supprimer la catégorie "${label}" ? Cette action est irréversible.`)) return;
+    if (db && companyId) {
       const categoryRef = doc(db, 'companies', companyId, 'categories', id);
       deleteDocumentNonBlocking(categoryRef);
     }
@@ -63,11 +63,11 @@ export function CategoryTile({
 
   return (
     <Card className={cn(
-      "relative group overflow-hidden border-none shadow-md transition-all hover:shadow-lg bg-card",
+      "relative group overflow-hidden border-none shadow-md transition-all hover:shadow-lg bg-card h-full",
       !isVisible && !isAdminMode && "hidden",
       !isVisible && isAdminMode && "opacity-60"
     )}>
-      <CardContent className="p-6">
+      <CardContent className="p-6 h-full flex flex-col">
         <div className="flex items-start justify-between mb-8">
           <div className={cn("p-4 rounded-2xl transition-transform group-hover:scale-105", colorClass)}>
             <Icon className="w-8 h-8" />
@@ -79,7 +79,7 @@ export function CategoryTile({
           )}
         </div>
 
-        <div className="space-y-1">
+        <div className="space-y-1 flex-1">
           <h3 className="text-xl font-bold tracking-tight text-foreground">{label}</h3>
           <p className="text-sm text-muted-foreground">
             {badgeCount > 0 
@@ -89,7 +89,7 @@ export function CategoryTile({
         </div>
 
         <div className="mt-8 flex items-center justify-between">
-          <Button asChild variant="link" className="p-0 text-primary font-semibold group/link">
+          <Button asChild variant="link" className="p-0 text-primary font-semibold group/link h-auto">
             <Link href={`/categories/${id}`} className="flex items-center gap-2">
               Explorer
               <ArrowRight className="w-4 h-4 group-hover/link:translate-x-1 transition-transform" />
@@ -103,7 +103,7 @@ export function CategoryTile({
                 variant="ghost" 
                 className="h-8 w-8 rounded-full hover:bg-muted"
                 onClick={toggleVisibility}
-                title={isVisible ? "Masquer" : "Afficher"}
+                title={isVisible ? "Masquer pour les employés" : "Afficher pour les employés"}
               >
                 {isVisible ? <Eye className="h-4 w-4 text-primary" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
               </Button>
@@ -112,7 +112,7 @@ export function CategoryTile({
                 variant="ghost" 
                 className="h-8 w-8 rounded-full hover:bg-muted"
                 onClick={handleRename}
-                title="Renommer"
+                title="Renommer la tuile"
               >
                 <Edit3 className="h-4 w-4 text-muted-foreground" />
               </Button>
@@ -121,7 +121,7 @@ export function CategoryTile({
                 variant="ghost" 
                 className="h-8 w-8 rounded-full hover:bg-destructive/10 text-destructive"
                 onClick={handleDelete}
-                title="Supprimer"
+                title="Supprimer la tuile"
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
