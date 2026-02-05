@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { CategoryTiles } from '@/components/dashboard/category-tiles';
 import { ShieldCheck, Info, Loader2 } from 'lucide-react';
@@ -13,6 +14,7 @@ export default function Home() {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
   const db = useFirestore();
+  const [isInitializing, setIsInitializing] = useState(true);
 
   // Auto-login for prototype
   useEffect(() => {
@@ -42,9 +44,13 @@ export default function Home() {
       const ref = doc(db, 'users', user.uid);
       setDocumentNonBlocking(ref, newUser, { merge: true });
     }
+    
+    if (user && profile) {
+      setIsInitializing(false);
+    }
   }, [user, isProfileLoading, profile, db]);
 
-  if (isUserLoading || (user && isProfileLoading)) {
+  if (isUserLoading || isInitializing || (user && isProfileLoading)) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />

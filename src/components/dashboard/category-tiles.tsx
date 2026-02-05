@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -50,16 +51,17 @@ export function CategoryTiles({ isAdminMode }: CategoryTilesProps) {
   }, [db, user]);
 
   const { data: profile } = useDoc<User>(userProfileRef);
-  const companyId = profile?.companyId || 'default-company';
+  const companyId = profile?.companyId;
 
   const categoriesQuery = useMemoFirebase(() => {
-    if (!db || !user || !profile) return null;
+    // CRITICAL: Only run query if profile and companyId are available to avoid permission errors
+    if (!db || !user || !profile || !companyId) return null;
     return query(collection(db, 'companies', companyId, 'categories'));
   }, [db, user, profile, companyId]);
 
   const { data: categories, isLoading } = useCollection<Category>(categoriesQuery);
 
-  if (isLoading || !profile) {
+  if (isLoading || !profile || !companyId) {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {[1, 2, 3].map((i) => (

@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -80,7 +81,7 @@ export function ChatAssistant() {
           query: currentInput,
           companyData: "Données synthétisées : Opérations normales."
         });
-        setMessages(prev => [...prev, { role: 'assistant', content: result.analysisResult }]);
+        setMessages(prev => [...prev, { role: 'assistant', content: "Tâche effectuée !" }]);
       }
     } catch (error) {
       setMessages(prev => [...prev, { role: 'assistant', content: "Une erreur est survenue." }]);
