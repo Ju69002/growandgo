@@ -28,6 +28,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
 interface CategoryTileProps {
   id: string;
@@ -170,6 +171,7 @@ export function CategoryTile({
             <DialogTitle>Renommer la catégorie</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
+            <Label>Nouveau nom</Label>
             <Input
               value={newLabel}
               onChange={(e) => setNewLabel(e.target.value)}

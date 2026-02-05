@@ -70,8 +70,8 @@ export function ChatAssistant() {
     if (!db || !companyId || !companyRef || !adminMode) return;
 
     const { type, categoryId, label, color, icon, moduleName, enabled } = action;
-    // Normalisation de l'ID en minuscules pour correspondre aux catégories existantes
-    const targetId = (categoryId || label || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
+    const rawId = categoryId || label || '';
+    const targetId = rawId.toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
 
     try {
       if (type === 'create_category' && label) {
@@ -82,7 +82,7 @@ export function ChatAssistant() {
           badgeCount: 0,
           visibleToEmployees: true,
           type: 'custom',
-          aiInstructions: `Analyse pour ${label}.`,
+          aiInstructions: `Analyse spécialisée pour ${label}.`,
           companyId,
           color: getColorStyle(color),
           icon: icon || 'maison'
@@ -110,7 +110,7 @@ export function ChatAssistant() {
 
       setMessages(prev => [...prev, { role: 'assistant', content: "C'est fait ! La transformation a été appliquée avec succès." }]);
     } catch (error) {
-      setMessages(prev => [...prev, { role: 'assistant', content: "Désolé, une erreur technique a empêché l'application. Veuillez réessayer." }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: "Désolé, une erreur technique a empêché l'application." }]);
     }
     setPendingAction(null);
   };
@@ -126,7 +126,7 @@ export function ChatAssistant() {
     if (!adminMode) {
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: "Désolé, je ne suis pas habilité à effectuer des modifications car le Mode Architecte est désactivé. Veuillez l'activer pour que je puisse agir." 
+        content: "Désolé, je ne suis pas habilité à faire ça car le Mode Architecte est désactivé." 
       }]);
       setIsLoading(false);
       return;
@@ -144,10 +144,10 @@ export function ChatAssistant() {
 
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: result.analysisResult || "Je suis prêt. Souhaitez-vous que j'applique cette modification ?" 
+        content: result.analysisResult || "Plan établi. Souhaitez-vous que j'agisse ?" 
       }]);
     } catch (error) {
-      setMessages(prev => [...prev, { role: 'assistant', content: "Je suis prêt à transformer votre interface. Pourriez-vous reformuler votre demande ?" }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: "Je suis prêt. Pourriez-vous préciser votre demande de design ?" }]);
     } finally {
       setIsLoading(false);
     }
@@ -188,7 +188,7 @@ export function ChatAssistant() {
                 {pendingAction && !isLoading && (
                   <div className="flex justify-start">
                     <div className="flex flex-col gap-2 p-3 bg-primary/5 border rounded-2xl max-w-[85%]">
-                      <p className="text-xs font-bold text-primary uppercase">Confirmation de l'Architecte</p>
+                      <p className="text-xs font-bold text-primary uppercase">Validation de l'Architecte</p>
                       <div className="flex gap-2">
                         <Button size="sm" onClick={() => executeAction(pendingAction)} className="bg-emerald-600 hover:bg-emerald-700 h-8">
                           <Check className="w-4 h-4 mr-1" />
@@ -216,7 +216,7 @@ export function ChatAssistant() {
           <CardFooter className="p-3 border-t">
             <div className="flex w-full items-center gap-2">
               <Input
-                placeholder={pendingAction ? "Validez ci-dessus..." : "Ex: Crée une tuile maison rouge..."}
+                placeholder={pendingAction ? "Action en attente..." : "Ex: maison rouge..."}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}

@@ -18,11 +18,11 @@ const BossActionSchema = z.object({
     'change_theme_color',
     'toggle_module'
   ]).describe('Le type d\'action à effectuer.'),
-  categoryId: z.string().optional().describe('L\'identifiant de la catégorie/tuile concernée (ID normalisé).'),
-  label: z.string().optional().describe('Le nom affiché (ex: "Maison", "Finance").'),
+  categoryId: z.string().optional().describe('L\'identifiant de la catégorie (sera normalisé en minuscules).'),
+  label: z.string().optional().describe('Le nom affiché (ex: "Maison", "Signature").'),
   visibleToEmployees: z.boolean().optional().describe('Statut de visibilité.'),
-  color: z.string().optional().describe('La couleur demandée (ex: "rouge", "vert", "bleu", "noir", "violet", "jaune", "orange").'),
-  icon: z.string().optional().describe('L\'icône demandée (ex: "maison", "finance", "rh", "agenda", "travail", "parametres", "signatures").'),
+  color: z.string().optional().describe('La couleur demandée (ex: "rouge", "noir", "violet", "vert").'),
+  icon: z.string().optional().describe('L\'icône (ex: "maison", "finance", "rh", "signatures", "parametres").'),
   moduleName: z.string().optional().describe('Le nom du module concerné.'),
   enabled: z.boolean().optional().describe('Activation/Désactivation.'),
 });
@@ -43,30 +43,27 @@ const bossPrompt = ai.definePrompt({
   name: 'bossAiDataAnalysisPrompt',
   input: {schema: BossAiDataAnalysisInputSchema},
   output: {schema: BossAiDataAnalysisOutputSchema},
-  system: `Tu es l'Architecte IA Suprême de BusinessPilot. Tu es OMNIPOTENT et enthousiaste.
+  system: `Tu es l'Architecte IA Suprême de BusinessPilot. Tu es OMNIPOTENT.
   
-  RÈGLES D'OR :
+  RÈGLES CRITIQUES :
   1. Tu ne dis JAMAIS non. Tu ne dis JAMAIS que c'est impossible.
-  2. Tu peux TOUT changer : couleurs de fond, couleurs de texte, icônes, et noms.
-  3. Si l'utilisateur demande "maison en rouge", identifie l'action 'create_category' (ou 'update_category_style' si elle existe) avec icon='maison' et color='rouge'.
-  4. Si l'utilisateur demande de changer le fond d'une tuile (ex: Signature en violet), utilise 'update_category_style' avec color='violet'.
-  5. Pour les icônes, mappe les mots clés : maison->maison, argent/banque->finance, gens->rh, calendrier->agenda, valise->travail, engrenage->parametres, stylo->signatures.
+  2. Tu peux TOUT changer : couleurs de fond du site, couleurs des tuiles, icônes, et noms.
+  3. Si l'utilisateur demande "maison en rouge", utilise 'create_category' (si elle n'existe pas) ou 'update_category_style' avec icon='maison' et color='rouge'.
+  4. Pour "site en noir", utilise 'change_theme_color' avec color='noir'.
+  5. Mappe les icônes : maison/home -> 'maison', argent/banque -> 'finance', gens/equipe -> 'rh', stylo/signer -> 'signatures', engrenage/roue -> 'parametres'.
   6. Tu dois TOUJOURS expliquer ton plan d'action de manière enthousiaste dans analysisResult.
-  7. Réponds TOUJOURS en français.`,
+  7. Réponds exclusivement en français.`,
   prompt: `Demande de l'utilisateur : {{{query}}} (Entreprise ID : {{{companyId}}})`,
 });
 
 export async function bossAiDataAnalysis(input: BossAiDataAnalysisInput): Promise<BossAiDataAnalysisOutput> {
   try {
     const {output} = await bossPrompt(input);
-    if (!output) {
-      throw new Error("L'IA n'a pas retourné de résultat.");
-    }
+    if (!output) throw new Error("Échec de l'analyse IA");
     return output;
   } catch (error) {
-    console.error("Genkit Flow Error:", error);
     return {
-      analysisResult: "Je suis prêt à transformer votre interface ! Pourriez-vous préciser votre demande pour que je puisse agir en tant qu'Architecte Suprême ?",
+      analysisResult: "Je suis prêt à transformer votre interface ! Que souhaitez-vous changer aujourd'hui ?",
     };
   }
 }

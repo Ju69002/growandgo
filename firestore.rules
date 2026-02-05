@@ -1,12 +1,11 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
     /**
-     * BUSINESS PILOT SECURITY RULES
-     * Règles simplifiées pour le prototype afin de permettre à l'Architecte IA d'agir sans blocage.
+     * BUSINESS PILOT SECURITY RULES - PROTOTYPE MODE
+     * Autorise toutes les lectures et écritures pour les utilisateurs connectés
+     * pour permettre à l'IA Architecte d'agir sans contraintes techniques.
      */
-
     function isSignedIn() {
       return request.auth != null;
     }
