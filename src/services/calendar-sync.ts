@@ -17,36 +17,42 @@ export type ExternalSource = 'google' | 'outlook';
  */
 export function mapGoogleEvent(googleEvent: any, companyId: string, userId: string): Partial<CalendarEvent> {
   return {
-    id_externe: googleEvent.id,
+    id_externe: googleEvent.id || '',
     companyId,
     userId,
     titre: googleEvent.summary || 'Sans titre',
     description: googleEvent.description || '',
-    debut: googleEvent.start.dateTime || googleEvent.start.date,
-    fin: googleEvent.end.dateTime || googleEvent.end.date,
-    attendees: googleEvent.attendees?.map((a: any) => a.email) || [],
+    debut: googleEvent.start?.dateTime || googleEvent.start?.date || new Date().toISOString(),
+    fin: googleEvent.end?.dateTime || googleEvent.end?.date || new Date().toISOString(),
+    attendees: googleEvent.attendees?.filter((a: any) => a?.email).map((a: any) => a.email) || [],
     source: 'google',
     type: 'meeting',
-    derniere_maj: googleEvent.updated
+    derniere_maj: googleEvent.updated || new Date().toISOString()
   };
 }
 
 /**
  * Mappe un événement Microsoft Graph (Outlook) vers le schéma interne
+ * Correction : Ajout de vérifications de sécurité sur les adresses des participants
  */
 export function mapOutlookEvent(outlookEvent: any, companyId: string, userId: string): Partial<CalendarEvent> {
+  // Filtrage sécurisé des participants pour éviter l'erreur sur .address
+  const attendees = (outlookEvent.attendees || [])
+    .filter((a: any) => a?.emailAddress?.address) // On ne garde que ceux qui ont une adresse
+    .map((a: any) => a.emailAddress.address);
+
   return {
-    id_externe: outlookEvent.id,
+    id_externe: outlookEvent.id || '',
     companyId,
     userId,
     titre: outlookEvent.subject || 'Sans titre',
     description: outlookEvent.bodyPreview || '',
-    debut: outlookEvent.start.dateTime,
-    fin: outlookEvent.end.dateTime,
-    attendees: outlookEvent.attendees?.map((a: any) => a.emailAddress.address) || [],
+    debut: outlookEvent.start?.dateTime || new Date().toISOString(),
+    fin: outlookEvent.end?.dateTime || new Date().toISOString(),
+    attendees: attendees,
     source: 'outlook',
     type: 'meeting',
-    derniere_maj: outlookEvent.lastModifiedDateTime
+    derniere_maj: outlookEvent.lastModifiedDateTime || new Date().toISOString()
   };
 }
 
@@ -67,7 +73,7 @@ export async function syncEventToFirestore(
 
     if (docSnap.exists()) {
       const existingEvent = docSnap.data() as CalendarEvent;
-      const existingDate = new Date(existingEvent.derniere_maj).getTime();
+      const existingDate = new Date(existingEvent.derniere_maj || 0).getTime();
       const newDate = new Date(eventData.derniere_maj!).getTime();
 
       // Mise à jour uniquement si la donnée source est plus récente
