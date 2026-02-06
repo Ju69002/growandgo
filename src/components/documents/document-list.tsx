@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, FileText, CheckCircle2, AlertCircle, Clock, FolderOpen, Eye, X, Download } from 'lucide-react';
+import { MoreHorizontal, FileText, CheckCircle2, AlertCircle, Clock, FolderOpen, Eye, X, Download, ExternalLink } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -46,6 +46,7 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
   const db = useFirestore();
   const { user } = useUser();
   const [viewingDoc, setViewingDoc] = React.useState<BusinessDocument | null>(null);
+  const [safeUrl, setSafeUrl] = React.useState<string | null>(null);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -72,13 +73,39 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
 
   const { data: documents, isLoading } = useCollection<BusinessDocument>(docsQuery);
 
+  // Conversion sécurisée des Data URLs en Blob URLs pour éviter les blocages Chrome
+  React.useEffect(() => {
+    if (viewingDoc?.fileUrl && viewingDoc.fileUrl.startsWith('data:')) {
+      try {
+        const parts = viewingDoc.fileUrl.split(',');
+        const mime = parts[0].match(/:(.*?);/)?.[1] || 'application/octet-stream';
+        const b64Data = parts[1];
+        const byteCharacters = atob(b64Data);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: mime });
+        const url = URL.createObjectURL(blob);
+        setSafeUrl(url);
+        return () => URL.revokeObjectURL(url);
+      } catch (e) {
+        console.error("Failed to create safe URL", e);
+        setSafeUrl(viewingDoc.fileUrl);
+      }
+    } else {
+      setSafeUrl(viewingDoc?.fileUrl || null);
+    }
+  }, [viewingDoc]);
+
   const handleDelete = (docId: string) => {
     if (!db || !companyId) return;
     const docRef = doc(db, 'companies', companyId, 'documents', docId);
     deleteDocumentNonBlocking(docRef);
   };
 
-  const isPDF = (url: string) => url.startsWith('data:application/pdf') || url.toLowerCase().endsWith('.pdf');
+  const isPDF = (url: string) => url.includes('application/pdf') || url.toLowerCase().endsWith('.pdf');
 
   if (isLoading) {
     return <div className="p-8 text-center text-muted-foreground animate-pulse">Chargement des documents...</div>;
@@ -167,9 +194,11 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
                             <Eye className="w-4 h-4 mr-2" />
                             Ouvrir
                           </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <Download className="w-4 h-4 mr-2" />
-                            Télécharger
+                          <DropdownMenuItem asChild>
+                            <a href={doc.fileUrl} download={doc.name} className="flex items-center">
+                              <Download className="w-4 h-4 mr-2" />
+                              Télécharger
+                            </a>
                           </DropdownMenuItem>
                           <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(doc.id)}>
                             Supprimer
@@ -186,18 +215,24 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
       </div>
 
       <Dialog open={!!viewingDoc} onOpenChange={(open) => !open && setViewingDoc(null)}>
-        <DialogContent className="sm:max-w-[90vw] h-[90vh] p-0 flex flex-col gap-0 overflow-hidden">
-          <DialogHeader className="p-4 border-b bg-muted/10 flex flex-row items-center justify-between space-y-0">
-            <div>
-              <DialogTitle className="text-xl font-bold flex items-center gap-2">
-                <FileText className="w-5 h-5 text-primary" />
+        <DialogContent className="sm:max-w-[90vw] h-[90vh] p-0 flex flex-col gap-0 overflow-hidden bg-background">
+          <DialogHeader className="p-4 border-b bg-card flex flex-row items-center justify-between space-y-0">
+            <div className="flex-1 min-w-0 pr-4">
+              <DialogTitle className="text-xl font-bold flex items-center gap-2 truncate">
+                <FileText className="w-5 h-5 text-primary flex-shrink-0" />
                 {viewingDoc?.name}
               </DialogTitle>
-              <DialogDescription>
+              <DialogDescription className="truncate">
                 Rangé dans : {viewingDoc?.subCategory || 'Général'} • Importé le {viewingDoc?.createdAt}
               </DialogDescription>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-shrink-0">
+               <Button variant="outline" size="sm" asChild>
+                  <a href={viewingDoc?.fileUrl} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    Ouvrir externe
+                  </a>
+               </Button>
                <Button variant="outline" size="sm" asChild>
                   <a href={viewingDoc?.fileUrl} download={viewingDoc?.name}>
                     <Download className="w-4 h-4 mr-2" />
@@ -206,23 +241,37 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
                </Button>
             </div>
           </DialogHeader>
-          <div className="flex-1 bg-slate-100 flex items-center justify-center p-4 overflow-hidden">
-            {viewingDoc && (
+          <div className="flex-1 bg-muted/30 flex items-center justify-center p-4 overflow-hidden relative">
+            {viewingDoc && safeUrl && (
               isPDF(viewingDoc.fileUrl) ? (
-                <iframe
-                  src={viewingDoc.fileUrl}
+                <object
+                  data={safeUrl}
+                  type="application/pdf"
                   className="w-full h-full rounded-lg border shadow-lg bg-white"
-                  title={viewingDoc.name}
-                />
+                >
+                  <div className="flex flex-col items-center justify-center h-full space-y-4 text-center p-8">
+                    <AlertCircle className="w-12 h-12 text-amber-500" />
+                    <p className="font-semibold">L'affichage direct est bloqué par votre navigateur.</p>
+                    <Button asChild>
+                      <a href={safeUrl} target="_blank" rel="noopener noreferrer">Ouvrir dans un nouvel onglet</a>
+                    </Button>
+                  </div>
+                </object>
               ) : (
                 <div className="relative w-full h-full flex items-center justify-center overflow-auto">
                   <img
-                    src={viewingDoc.fileUrl}
+                    src={safeUrl}
                     alt={viewingDoc.name}
                     className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
                   />
                 </div>
               )
+            )}
+            {!safeUrl && (
+               <div className="flex items-center gap-2 text-muted-foreground">
+                  <Clock className="w-5 h-5 animate-spin" />
+                  Chargement sécurisé...
+               </div>
             )}
           </div>
         </DialogContent>
