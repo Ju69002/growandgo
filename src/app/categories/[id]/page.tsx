@@ -4,14 +4,13 @@ import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { DocumentList } from '@/components/documents/document-list';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChevronLeft, Trash2, FolderOpen, Loader2, FileUp, Check, X, FileText, Info, FileSearch, BrainCircuit, Sparkles } from 'lucide-react';
+import { ChevronLeft, Trash2, FolderOpen, FileUp, Check, X, FileText, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useFirestore, useDoc, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, useUser, useCollection } from '@/firebase';
-import { doc, collection, query } from 'firebase/firestore';
+import { useFirestore, useDoc, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, useUser } from '@/firebase';
+import { doc, collection } from 'firebase/firestore';
 import { Category, User } from '@/lib/types';
 import { useState, useRef } from 'react';
-import { analyzeUploadedDocument, AnalyzeUploadedDocumentOutput } from '@/ai/flows/analyze-uploaded-document';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,16 +26,12 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from '@/hooks/use-toast';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 
-type ImportStep = 'idle' | 'confirm' | 'analyzing' | 'results';
+type ImportStep = 'idle' | 'confirm' | 'importing';
 
 export default function CategoryPage() {
   const params = useParams();
@@ -48,7 +43,6 @@ export default function CategoryPage() {
   const [activeSubCategory, setActiveSubCategory] = useState<string>('all');
   
   const [importStep, setImportStep] = useState<ImportStep>('idle');
-  const [analyzedDoc, setAnalyzedDoc] = useState<AnalyzeUploadedDocumentOutput | null>(null);
   const [currentFileUrl, setCurrentFileUrl] = useState<string>("");
   const [currentFileName, setCurrentFileName] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -68,13 +62,6 @@ export default function CategoryPage() {
   }, [db, categoryId, companyId]);
 
   const { data: category, isLoading: isCatLoading } = useDoc<Category>(categoryRef);
-
-  const categoriesQuery = useMemoFirebase(() => {
-    if (!db || !companyId) return null;
-    return query(collection(db, 'companies', companyId, 'categories'));
-  }, [db, companyId]);
-
-  const { data: allCategories } = useCollection<Category>(categoriesQuery);
 
   const handleStartImport = () => {
     fileInputRef.current?.click();
@@ -97,67 +84,35 @@ export default function CategoryPage() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const startAiAnalysis = async () => {
-    if (!currentFileUrl || !allCategories) return;
+  const executeSimpleImport = () => {
+    if (!db || !companyId || !currentFileUrl) return;
 
-    setImportStep('analyzing');
-
-    try {
-      const analysis = await analyzeUploadedDocument({
-        fileUrl: currentFileUrl,
-        currentCategoryId: categoryId,
-        availableCategories: allCategories.map(c => ({
-          id: c.id,
-          label: c.label,
-          subCategories: c.subCategories || []
-        }))
-      });
-
-      if (analysis) {
-        setAnalyzedDoc(analysis);
-        setImportStep('results');
-      } else {
-        throw new Error("L'IA n'a pas pu analyser le document.");
-      }
-    } catch (error) {
-      console.error("Analysis failed:", error);
-      toast({
-        variant: "destructive",
-        title: "Échec de l'analyse",
-        description: "L'IA n'a pas pu lire ce document. Vérifiez le format.",
-      });
-      setImportStep('idle');
-    }
-  };
-
-  const confirmClassification = () => {
-    if (!db || !companyId || !analyzedDoc) return;
+    setImportStep('importing');
 
     const docsRef = collection(db, 'companies', companyId, 'documents');
     
     addDocumentNonBlocking(docsRef, {
-      name: analyzedDoc.name,
-      categoryId: analyzedDoc.suggestedCategoryId,
-      subCategory: analyzedDoc.suggestedSubCategory,
+      name: currentFileName || "Nouveau document",
+      categoryId: categoryId,
+      subCategory: "", // Rangement dans "Tout voir"
       projectColumn: 'administrative',
       status: 'waiting_verification',
-      extractedData: analyzedDoc.extractedData,
+      extractedData: {},
       fileUrl: currentFileUrl,
       createdAt: new Date().toLocaleDateString(),
       companyId: companyId
     });
 
     toast({
-      title: "Document classé !",
-      description: `Rangé dans ${analyzedDoc.suggestedCategoryLabel} > ${analyzedDoc.suggestedSubCategory}`,
+      title: "Document importé",
+      description: `Le fichier a été ajouté avec succès dans ce dossier.`,
     });
 
-    setImportStep('idle');
-    setAnalyzedDoc(null);
-    
-    if (analyzedDoc.suggestedCategoryId !== categoryId) {
-      router.push(`/categories/${analyzedDoc.suggestedCategoryId}`);
-    }
+    setTimeout(() => {
+      setImportStep('idle');
+      setCurrentFileUrl("");
+      setCurrentFileName("");
+    }, 1000);
   };
 
   const subCategories = category?.subCategories || [];
@@ -252,7 +207,7 @@ export default function CategoryPage() {
       </div>
 
       <Dialog open={importStep !== 'idle'} onOpenChange={(open) => !open && setImportStep('idle')}>
-        <DialogContent className="sm:max-w-[550px] p-0 overflow-hidden border-none shadow-2xl">
+        <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none shadow-2xl">
           
           {importStep === 'confirm' && (
             <div className="p-8 space-y-6">
@@ -261,97 +216,38 @@ export default function CategoryPage() {
                   <FileText className="w-8 h-8" />
                 </div>
                 <div>
-                  <DialogTitle className="text-2xl font-bold text-primary">Document prêt</DialogTitle>
-                  <DialogDescription className="text-muted-foreground">Fichier : <span className="font-semibold text-foreground">{currentFileName}</span></DialogDescription>
+                  <DialogTitle className="text-2xl font-bold text-primary">Prêt pour l'import</DialogTitle>
+                  <DialogDescription className="text-muted-foreground">
+                    Fichier : <span className="font-semibold text-foreground">{currentFileName}</span>
+                  </DialogDescription>
                 </div>
               </DialogHeader>
               <div className="bg-muted/50 p-6 rounded-2xl border-2 border-dashed border-primary/20 text-center">
                 <p className="text-sm text-muted-foreground">
-                  Souhaitez-vous lancer l'analyse intelligente pour classer ce document automatiquement ?
+                  Souhaitez-vous importer ce document dans ce dossier ? Il sera visible dans la section "Tout voir".
                 </p>
               </div>
               <div className="flex gap-3">
                 <Button variant="outline" onClick={() => setImportStep('idle')} className="flex-1 h-12 rounded-xl">
                   Annuler
                 </Button>
-                <Button onClick={startAiAnalysis} className="flex-1 h-12 rounded-xl bg-primary hover:bg-primary/90 shadow-md">
-                  <BrainCircuit className="w-4 h-4 mr-2" />
-                  Lancer l'Analyse
+                <Button onClick={executeSimpleImport} className="flex-1 h-12 rounded-xl bg-primary hover:bg-primary/90 shadow-md">
+                  <Check className="w-4 h-4 mr-2" />
+                  Confirmer l'import
                 </Button>
               </div>
             </div>
           )}
 
-          {importStep === 'analyzing' && (
-            <div className="p-12 flex flex-col items-center justify-center text-center space-y-6 min-h-[400px]">
+          {importStep === 'importing' && (
+            <div className="p-12 flex flex-col items-center justify-center text-center space-y-6 min-h-[300px]">
               <DialogHeader className="items-center">
-                <div className="relative mb-4">
-                  <div className="w-24 h-24 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-                  <BrainCircuit className="w-10 h-10 text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
-                </div>
-                <DialogTitle className="text-2xl font-bold text-primary animate-pulse text-center">Réflexion de l'IA...</DialogTitle>
-                <DialogDescription className="text-muted-foreground max-w-[300px] text-center">Lecture OCR et analyse contextuelle en cours via Gemini Pro.</DialogDescription>
+                <Loader2 className="w-12 h-12 text-primary animate-spin" />
+                <DialogTitle className="text-2xl font-bold text-primary mt-4 text-center">Enregistrement...</DialogTitle>
+                <DialogDescription className="text-muted-foreground text-center">
+                  Votre document est en cours de transfert vers votre espace sécurisé.
+                </DialogDescription>
               </DialogHeader>
-            </div>
-          )}
-
-          {importStep === 'results' && analyzedDoc && (
-            <div className="animate-in fade-in zoom-in duration-300">
-              <div className="bg-primary p-6 text-primary-foreground flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Sparkles className="w-6 h-6" />
-                  <DialogHeader>
-                    <DialogTitle className="text-xl font-bold text-primary-foreground">Diagnostic Final</DialogTitle>
-                    <DialogDescription className="text-primary-foreground/80 text-xs">Vérifiez les informations lues avant le rangement définitif.</DialogDescription>
-                  </DialogHeader>
-                </div>
-                <Button variant="ghost" size="icon" onClick={() => setImportStep('idle')} className="text-primary-foreground hover:bg-white/10">
-                  <X className="w-5 h-5" />
-                </Button>
-              </div>
-              
-              <div className="p-8 space-y-6">
-                <Card className="bg-primary/5 border-primary/20 border-2 shadow-none overflow-hidden">
-                  <CardContent className="p-5 space-y-4">
-                    <div className="flex items-start gap-4">
-                      <div className="p-3 bg-white border rounded-xl shadow-sm text-primary">
-                        <FileSearch className="w-8 h-8" />
-                      </div>
-                      <div className="space-y-1 flex-1 min-w-0">
-                        <h4 className="font-bold text-lg text-primary leading-tight truncate">{analyzedDoc.name}</h4>
-                        <p className="text-xs text-muted-foreground italic line-clamp-2">"{analyzedDoc.summary}"</p>
-                      </div>
-                    </div>
-
-                    <Separator className="bg-primary/10" />
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1 p-3 bg-white rounded-lg border shadow-sm">
-                        <span className="text-[10px] font-black uppercase text-primary/60 tracking-tighter block">Dossier suggéré</span>
-                        <Badge className="bg-primary/10 text-primary border-primary/20 hover:bg-primary/20">
-                          {analyzedDoc.suggestedCategoryLabel}
-                        </Badge>
-                      </div>
-                      <div className="space-y-1 p-3 bg-white rounded-lg border shadow-sm">
-                        <span className="text-[10px] font-black uppercase text-secondary/60 tracking-tighter block">Sous-dossier</span>
-                        <Badge variant="outline" className="border-secondary/30 text-secondary font-bold">
-                          {analyzedDoc.suggestedSubCategory}
-                        </Badge>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <div className="flex gap-3 pt-2">
-                  <Button variant="ghost" onClick={() => setImportStep('idle')} className="flex-1 h-12 rounded-xl">
-                    Annuler
-                  </Button>
-                  <Button onClick={confirmClassification} className="flex-1 h-12 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg active:scale-95 transition-all">
-                    <Check className="w-5 h-5 mr-2" />
-                    Valider & Ranger
-                  </Button>
-                </div>
-              </div>
             </div>
           )}
         </DialogContent>
