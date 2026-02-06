@@ -34,8 +34,6 @@ function ThemeInjector({ children }: { children: React.ReactNode }) {
   const background = company?.backgroundColor || '0 0% 96%';
   const foreground = company?.foregroundColor || '222 47% 11%';
   
-  // Analyse de la luminosité du fond pour adapter le reste du thème
-  // On extrait le pourcentage de luminosité (le 3ème nombre de l'HSL)
   const lightnessMatch = background.match(/(\d+)%$/);
   const lightness = lightnessMatch ? parseInt(lightnessMatch[1]) : 96;
   const isDark = lightness < 40;

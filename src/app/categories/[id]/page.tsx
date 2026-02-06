@@ -4,25 +4,14 @@ import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { DocumentList } from '@/components/documents/document-list';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChevronLeft, Trash2, FolderOpen, FileUp, Check, X, FileText, Loader2, Sparkles, AlertCircle } from 'lucide-react';
+import { ChevronLeft, FolderOpen, FileUp, FileText, Loader2, Sparkles, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useFirestore, useDoc, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking, useUser, useCollection } from '@/firebase';
+import { useFirestore, useDoc, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useUser, useCollection } from '@/firebase';
 import { doc, collection, query } from 'firebase/firestore';
 import { Category, User } from '@/lib/types';
 import { useState, useRef } from 'react';
 import { analyzeUploadedDocument, AnalyzeUploadedDocumentOutput } from '@/ai/flows/analyze-uploaded-document';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import {
   Dialog,
   DialogContent,
@@ -57,7 +46,6 @@ export default function CategoryPage() {
 
   const { data: profile } = useDoc<User>(userProfileRef);
   const companyId = profile?.companyId || 'default-company';
-  const isAdmin = profile?.role === 'admin' && profile?.adminMode;
 
   const categoriesQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
@@ -105,7 +93,7 @@ export default function CategoryPage() {
       toast({
         variant: "destructive",
         title: "Erreur d'analyse",
-        description: "L'IA n'a pas pu traiter ce document. Tentative d'import simple.",
+        description: "L'IA n'a pas pu traiter ce document.",
       });
       setImportStep('idle');
     }
@@ -117,7 +105,6 @@ export default function CategoryPage() {
     const targetCategoryId = analysisResult.suggestedCategoryId;
     const targetSubCategory = analysisResult.suggestedSubCategory;
 
-    // Si nouveau sous-dossier, on l'ajoute à la catégorie cible
     if (analysisResult.isNewSubCategory) {
       const targetCatRef = doc(db, 'companies', companyId, 'categories', targetCategoryId);
       const targetCatData = allCategories?.find(c => c.id === targetCategoryId);
@@ -202,16 +189,16 @@ export default function CategoryPage() {
                   <FileText className="w-6 h-6 text-primary" /> Nouveau document
                 </DialogTitle>
                 <DialogDescription>
-                  Fichier sélectionné : <span className="font-semibold">{currentFileName}</span>
+                  Fichier sélectionné : <span className="font-semibold text-foreground">{currentFileName}</span>
                 </DialogDescription>
               </DialogHeader>
               <div className="bg-primary/5 p-6 rounded-2xl border border-primary/20 text-center space-y-3">
                 <Sparkles className="w-10 h-10 text-primary mx-auto" />
-                <p className="text-sm font-medium">Souhaitez-vous que l'IA analyse et classe ce document automatiquement ?</p>
+                <p className="text-sm font-medium">Lancer l'analyse intelligente pour classer ce document ?</p>
               </div>
               <div className="flex gap-3">
                 <Button variant="outline" onClick={() => setImportStep('idle')} className="flex-1">Annuler</Button>
-                <Button onClick={startAiAnalysis} className="flex-1 bg-primary">Lancer l'Analyse IA</Button>
+                <Button onClick={startAiAnalysis} className="flex-1 bg-primary">Analyser via IA</Button>
               </div>
             </div>
           )}
@@ -225,7 +212,7 @@ export default function CategoryPage() {
                 </div>
                 <DialogTitle className="text-2xl font-bold mt-6">Analyse OCR en cours...</DialogTitle>
                 <DialogDescription className="max-w-[300px]">
-                  L'Architecte IA lit votre document pour déterminer le meilleur emplacement de rangement.
+                  L'IA lit votre document pour déterminer le meilleur emplacement.
                 </DialogDescription>
               </DialogHeader>
             </div>
@@ -235,15 +222,12 @@ export default function CategoryPage() {
             <div className="p-8 space-y-6">
               <DialogHeader>
                 <DialogTitle className="text-2xl font-bold">Diagnostic de l'IA</DialogTitle>
-                <DialogDescription>Voici la proposition de classement intelligent.</DialogDescription>
+                <DialogDescription>Proposition de classement intelligent basée sur le contenu lu.</DialogDescription>
               </DialogHeader>
 
               <div className="space-y-4">
                 <div className="p-4 bg-muted/50 rounded-xl border space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-muted-foreground uppercase">Titre extrait</span>
-                    <Badge variant="outline">OCR</Badge>
-                  </div>
+                  <span className="text-xs font-bold text-muted-foreground uppercase">Titre extrait</span>
                   <p className="font-bold text-primary">{analysisResult.name}</p>
                 </div>
 
@@ -256,9 +240,6 @@ export default function CategoryPage() {
                       <FolderOpen className="w-3 h-3" />
                       {analysisResult.suggestedSubCategory}
                     </Badge>
-                    {analysisResult.isNewSubCategory && (
-                      <Badge className="bg-emerald-500 text-white border-none animate-pulse">Nouveau !</Badge>
-                    )}
                   </div>
                 </div>
 

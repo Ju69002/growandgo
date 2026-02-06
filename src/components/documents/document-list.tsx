@@ -74,7 +74,6 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
 
   const { data: documents, isLoading } = useCollection<BusinessDocument>(docsQuery);
 
-  // Conversion sécurisée des Data URLs en Blob URLs pour une meilleure compatibilité Chrome/PDF
   React.useEffect(() => {
     if (viewingDoc?.fileUrl) {
       setIsBlobLoading(true);
@@ -95,7 +94,6 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
           setIsBlobLoading(false);
           return () => URL.revokeObjectURL(url);
         } catch (e) {
-          console.error("Failed to create safe URL", e);
           setSafeUrl(viewingDoc.fileUrl);
           setIsBlobLoading(false);
         }
@@ -141,7 +139,6 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
               <TableHead>Sous-dossier</TableHead>
               <TableHead>Statut</TableHead>
               <TableHead>Date d'import</TableHead>
-              <TableHead>Détails IA</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -172,19 +169,6 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm">
                     {doc.createdAt}
-                  </TableCell>
-                  <TableCell>
-                    <div className="text-xs space-y-0.5 max-w-[150px]">
-                      {Object.entries(doc.extractedData || {}).length > 0 ? (
-                        Object.entries(doc.extractedData).slice(0, 2).map(([k, v]) => (
-                          <div key={k} className="truncate">
-                            <span className="text-muted-foreground uppercase text-[10px] font-bold">{k}:</span> {String(v)}
-                          </div>
-                        ))
-                      ) : (
-                        <span className="italic text-muted-foreground">Analyse IA...</span>
-                      )}
-                    </div>
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
@@ -276,13 +260,6 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
                   />
                 </div>
               )
-            )}
-            {!isBlobLoading && !safeUrl && viewingDoc && (
-               <div className="flex flex-col items-center gap-4 text-white text-center p-8">
-                  <AlertCircle className="w-16 h-16 text-amber-500" />
-                  <p className="font-bold text-lg">Impossible de charger l'aperçu.</p>
-                  <p className="text-slate-400 max-w-xs">Utilisez les boutons en haut pour ouvrir ou télécharger le document.</p>
-               </div>
             )}
           </div>
         </DialogContent>
