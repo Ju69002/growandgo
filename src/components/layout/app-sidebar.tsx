@@ -48,13 +48,13 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader className="h-20 flex items-center px-4">
         <div className="flex items-center gap-3 font-bold text-sidebar-foreground">
-          <div className="relative w-10 h-10 overflow-hidden rounded-xl border border-white/10 shadow-lg">
+          <div className="relative w-10 h-10 overflow-hidden rounded-xl border border-white/10 shadow-lg bg-white/5">
             <Image 
               src={logo?.imageUrl || "https://picsum.photos/seed/growgo/100/100"} 
               alt="Grow&Go Logo" 
               fill
-              className="object-cover"
-              data-ai-hint="brand logo"
+              className="object-contain p-1"
+              data-ai-hint="green leaf logo"
             />
           </div>
           <span className="group-data-[collapsible=icon]:hidden text-lg tracking-tight">Grow&Go</span>

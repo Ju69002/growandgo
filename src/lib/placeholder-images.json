@@ -2,9 +2,9 @@
   "placeholderImages": [
     {
       "id": "app-logo",
-      "description": "Grow&Go Brand Logo",
-      "imageUrl": "https://images.unsplash.com/photo-1756999223507-72bfbb654193?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxncmVlbiUyMGJsYWNrJTIwb3JnYW5pYyUyMGxvZ298ZW58MHx8fHwxNzcwMzQxNTA1fDA&ixlib=rb-4.1.0&q=80&w=1080",
-      "imageHint": "green black organic logo"
+      "description": "Grow&Go Brand Logo - Green Leaf Organic",
+      "imageUrl": "https://images.unsplash.com/photo-1759150308121-5dd5e3c918b6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxncmVlbiUyMGxlYWYlMjBsb2dvfGVufDB8fHx8MTc3MDM0MTY1Nnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "green leaf logo"
     }
   ]
 }
