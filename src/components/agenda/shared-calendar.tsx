@@ -2,16 +2,17 @@
 
 import * as React from 'react';
 import { Calendar } from '@/components/ui/calendar';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Mail, Calendar as CalendarIcon, RefreshCw, Plus, Users, Chrome, Layout, Loader2, CheckCircle2, Link2 } from 'lucide-react';
+import { Mail, Calendar as CalendarIcon, Plus, Users, Chrome, Layout, Loader2, Link2 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
 import { CalendarEvent } from '@/lib/types';
 import { format, addHours, startOfToday } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 export function SharedCalendar({ companyId }: { companyId: string }) {
   const [date, setDate] = React.useState<Date | undefined>(new Date());
@@ -165,7 +166,7 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
                         <div className="flex items-center gap-4 pt-2">
                           <div className="flex items-center text-xs font-semibold text-muted-foreground">
                             <Users className="w-4 h-4 mr-1.5" />
-                            {event.attendees.length} participants
+                            {event.attendees?.length || 0} participants
                           </div>
                           <div className="flex items-center text-xs font-semibold text-muted-foreground">
                             <CalendarIcon className="w-4 h-4 mr-1.5" />
