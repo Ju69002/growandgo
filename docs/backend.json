@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "Company": {
@@ -154,7 +155,9 @@
   "auth": {
     "providers": [
       "password",
-      "anonymous"
+      "anonymous",
+      "google.com",
+      "microsoft.com"
     ]
   },
   "firestore": {
