@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, FileText, CheckCircle2, AlertCircle, Clock, FolderOpen, Eye, X, Download, ExternalLink } from 'lucide-react';
+import { MoreHorizontal, FileText, CheckCircle2, AlertCircle, Clock, FolderOpen, Eye, X, Download, ExternalLink, Loader2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,6 +47,7 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
   const { user } = useUser();
   const [viewingDoc, setViewingDoc] = React.useState<BusinessDocument | null>(null);
   const [safeUrl, setSafeUrl] = React.useState<string | null>(null);
+  const [isBlobLoading, setIsBlobLoading] = React.useState(false);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -73,29 +74,38 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
 
   const { data: documents, isLoading } = useCollection<BusinessDocument>(docsQuery);
 
-  // Conversion sécurisée des Data URLs en Blob URLs pour éviter les blocages Chrome
+  // Conversion sécurisée des Data URLs en Blob URLs pour une meilleure compatibilité Chrome/PDF
   React.useEffect(() => {
-    if (viewingDoc?.fileUrl && viewingDoc.fileUrl.startsWith('data:')) {
-      try {
-        const parts = viewingDoc.fileUrl.split(',');
-        const mime = parts[0].match(/:(.*?);/)?.[1] || 'application/octet-stream';
-        const b64Data = parts[1];
-        const byteCharacters = atob(b64Data);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i);
+    if (viewingDoc?.fileUrl) {
+      setIsBlobLoading(true);
+      if (viewingDoc.fileUrl.startsWith('data:')) {
+        try {
+          const parts = viewingDoc.fileUrl.split(',');
+          const mime = parts[0].match(/:(.*?);/)?.[1] || 'application/octet-stream';
+          const b64Data = parts[1];
+          const byteCharacters = atob(b64Data);
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+          }
+          const byteArray = new Uint8Array(byteNumbers);
+          const blob = new Blob([byteArray], { type: mime });
+          const url = URL.createObjectURL(blob);
+          setSafeUrl(url);
+          setIsBlobLoading(false);
+          return () => URL.revokeObjectURL(url);
+        } catch (e) {
+          console.error("Failed to create safe URL", e);
+          setSafeUrl(viewingDoc.fileUrl);
+          setIsBlobLoading(false);
         }
-        const byteArray = new Uint8Array(byteNumbers);
-        const blob = new Blob([byteArray], { type: mime });
-        const url = URL.createObjectURL(blob);
-        setSafeUrl(url);
-        return () => URL.revokeObjectURL(url);
-      } catch (e) {
-        console.error("Failed to create safe URL", e);
+      } else {
         setSafeUrl(viewingDoc.fileUrl);
+        setIsBlobLoading(false);
       }
     } else {
-      setSafeUrl(viewingDoc?.fileUrl || null);
+      setSafeUrl(null);
+      setIsBlobLoading(false);
     }
   }, [viewingDoc]);
 
@@ -105,7 +115,7 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
     deleteDocumentNonBlocking(docRef);
   };
 
-  const isPDF = (url: string) => url.includes('application/pdf') || url.toLowerCase().endsWith('.pdf');
+  const isPDF = (url: string) => url.toLowerCase().includes('pdf') || url.toLowerCase().includes('application/pdf');
 
   if (isLoading) {
     return <div className="p-8 text-center text-muted-foreground animate-pulse">Chargement des documents...</div>;
@@ -215,62 +225,63 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
       </div>
 
       <Dialog open={!!viewingDoc} onOpenChange={(open) => !open && setViewingDoc(null)}>
-        <DialogContent className="sm:max-w-[90vw] h-[90vh] p-0 flex flex-col gap-0 overflow-hidden bg-background">
-          <DialogHeader className="p-4 border-b bg-card flex flex-row items-center justify-between space-y-0">
+        <DialogContent className="sm:max-w-[95vw] h-[95vh] p-0 flex flex-col gap-0 overflow-hidden bg-slate-900 border-none">
+          <DialogHeader className="p-4 border-b bg-card flex flex-row items-center justify-between space-y-0 z-20">
             <div className="flex-1 min-w-0 pr-4">
               <DialogTitle className="text-xl font-bold flex items-center gap-2 truncate">
                 <FileText className="w-5 h-5 text-primary flex-shrink-0" />
                 {viewingDoc?.name}
               </DialogTitle>
               <DialogDescription className="truncate">
-                Rangé dans : {viewingDoc?.subCategory || 'Général'} • Importé le {viewingDoc?.createdAt}
+                {viewingDoc?.subCategory || 'Général'} • Importé le {viewingDoc?.createdAt}
               </DialogDescription>
             </div>
             <div className="flex gap-2 flex-shrink-0">
                <Button variant="outline" size="sm" asChild>
-                  <a href={viewingDoc?.fileUrl} target="_blank" rel="noopener noreferrer">
+                  <a href={safeUrl || viewingDoc?.fileUrl} target="_blank" rel="noopener noreferrer">
                     <ExternalLink className="w-4 h-4 mr-2" />
                     Ouvrir externe
                   </a>
                </Button>
                <Button variant="outline" size="sm" asChild>
-                  <a href={viewingDoc?.fileUrl} download={viewingDoc?.name}>
+                  <a href={safeUrl || viewingDoc?.fileUrl} download={viewingDoc?.name}>
                     <Download className="w-4 h-4 mr-2" />
                     Télécharger
                   </a>
                </Button>
+               <Button variant="ghost" size="icon" onClick={() => setViewingDoc(null)}>
+                  <X className="w-5 h-5" />
+               </Button>
             </div>
           </DialogHeader>
-          <div className="flex-1 bg-muted/30 flex items-center justify-center p-4 overflow-hidden relative">
-            {viewingDoc && safeUrl && (
+          <div className="flex-1 bg-slate-800/50 flex items-center justify-center overflow-hidden relative">
+            {isBlobLoading ? (
+              <div className="flex flex-col items-center gap-4 text-white">
+                <Loader2 className="w-12 h-12 animate-spin opacity-50" />
+                <p className="text-sm font-medium animate-pulse">Préparation du document...</p>
+              </div>
+            ) : viewingDoc && safeUrl && (
               isPDF(viewingDoc.fileUrl) ? (
-                <object
-                  data={safeUrl}
-                  type="application/pdf"
-                  className="w-full h-full rounded-lg border shadow-lg bg-white"
-                >
-                  <div className="flex flex-col items-center justify-center h-full space-y-4 text-center p-8">
-                    <AlertCircle className="w-12 h-12 text-amber-500" />
-                    <p className="font-semibold">L'affichage direct est bloqué par votre navigateur.</p>
-                    <Button asChild>
-                      <a href={safeUrl} target="_blank" rel="noopener noreferrer">Ouvrir dans un nouvel onglet</a>
-                    </Button>
-                  </div>
-                </object>
+                <iframe
+                  src={`${safeUrl}#toolbar=0&navpanes=0`}
+                  className="w-full h-full border-none bg-white"
+                  title={viewingDoc.name}
+                />
               ) : (
-                <div className="relative w-full h-full flex items-center justify-center overflow-auto">
+                <div className="relative w-full h-full flex items-center justify-center p-4">
                   <img
                     src={safeUrl}
                     alt={viewingDoc.name}
-                    className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
+                    className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
                   />
                 </div>
               )
             )}
-            {!safeUrl && (
-               <div className="flex items-center gap-2 text-muted-foreground">
-                  <Clock className="w-5 h-5 animate-spin" />
-                  Chargement sécurisé...
+            {!isBlobLoading && !safeUrl && viewingDoc && (
+               <div className="flex flex-col items-center gap-4 text-white text-center p-8">
+                  <AlertCircle className="w-16 h-16 text-amber-500" />
+                  <p className="font-bold text-lg">Impossible de charger l'aperçu.</p>
+                  <p className="text-slate-400 max-w-xs">Utilisez les boutons en haut pour ouvrir ou télécharger le document.</p>
                </div>
             )}
           </div>
