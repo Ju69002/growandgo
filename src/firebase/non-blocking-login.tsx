@@ -1,53 +1,29 @@
 'use client';
 import {
-  Auth,
+  Auth, // Import Auth type for type hinting
   signInAnonymously,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  GoogleAuthProvider,
-  OAuthProvider,
-  signInWithPopup,
-  UserCredential
+  // Assume getAuth and app are initialized elsewhere
 } from 'firebase/auth';
 
 /** Initiate anonymous sign-in (non-blocking). */
 export function initiateAnonymousSignIn(authInstance: Auth): void {
+  // CRITICAL: Call signInAnonymously directly. Do NOT use 'await signInAnonymously(...)'.
   signInAnonymously(authInstance);
+  // Code continues immediately. Auth state change is handled by onAuthStateChanged listener.
 }
 
 /** Initiate email/password sign-up (non-blocking). */
 export function initiateEmailSignUp(authInstance: Auth, email: string, password: string): void {
+  // CRITICAL: Call createUserWithEmailAndPassword directly. Do NOT use 'await createUserWithEmailAndPassword(...)'.
   createUserWithEmailAndPassword(authInstance, email, password);
+  // Code continues immediately. Auth state change is handled by onAuthStateChanged listener.
 }
 
 /** Initiate email/password sign-in (non-blocking). */
 export function initiateEmailSignIn(authInstance: Auth, email: string, password: string): void {
+  // CRITICAL: Call signInWithEmailAndPassword directly. Do NOT use 'await signInWithEmailAndPassword(...)'.
   signInWithEmailAndPassword(authInstance, email, password);
-}
-
-/** 
- * Sign in with Google and request Calendar scopes 
- */
-export async function signInWithGoogleCalendar(authInstance: Auth): Promise<{ credential: UserCredential, token: string | undefined }> {
-  const provider = new GoogleAuthProvider();
-  provider.addScope('https://www.googleapis.com/auth/calendar.events.readonly');
-  
-  const result = await signInWithPopup(authInstance, provider);
-  const credential = GoogleAuthProvider.credentialFromResult(result);
-  return { credential: result, token: credential?.accessToken };
-}
-
-/** 
- * Sign in with Microsoft/Outlook and request Calendar scopes 
- */
-export async function signInWithOutlookCalendar(authInstance: Auth): Promise<{ credential: UserCredential, token: string | undefined }> {
-  const provider = new OAuthProvider('microsoft.com');
-  provider.addScope('Calendars.Read');
-  provider.setCustomParameters({
-    prompt: 'select_account'
-  });
-  
-  const result = await signInWithPopup(authInstance, provider);
-  const credential = OAuthProvider.credentialFromResult(result);
-  return { credential: result, token: credential?.accessToken };
+  // Code continues immediately. Auth state change is handled by onAuthStateChanged listener.
 }

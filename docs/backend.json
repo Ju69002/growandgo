@@ -1,80 +1,237 @@
-
 {
   "entities": {
     "Company": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Company",
       "type": "object",
-      "description": "Represents a company using the Grow&Go SaaS.",
+      "description": "Represents a company profile in the BusinessPilot application.",
       "properties": {
-        "id": { "type": "string" },
-        "name": { "type": "string" },
-        "subscriptionStatus": { "type": "string" },
-        "modulesConfig": { "type": "string" },
-        "showRh": { "type": "boolean" },
-        "showFinance": { "type": "boolean" },
-        "customLabels": { "type": "string" },
-        "primaryColor": { "type": "string" },
-        "backgroundColor": { "type": "string" },
-        "foregroundColor": { "type": "string" }
-      },
-      "required": ["id", "name"]
-    },
-    "User": {
-      "title": "User",
-      "type": "object",
-      "properties": {
-        "uid": { "type": "string" },
-        "companyId": { "type": "string" },
-        "role": { "type": "string" },
-        "adminMode": { "type": "boolean" },
-        "name": { "type": "string" },
-        "email": { "type": "string" },
-        "calendarTokens": {
-          "type": "object",
-          "properties": {
-            "google_refresh_token": { "type": "string" },
-            "outlook_refresh_token": { "type": "string" }
-          }
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the company entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the company."
+        },
+        "subscriptionStatus": {
+          "type": "string",
+          "description": "Subscription status of the company ('active', 'trial')."
+        },
+        "modulesConfig": {
+          "type": "string",
+          "description": "Configuration of the interface modules."
+        },
+        "showRh": {
+          "type": "boolean",
+          "description": "Visibility of the RH (Human Resources) module."
+        },
+        "showFinance": {
+          "type": "boolean",
+          "description": "Visibility of the Finance module."
+        },
+        "customLabels": {
+          "type": "string",
+          "description": "Custom labels for renaming categories (e.g., 'finance': 'My Treasury')."
         }
       },
-      "required": ["uid", "companyId"]
+      "required": [
+        "id",
+        "name",
+        "subscriptionStatus"
+      ]
     },
-    "CalendarEvent": {
+    "User": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "CalendarEvent",
+      "title": "User",
       "type": "object",
-      "description": "Represents a shared calendar event.",
+      "description": "Represents a user account within the BusinessPilot application.",
       "properties": {
-        "id": { "type": "string" },
-        "id_externe": { "type": "string", "description": "ID unique provenant de Google ou Outlook" },
-        "companyId": { "type": "string" },
-        "userId": { "type": "string", "description": "ID de l'employé propriétaire" },
-        "titre": { "type": "string" },
-        "description": { "type": "string" },
-        "debut": { "type": "string", "format": "date-time" },
-        "fin": { "type": "string", "format": "date-time" },
-        "attendees": { "type": "array", "items": { "type": "string" } },
-        "source": { "type": "string", "enum": ["local", "google", "outlook"] },
-        "type": { "type": "string", "enum": ["meeting", "task", "event"] },
-        "derniere_maj": { "type": "string", "format": "date-time", "description": "Date ISO de la dernière modification côté source" }
+        "uid": {
+          "type": "string",
+          "description": "Unique identifier for the user, linked to Firebase Authentication."
+        },
+        "companyId": {
+          "type": "string",
+          "description": "Reference to Company. (Relationship: Company 1:N User)"
+        },
+        "role": {
+          "type": "string",
+          "description": "User role ('super_admin', 'admin', 'employee')."
+        },
+        "adminMode": {
+          "type": "boolean",
+          "description": "Indicates if the admin user is in architect mode (can modify structure)."
+        }
       },
-      "required": ["id_externe", "companyId", "titre", "debut", "fin"]
+      "required": [
+        "uid",
+        "companyId",
+        "role"
+      ]
+    },
+    "Category": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Category",
+      "type": "object",
+      "description": "Represents a category (tile) on the home screen.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the category (e.g., 'finance', 'admin', 'rh')."
+        },
+        "companyId": {
+          "type": "string",
+          "description": "Reference to Company. (Relationship: Company 1:N Category)"
+        },
+        "label": {
+          "type": "string",
+          "description": "Name displayed for the category."
+        },
+        "badgeCount": {
+          "type": "number",
+          "description": "Number of pending actions for the category."
+        },
+        "type": {
+          "type": "string",
+          "description": "Type of category ('standard' or 'custom')."
+        },
+        "visibleToEmployees": {
+          "type": "boolean",
+          "description": "Visibility setting for employees."
+        },
+        "aiInstructions": {
+          "type": "string",
+          "description": "System instructions for the AI within this category."
+        }
+      },
+      "required": [
+        "id",
+        "companyId",
+        "label",
+        "type"
+      ]
+    },
+    "Document": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Document",
+      "type": "object",
+      "description": "Represents a document and its associated data.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the document entity."
+        },
+        "categoryId": {
+          "type": "string",
+          "description": "Reference to Category. (Relationship: Category 1:N Document)"
+        },
+        "projectColumn": {
+          "type": "string",
+          "description": "Project column ('technical', 'administrative', 'budget')."
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the document ('pending_analysis', 'waiting_verification', 'waiting_validation', 'archived')."
+        },
+        "extractedData": {
+          "type": "string",
+          "description": "JSON data extracted from the document by the AI."
+        },
+        "fileUrl": {
+          "type": "string",
+          "description": "URL of the file in storage."
+        }
+      },
+      "required": [
+        "id",
+        "categoryId",
+        "status",
+        "fileUrl"
+      ]
     }
   },
   "auth": {
-    "providers": ["password", "anonymous"]
+    "providers": [
+      "password",
+      "anonymous"
+    ]
   },
   "firestore": {
     "structure": [
       {
-        "path": "/companies/{companyId}/events/{eventId}",
+        "path": "/companies/{companyId}",
         "definition": {
-          "entityName": "CalendarEvent",
-          "schema": { "$ref": "#/backend/entities/CalendarEvent" },
-          "description": "Stores calendar events with external sync support."
+          "entityName": "Company",
+          "schema": {
+            "$ref": "#/backend/entities/Company"
+          },
+          "description": "Stores company profiles. 'companyId' is auto-generated by Firestore.",
+          "params": [
+            {
+              "name": "companyId",
+              "description": "Unique identifier for the company."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user profiles. 'userId' corresponds to the Firebase Auth UID.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "Unique identifier for the user (Firebase Auth UID)."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/companies/{companyId}/categories/{categoryId}",
+        "definition": {
+          "entityName": "Category",
+          "schema": {
+            "$ref": "#/backend/entities/Category"
+          },
+          "description": "Stores categories associated with a company. Segregated under /companies/{companyId}/ to avoid cross-company access.",
+          "params": [
+            {
+              "name": "companyId",
+              "description": "Unique identifier for the company."
+            },
+            {
+              "name": "categoryId",
+              "description": "Unique identifier for the category."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/companies/{companyId}/documents/{documentId}",
+        "definition": {
+          "entityName": "Document",
+          "schema": {
+            "$ref": "#/backend/entities/Document"
+          },
+          "description": "Stores documents associated with a company. Segregated under /companies/{companyId}/ to avoid cross-company access.",
+          "params": [
+            {
+              "name": "companyId",
+              "description": "Unique identifier for the company."
+            },
+            {
+              "name": "documentId",
+              "description": "Unique identifier for the document."
+            }
+          ]
         }
       }
-    ]
+    ],
+    "reasoning": "The Firestore structure is designed to ensure Authorization Independence, Role-Based Access Control (RBAC), and data segregation for security. The core principle is to avoid `get()` calls in security rules by denormalizing authorization data. This ensures atomic operations and simplifies security rules. The structure also addresses QAPs (rules are not filters) by segregating data based on access requirements and leveraging membership maps where appropriate.\n\n*   **/companies Collection:** Stores company profiles.\n*   **/users Collection:** Stores user profiles. The `companyId` field establishes the relationship between users and companies. The `role` field defines the user's privileges.\n*   **/companies/{companyId}/categories Collection:** Stores categories (tiles) associated with each company. This segregation allows company-specific category management.\n*   **/companies/{companyId}/documents Collection:** Stores documents associated with each company. The `categoryId` field links documents to categories.\n\n**Authorization Independence:**\nAuthorization independence is achieved primarily through path-based ownership for `users` and segregation of `categories` and `documents` under `companies`. The security rules will check `request.auth.uid` and the `companyId` to validate access without needing `get()` calls to parent documents. This is particularly important for collaborative data, where roles and permissions are crucial. To achieve authorization independence, a membership map is not needed, as all document requests are related to a company.\n\n**QAPs (Rules are not Filters):**\nThe structure facilitates secure `list` operations by ensuring that each collection has a homogeneous security posture. For example, listing documents within `/companies/{companyId}/documents` only returns documents that the user is authorized to access based on their role and the document's `categoryId` and status. Since Employees can't view finance or rh documents, this is verified directly in the rule and not by filtering results."
   }
 }
