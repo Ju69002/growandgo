@@ -30,9 +30,9 @@ const AnalyzeUploadedDocumentOutputSchema = z.object({
     montant: z.string().describe('Montant si applicable'),
     emetteur: z.string().describe('Émetteur du document'),
     reference: z.string().describe('Référence ou numéro'),
-  }),
+  }).describe('Données clés extraites du document.'),
   summary: z.string().describe('Résumé très court du contenu.'),
-  reasoning: z.string().describe('Pourquoi ce classement ?'),
+  reasoning: z.string().describe('Pourquoi ce classement ? Explique ta réflexion.'),
 });
 export type AnalyzeUploadedDocumentOutput = z.infer<typeof AnalyzeUploadedDocumentOutputSchema>;
 
@@ -55,18 +55,18 @@ const analyzeDocumentPrompt = ai.definePrompt({
   
   ANALYSE CE DOCUMENT : {{media url=fileUrl}}
   
-  STRUCTURE ACTUELLE :
+  STRUCTURE ACTUELLE DES DOSSIERS :
   {{#each availableCategories}}
-  - {{label}} (ID: {{id}}) > Sous-dossiers: {{#each subCategories}}"{{this}}" {{/each}}
+  - {{label}} (ID: {{id}}) > Sous-dossiers existants : {{#each subCategories}}"{{this}}" {{/each}}
   {{/each}}
   
   MISSION :
   1. Lis le document par OCR/Vision.
-  2. Trouve la catégorie et le sous-dossier le plus adapté.
-  3. SI aucun sous-dossier existant ne convient ET que le document est important (ex: nouveau type de contrat, nouvelle taxe, etc.), suggère un NOUVEAU nom de sous-dossier pertinent et mets isNewSubCategory à true.
+  2. Trouve la catégorie et le sous-dossier le plus adapté parmi l'existant.
+  3. RÉFLEXION : SI aucun sous-dossier existant ne convient ET que le document est important (ex: nouveau type de contrat, nouvelle taxe, etc.), suggère un NOUVEAU nom de sous-dossier pertinent et mets isNewSubCategory à true.
   4. Extrais les données clés (Date, Montant, Émetteur, Référence).
   
-  Réponds en JSON uniquement.`,
+  Réponds en JSON uniquement en suivant le schéma de sortie.`,
 });
 
 const analyzeUploadedDocumentFlow = ai.defineFlow(
