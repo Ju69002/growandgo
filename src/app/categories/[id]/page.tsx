@@ -72,6 +72,7 @@ export default function CategoryPage() {
       setImportStep('confirm_analysis');
     };
     reader.readAsDataURL(file);
+    // On réinitialise l'input pour permettre de sélectionner le même fichier deux fois
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -107,6 +108,7 @@ export default function CategoryPage() {
     const targetCategoryId = analysisResult.suggestedCategoryId;
     const targetSubCategory = analysisResult.suggestedSubCategory;
 
+    // Si c'est un nouveau sous-dossier suggéré par l'IA, on met à jour la catégorie
     if (analysisResult.isNewSubCategory) {
       const targetCatRef = doc(db, 'companies', companyId, 'categories', targetCategoryId);
       const targetCatData = allCategories?.find(c => c.id === targetCategoryId);
@@ -133,6 +135,7 @@ export default function CategoryPage() {
     });
 
     setImportStep('idle');
+    // Si l'IA a suggéré une autre catégorie, on redirige l'utilisateur
     if (targetCategoryId !== categoryId) {
       router.push(`/categories/${targetCategoryId}`);
     }
@@ -162,9 +165,11 @@ export default function CategoryPage() {
               </h1>
             </div>
           </div>
-          <Button size="lg" className="bg-primary hover:bg-primary/90 shadow-lg" onClick={() => fileInputRef.current?.click()}>
-            <FileUp className="w-5 h-5 mr-2" /> Importer un document / photo
-          </Button>
+          <div className="flex gap-3">
+            <Button size="lg" className="bg-primary hover:bg-primary/90 shadow-lg" onClick={() => fileInputRef.current?.click()}>
+              <FileUp className="w-5 h-5 mr-2" /> Importer un document / photo
+            </Button>
+          </div>
         </div>
 
         <div className="bg-card border rounded-2xl overflow-hidden shadow-sm">
@@ -180,9 +185,13 @@ export default function CategoryPage() {
               </TabsList>
             </div>
             <div className="p-6">
-              <TabsContent value="all" className="mt-0"><DocumentList categoryId={categoryId} /></TabsContent>
+              <TabsContent value="all" className="mt-0">
+                <DocumentList categoryId={categoryId} />
+              </TabsContent>
               {(category?.subCategories || []).map((sub) => (
-                <TabsContent key={sub} value={sub} className="mt-0"><DocumentList categoryId={categoryId} subCategory={sub} /></TabsContent>
+                <TabsContent key={sub} value={sub} className="mt-0">
+                  <DocumentList categoryId={categoryId} subCategory={sub} />
+                </TabsContent>
               ))}
             </div>
           </Tabs>
@@ -268,13 +277,6 @@ export default function CategoryPage() {
                     </Badge>
                   </div>
                 </div>
-
-                {analysisResult.extractedData.siren && (
-                  <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200 flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">SIREN Détecté</span>
-                    <Badge className="bg-emerald-600 font-mono tracking-widest">{analysisResult.extractedData.siren}</Badge>
-                  </div>
-                )}
 
                 <div className="p-4 bg-muted/30 rounded-xl border border-dashed">
                   <div className="flex gap-2 items-start">
