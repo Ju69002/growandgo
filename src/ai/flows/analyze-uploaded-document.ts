@@ -1,7 +1,7 @@
 'use server';
 
 /**
- * @fileOverview Flux pour analyser les documents téléchargés via Gemini Vision/OCR.
+ * @fileOverview Flux pour analyser les documents téléchargés via Gemini 1.5 Pro (Vision/OCR).
  * Lit le contenu du document et suggère le meilleur emplacement de rangement (Dossier > Sous-dossier).
  */
 
@@ -49,7 +49,7 @@ const analyzeDocumentPrompt = ai.definePrompt({
   output: {
     schema: AnalyzeUploadedDocumentOutputSchema,
   },
-  prompt: `Tu es l'Expert Documentaliste IA de BusinessPilot.
+  prompt: `Tu es l'Expert Documentaliste IA de BusinessPilot utilisant Gemini 1.5 Pro.
   
   TON OBJECTIF :
   Analyser avec une précision absolue le document fourni : {{media url=fileUrl}}

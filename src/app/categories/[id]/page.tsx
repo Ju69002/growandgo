@@ -47,7 +47,6 @@ export default function CategoryPage() {
   const { user } = useUser();
   const [activeSubCategory, setActiveSubCategory] = useState<string>('all');
   
-  // Machine à états pour l'import
   const [importStep, setImportStep] = useState<ImportStep>('idle');
   const [analyzedDoc, setAnalyzedDoc] = useState<AnalyzeUploadedDocumentOutput | null>(null);
   const [currentFileUrl, setCurrentFileUrl] = useState<string>("");
@@ -268,7 +267,7 @@ export default function CategoryPage() {
               </DialogHeader>
               <div className="bg-muted/50 p-6 rounded-2xl border-2 border-dashed border-primary/20 text-center">
                 <p className="text-sm text-muted-foreground">
-                  Voulez-vous que l'IA utilise l'OCR pour analyser, nommer et classer ce document automatiquement dans vos dossiers ?
+                  Souhaitez-vous lancer l'analyse intelligente pour classer ce document automatiquement ?
                 </p>
               </div>
               <div className="flex gap-3">
@@ -277,7 +276,7 @@ export default function CategoryPage() {
                 </Button>
                 <Button onClick={startAiAnalysis} className="flex-1 h-12 rounded-xl bg-primary hover:bg-primary/90 shadow-md">
                   <BrainCircuit className="w-4 h-4 mr-2" />
-                  Analyser & Classer
+                  Lancer l'Analyse
                 </Button>
               </div>
             </div>
@@ -290,14 +289,9 @@ export default function CategoryPage() {
                   <div className="w-24 h-24 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
                   <BrainCircuit className="w-10 h-10 text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
                 </div>
-                <DialogTitle className="text-2xl font-bold text-primary animate-pulse text-center">Analyse OCR en cours...</DialogTitle>
-                <DialogDescription className="text-muted-foreground max-w-[300px] text-center">L'IA lit le contenu de votre document pour déterminer le meilleur emplacement.</DialogDescription>
+                <DialogTitle className="text-2xl font-bold text-primary animate-pulse text-center">Réflexion de l'IA...</DialogTitle>
+                <DialogDescription className="text-muted-foreground max-w-[300px] text-center">Lecture OCR et analyse contextuelle en cours via Gemini Pro.</DialogDescription>
               </DialogHeader>
-              <div className="flex gap-2">
-                <div className="w-2 h-2 bg-primary/40 rounded-full animate-bounce"></div>
-                <div className="w-2 h-2 bg-primary/60 rounded-full animate-bounce [animation-delay:0.2s]"></div>
-                <div className="w-2 h-2 bg-primary/80 rounded-full animate-bounce [animation-delay:0.4s]"></div>
-              </div>
             </div>
           )}
 
@@ -307,8 +301,8 @@ export default function CategoryPage() {
                 <div className="flex items-center gap-3">
                   <Sparkles className="w-6 h-6" />
                   <DialogHeader>
-                    <DialogTitle className="text-xl font-bold text-primary-foreground">Diagnostic de l'Architecte</DialogTitle>
-                    <DialogDescription className="text-primary-foreground/80 text-xs">Vérifiez les informations extraites avant de ranger le document.</DialogDescription>
+                    <DialogTitle className="text-xl font-bold text-primary-foreground">Diagnostic Final</DialogTitle>
+                    <DialogDescription className="text-primary-foreground/80 text-xs">Vérifiez les informations lues avant le rangement définitif.</DialogDescription>
                   </DialogHeader>
                 </div>
                 <Button variant="ghost" size="icon" onClick={() => setImportStep('idle')} className="text-primary-foreground hover:bg-white/10">
@@ -345,31 +339,8 @@ export default function CategoryPage() {
                         </Badge>
                       </div>
                     </div>
-
-                    {analyzedDoc.reasoning && (
-                      <div className="p-3 bg-muted/40 rounded-lg text-[11px] text-muted-foreground border border-muted">
-                        <span className="font-bold text-foreground">Logique IA :</span> {analyzedDoc.reasoning}
-                      </div>
-                    )}
                   </CardContent>
                 </Card>
-
-                {Object.keys(analyzedDoc.extractedData || {}).length > 0 && (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Info className="w-3.5 h-3.5 text-muted-foreground" />
-                      <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Données extraites par OCR</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      {Object.entries(analyzedDoc.extractedData).slice(0, 4).map(([key, value]) => (
-                        <div key={key} className="bg-muted/30 p-2.5 rounded-xl text-[11px] truncate border border-transparent">
-                          <span className="text-muted-foreground font-bold uppercase text-[9px] block mb-0.5">{key}</span> 
-                          <span className="font-semibold text-foreground">{String(value)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
 
                 <div className="flex gap-3 pt-2">
                   <Button variant="ghost" onClick={() => setImportStep('idle')} className="flex-1 h-12 rounded-xl">
