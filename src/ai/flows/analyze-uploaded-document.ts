@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -47,23 +48,22 @@ const analyzeDocumentPrompt = ai.definePrompt({
   prompt: `Tu es l'Expert Documentaliste IA de BusinessPilot.
   
   TON OBJECTIF :
-  Analyser le document fourni : {{media url=fileUrl}}
-  Tu dois utiliser tes capacités de vision/OCR pour lire le contenu textuel et comprendre de quoi il s'agit précisément.
+  Analyser avec une précision absolue le document fourni : {{media url=fileUrl}}
+  Tu dois utiliser tes capacités de vision/OCR pour lire TOUT le texte et comprendre la nature exacte de la pièce.
   
-  CONTEXTE ACTUEL : Tu es dans le dossier "{{{currentCategoryId}}}".
-  
-  DOSSIERS ET SOUS-SECTIONS DISPONIBLES :
+  DOSSIERS ET SOUS-SECTIONS DISPONIBLES DANS L'ENTREPRISE :
   {{#each availableCategories}}
   - Catégorie : {{label}} (ID: {{id}})
-    Sous-dossiers : {{#each subCategories}} "{{this}}" {{/each}}
+    Sous-dossiers possibles : {{#each subCategories}} "{{this}}" {{/each}}
   {{/each}}
   
-  INSTRUCTIONS :
-  1. Extrais un titre clair (ex: "Facture EDF Mars 2024", "Contrat de Travail - Jean Dupont").
-  2. Identifie la meilleure Catégorie parmi la liste. Si c'est une facture, c'est "Finance". Si c'est lié au personnel, c'est "RH".
-  3. Choisis le sous-dossier le plus précis. Si aucun ne correspond parfaitement, suggère le plus proche.
-  4. Extrais les métadonnées (Dates, Montants TTC/HT, IBAN, SIREN, etc.) dans extractedData.
-  5. Explique ton raisonnement brièvement.
+  INSTRUCTIONS DE CLASSEMENT :
+  1. Si c'est une facture fournisseur, bilan ou relevé -> Catégorie "Finance".
+  2. Si c'est un contrat de travail, fiche de paie ou mutuelle -> Catégorie "RH".
+  3. Si c'est un KBIS, bail ou assurance -> Catégorie "Administration".
+  4. Extrais les données clés comme : Date d'émission, Montant TTC, Nom de l'émetteur, Numéro de référence.
+  
+  SOIS PRÉCIS : Choisis le sous-dossier le plus spécifique parmi ceux listés. Si aucun ne correspond exactement, prends le plus proche.
   
   Réponds uniquement au format JSON structuré.`,
 });
