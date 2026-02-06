@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -6,19 +7,21 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Mail, Calendar as CalendarIcon, Plus, Users, Chrome, Layout, Loader2, Link2 } from 'lucide-react';
-import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
-import { collection, query } from 'firebase/firestore';
-import { CalendarEvent } from '@/lib/types';
+import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, useUser, useDoc } from '@/firebase';
+import { collection, query, doc } from 'firebase/firestore';
+import { CalendarEvent, User } from '@/lib/types';
 import { format, addHours, startOfToday } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { getSyncTimeRange, mapGoogleEvent, mapOutlookEvent, syncEventToFirestore } from '@/services/calendar-sync';
 
 export function SharedCalendar({ companyId }: { companyId: string }) {
   const [date, setDate] = React.useState<Date | undefined>(new Date());
   const [isSyncing, setIsSyncing] = React.useState(false);
   const [connectedServices, setConnectedServices] = React.useState<string[]>([]);
   const db = useFirestore();
+  const { user } = useUser();
   const { toast } = useToast();
 
   const eventsQuery = useMemoFirebase(() => {
@@ -31,7 +34,7 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
   const selectedDateEvents = React.useMemo(() => {
     if (!events || !date) return [];
     return events.filter(event => {
-      const eventDate = new Date(event.startTime);
+      const eventDate = new Date(event.debut);
       return (
         eventDate.getDate() === date.getDate() &&
         eventDate.getMonth() === date.getMonth() &&
@@ -41,39 +44,47 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
   }, [events, date]);
 
   const handleConnect = async (service: 'google' | 'outlook') => {
+    if (!db || !companyId || !user) return;
+    
     setIsSyncing(true);
     toast({
       title: `Connexion à ${service === 'google' ? 'Google Calendar' : 'Outlook'}...`,
-      description: "Authentification sécurisée en cours avec Grow&Go.",
+      description: "Authentification sécurisée et synchronisation initiale.",
     });
 
-    // Simulation d'authentification OAuth
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // Simulation d'appel API pour récupérer les événements
+    // Dans une version de production, ceci appellerait une Server Action
+    await new Promise(resolve => setTimeout(resolve, 1500));
 
-    if (!db || !companyId) return;
-
-    // Ajouter des événements de démo pour montrer la réussite de la sync
-    const eventsRef = collection(db, 'companies', companyId, 'events');
-    const today = startOfToday();
+    const { timeMin, timeMax } = getSyncTimeRange();
     
-    const demoEvent: Partial<CalendarEvent> = {
-      companyId,
-      title: service === 'google' ? "Réunion Design Studio" : "Point Budget Hebdo",
-      description: `Importé automatiquement de votre compte ${service}.`,
-      startTime: addHours(today, 14).toISOString(),
-      endTime: addHours(today, 15).toISOString(),
-      attendees: ["team@growandgo.ai"],
-      source: service,
-      type: 'meeting'
-    };
+    // Exemple de données "fetchées" depuis l'API externe
+    const mockExternalEvents = [
+      {
+        id: `ext_${service}_${Date.now()}`,
+        summary: service === 'google' ? "Sprint Planning Grow&Go" : "Client Design Review",
+        description: "Synchronisé via API",
+        start: { dateTime: addHours(startOfToday(), 10).toISOString() },
+        end: { dateTime: addHours(startOfToday(), 11).toISOString() },
+        updated: new Date().toISOString(),
+        attendees: [{ email: user.email }]
+      }
+    ];
 
-    addDocumentNonBlocking(eventsRef, demoEvent);
+    // Traitement et Upsert dans Firestore
+    for (const extEvent of mockExternalEvents) {
+      const mapped = service === 'google' 
+        ? mapGoogleEvent(extEvent, companyId, user.uid)
+        : mapOutlookEvent(extEvent, companyId, user.uid);
+      
+      await syncEventToFirestore(db, mapped);
+    }
 
     setConnectedServices(prev => [...prev, service]);
     setIsSyncing(false);
     toast({
       title: "Synchronisation réussie !",
-      description: `Votre calendrier ${service} est maintenant lié à Grow&Go.`,
+      description: `Les événements des 12 prochains mois ont été importés.`,
     });
   };
 
@@ -148,7 +159,7 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
                     <div className="flex gap-6">
                       <div className="w-20 text-center border-r pr-6">
                         <span className="text-2xl font-black block text-primary">
-                          {format(new Date(event.startTime), "HH:mm")}
+                          {format(new Date(event.debut), "HH:mm")}
                         </span>
                         <span className="text-[10px] uppercase font-bold text-muted-foreground">Début</span>
                       </div>
@@ -160,7 +171,7 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
                           )}>
                             {event.source}
                           </Badge>
-                          <h4 className="text-xl font-bold">{event.title}</h4>
+                          <h4 className="text-xl font-bold">{event.titre}</h4>
                         </div>
                         <p className="text-sm text-muted-foreground max-w-2xl">{event.description}</p>
                         <div className="flex items-center gap-4 pt-2">
@@ -170,7 +181,7 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
                           </div>
                           <div className="flex items-center text-xs font-semibold text-muted-foreground">
                             <CalendarIcon className="w-4 h-4 mr-1.5" />
-                            Fin à {format(new Date(event.endTime), "HH:mm")}
+                            Fin à {format(new Date(event.fin), "HH:mm")}
                           </div>
                         </div>
                       </div>

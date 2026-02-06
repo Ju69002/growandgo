@@ -7,174 +7,38 @@
       "type": "object",
       "description": "Represents a company using the Grow&Go SaaS.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the company entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "Name of the company."
-        },
-        "subscriptionStatus": {
-          "type": "string",
-          "description": "Subscription status of the company ('active', 'trial')."
-        },
-        "modulesConfig": {
-          "type": "string",
-          "description": "Configuration map for the company's modules."
-        },
-        "showRh": {
-          "type": "boolean",
-          "description": "Visibility of the RH module."
-        },
-        "showFinance": {
-          "type": "boolean",
-          "description": "Visibility of the Finance module."
-        },
-        "customLabels": {
-          "type": "string",
-          "description": "Map for renaming categories (e.g., 'finance': 'My Treasury')."
-        },
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "subscriptionStatus": { "type": "string" },
+        "modulesConfig": { "type": "string" },
+        "showRh": { "type": "boolean" },
+        "showFinance": { "type": "boolean" },
+        "customLabels": { "type": "string" },
         "primaryColor": { "type": "string" },
         "backgroundColor": { "type": "string" },
         "foregroundColor": { "type": "string" }
       },
-      "required": [
-        "id",
-        "name",
-        "subscriptionStatus",
-        "modulesConfig",
-        "showRh",
-        "showFinance",
-        "customLabels"
-      ]
+      "required": ["id", "name"]
     },
     "User": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "User",
       "type": "object",
-      "description": "Represents a user within the Grow&Go SaaS.",
       "properties": {
-        "uid": {
-          "type": "string",
-          "description": "Unique identifier for the user, linked to Firebase Auth."
-        },
-        "companyId": {
-          "type": "string",
-          "description": "Reference to Company. (Relationship: Company 1:N User)"
-        },
-        "role": {
-          "type": "string",
-          "description": "User role ('super_admin', 'admin', 'employee')."
-        },
-        "adminMode": {
-          "type": "boolean",
-          "description": "Indicates if the admin user is in admin mode (true) or operational mode (false)."
-        },
+        "uid": { "type": "string" },
+        "companyId": { "type": "string" },
+        "role": { "type": "string" },
+        "adminMode": { "type": "boolean" },
         "name": { "type": "string" },
-        "email": { "type": "string" }
-      },
-      "required": [
-        "uid",
-        "companyId",
-        "role",
-        "adminMode"
-      ]
-    },
-    "Category": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Category",
-      "type": "object",
-      "description": "Represents a category (tile) in the Grow&Go SaaS.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the category entity (e.g., 'finance', 'admin')."
-        },
-        "companyId": {
-          "type": "string",
-          "description": "Reference to Company. (Relationship: Company 1:N Category)"
-        },
-        "label": {
-          "type": "string",
-          "description": "Displayed name of the category."
-        },
-        "badgeCount": {
-          "type": "number",
-          "description": "Number of pending actions in the category."
-        },
-        "type": {
-          "type": "string",
-          "description": "Category type ('standard' or 'custom')."
-        },
-        "visibleToEmployees": {
-          "type": "boolean",
-          "description": "Indicates if the category is visible to employees."
-        },
-        "aiInstructions": {
-          "type": "string",
-          "description": "System instructions for AI in this category."
-        },
-        "subCategories": {
-          "type": "array",
-          "items": { "type": "string" }
-        },
-        "icon": { "type": "string" },
-        "color": { "type": "string" }
-      },
-      "required": [
-        "id",
-        "companyId",
-        "label",
-        "badgeCount",
-        "type",
-        "visibleToEmployees",
-        "aiInstructions"
-      ]
-    },
-    "Document": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Document",
-      "type": "object",
-      "description": "Represents a document in the Grow&Go SaaS.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the document entity."
-        },
-        "categoryId": {
-          "type": "string",
-          "description": "Reference to Category. (Relationship: Category 1:N Document)"
-        },
-        "subCategory": { "type": "string" },
-        "projectColumn": {
-          "type": "string",
-          "description": "Project column ('technical', 'administrative', 'budget')."
-        },
-        "status": {
-          "type": "string",
-          "description": "Document status ('pending_analysis', 'waiting_verification', 'waiting_validation', 'archived')."
-        },
-        "extractedData": {
+        "email": { "type": "string" },
+        "calendarTokens": {
           "type": "object",
-          "description": "JSON data extracted from the document by AI."
-        },
-        "fileUrl": {
-          "type": "string",
-          "description": "URL of the document file in storage."
-        },
-        "name": { "type": "string" },
-        "createdAt": { "type": "string" },
-        "companyId": { "type": "string" }
+          "properties": {
+            "google_refresh_token": { "type": "string" },
+            "outlook_refresh_token": { "type": "string" }
+          }
+        }
       },
-      "required": [
-        "id",
-        "categoryId",
-        "status",
-        "fileUrl",
-        "name",
-        "companyId"
-      ]
+      "required": ["uid", "companyId"]
     },
     "CalendarEvent": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -183,92 +47,32 @@
       "description": "Represents a shared calendar event.",
       "properties": {
         "id": { "type": "string" },
+        "id_externe": { "type": "string", "description": "ID unique provenant de Google ou Outlook" },
         "companyId": { "type": "string" },
-        "title": { "type": "string" },
+        "userId": { "type": "string", "description": "ID de l'employé propriétaire" },
+        "titre": { "type": "string" },
         "description": { "type": "string" },
-        "startTime": { "type": "string", "format": "date-time" },
-        "endTime": { "type": "string", "format": "date-time" },
+        "debut": { "type": "string", "format": "date-time" },
+        "fin": { "type": "string", "format": "date-time" },
         "attendees": { "type": "array", "items": { "type": "string" } },
         "source": { "type": "string", "enum": ["local", "google", "outlook"] },
-        "type": { "type": "string", "enum": ["meeting", "task", "event"] }
+        "type": { "type": "string", "enum": ["meeting", "task", "event"] },
+        "derniere_maj": { "type": "string", "format": "date-time", "description": "Date ISO de la dernière modification côté source" }
       },
-      "required": ["id", "companyId", "title", "startTime", "endTime"]
+      "required": ["id_externe", "companyId", "titre", "debut", "fin"]
     }
   },
   "auth": {
-    "providers": [
-      "password",
-      "anonymous"
-    ]
+    "providers": ["password", "anonymous"]
   },
   "firestore": {
     "structure": [
       {
-        "path": "/companies/{companyId}",
-        "definition": {
-          "entityName": "Company",
-          "schema": {
-            "$ref": "#/backend/entities/Company"
-          },
-          "description": "Stores company profiles.",
-          "params": [
-            { "name": "companyId", "description": "Unique identifier for the company." }
-          ]
-        }
-      },
-      {
-        "path": "/users/{userId}",
-        "definition": {
-          "entityName": "User",
-          "schema": {
-            "$ref": "#/backend/entities/User"
-          },
-          "description": "Stores user profiles.",
-          "params": [
-            { "name": "userId", "description": "Unique identifier for the user." }
-          ]
-        }
-      },
-      {
-        "path": "/companies/{companyId}/categories/{categoryId}",
-        "definition": {
-          "entityName": "Category",
-          "schema": {
-            "$ref": "#/backend/entities/Category"
-          },
-          "description": "Stores categories.",
-          "params": [
-            { "name": "companyId", "description": "Company ID" },
-            { "name": "categoryId", "description": "Category ID" }
-          ]
-        }
-      },
-      {
-        "path": "/companies/{companyId}/documents/{documentId}",
-        "definition": {
-          "entityName": "Document",
-          "schema": {
-            "$ref": "#/backend/entities/Document"
-          },
-          "description": "Stores documents.",
-          "params": [
-            { "name": "companyId", "description": "Company ID" },
-            { "name": "documentId", "description": "Document ID" }
-          ]
-        }
-      },
-      {
         "path": "/companies/{companyId}/events/{eventId}",
         "definition": {
           "entityName": "CalendarEvent",
-          "schema": {
-            "$ref": "#/backend/entities/CalendarEvent"
-          },
-          "description": "Stores shared calendar events.",
-          "params": [
-            { "name": "companyId", "description": "Company ID" },
-            { "name": "eventId", "description": "Event ID" }
-          ]
+          "schema": { "$ref": "#/backend/entities/CalendarEvent" },
+          "description": "Stores calendar events with external sync support."
         }
       }
     ]
