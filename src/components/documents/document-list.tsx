@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, FileText, CheckCircle2, AlertCircle, Clock, FolderOpen, Eye, X, Download, ExternalLink, Loader2, Info, EyeOff } from 'lucide-react';
+import { MoreHorizontal, FileText, CheckCircle2, AlertCircle, Clock, FolderOpen, Eye, X, Download, ExternalLink, Loader2, EyeOff, Hash } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,7 +48,6 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
   const [viewingDoc, setViewingDoc] = React.useState<BusinessDocument | null>(null);
   const [safeUrl, setSafeUrl] = React.useState<string | null>(null);
   const [isBlobLoading, setIsBlobLoading] = React.useState(false);
-  const [iframeError, setIframeError] = React.useState(false);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -77,7 +76,6 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
 
   React.useEffect(() => {
     let url: string | null = null;
-    setIframeError(false);
     
     const prepareDoc = async () => {
       if (!viewingDoc?.fileUrl) {
@@ -153,7 +151,7 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
               <TableHead className="w-[350px]">Document</TableHead>
               <TableHead>Sous-dossier</TableHead>
               <TableHead>Statut</TableHead>
-              <TableHead>Date d'import</TableHead>
+              <TableHead>Date d'import / SIREN</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -183,7 +181,15 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm">
-                    {doc.createdAt}
+                    <div className="flex flex-col gap-1">
+                      <span>{doc.createdAt}</span>
+                      {doc.extractedData?.siren && (
+                        <div className="flex items-center gap-1.5 px-2 py-0.5 bg-primary/5 text-primary rounded-md border border-primary/10 w-fit">
+                          <Hash className="w-3 h-3" />
+                          <span className="text-[10px] font-bold tracking-wider">{doc.extractedData.siren}</span>
+                        </div>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
@@ -275,8 +281,6 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
                     src={`${safeUrl}#toolbar=0&navpanes=0`}
                     className="flex-1 w-full border-none bg-white"
                     title={viewingDoc.name}
-                    onLoad={() => setIframeError(false)}
-                    onError={() => setIframeError(true)}
                   />
                 </div>
               ) : (

@@ -2,7 +2,7 @@
 
 /**
  * @fileOverview Flux pour analyser les documents via Gemini 1.5 Flash.
- * Effectue une analyse OCR pour identifier la catégorie, le sous-dossier et l'importance.
+ * Effectue une analyse OCR pour identifier la catégorie, le sous-dossier, l'importance et le SIREN.
  */
 
 import {ai} from '@/ai/genkit';
@@ -30,6 +30,7 @@ const AnalyzeUploadedDocumentOutputSchema = z.object({
     montant: z.string().describe('Montant total TTC identifié.'),
     emetteur: z.string().describe('Nom de l\'émetteur ou fournisseur.'),
     reference: z.string().describe('Numéro de référence ou de facture.'),
+    siren: z.string().optional().describe('Numéro SIREN (9 chiffres) identifié sur le document.'),
   }).describe('Données structurées extraites.'),
   summary: z.string().describe('Résumé très court du document.'),
   reasoning: z.string().describe('Justification du choix de rangement.'),
@@ -62,11 +63,12 @@ const analyzeDocumentPrompt = ai.definePrompt({
   
   CONSIGNES :
   1. Identifie précisément le TITRE et l'EMETTEUR du document.
-  2. Choisis la catégorie la plus logique (Finance, RH, Admin, etc.).
-  3. REGLE DE CLASSEMENT : 
+  2. Extrais le numéro SIREN (9 chiffres) s'il est présent sur le document.
+  3. Choisis la catégorie la plus logique (Finance, RH, Admin, etc.).
+  4. REGLE DE CLASSEMENT : 
      - Si un sous-dossier existant correspond, utilise-le.
      - SINON, si c'est un document important, suggère un nouveau nom de sous-dossier et mets 'isNewSubCategory' à true.
-  4. Extrais les données structurées (Date, Montant, Emetteur, Référence).
+  5. Extrais les données structurées (Date, Montant, Emetteur, Référence, SIREN).
   
   Réponds uniquement en JSON valide.`,
 });
