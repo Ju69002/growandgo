@@ -25,7 +25,12 @@ const AnalyzeUploadedDocumentOutputSchema = z.object({
   suggestedCategoryId: z.string().describe('L\'identifiant de la catégorie principale la plus appropriée.'),
   suggestedCategoryLabel: z.string().describe('Le nom de la catégorie suggérée.'),
   suggestedSubCategory: z.string().describe('Le sous-dossier le plus adapté au contenu.'),
-  extractedData: z.record(z.any()).describe('Données clés extraites (dates, montants, numéros de référence, noms).'),
+  extractedData: z.object({
+    date: z.string().describe('Date d\'émission du document (ex: 12/05/2024)').optional(),
+    montant: z.string().describe('Montant total TTC si présent (ex: 150.50 €)').optional(),
+    emetteur: z.string().describe('Nom de l\'entreprise ou personne émettrice').optional(),
+    reference: z.string().describe('Numéro de facture, de contrat ou de dossier').optional(),
+  }).describe('Données clés extraites du document via OCR.'),
   summary: z.string().describe('Un court résumé du document et pourquoi il a été classé ici.'),
   reasoning: z.string().describe('Explication rapide de la logique de classement choisie.'),
 });
