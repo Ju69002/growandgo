@@ -7,7 +7,6 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import {googleAI} from '@genkit-ai/google-genai';
 
 const AnalyzeUploadedDocumentInputSchema = z.object({
   fileUrl: z.string().describe("Le contenu du document sous forme de Data URI (Base64)."),
@@ -46,7 +45,7 @@ export async function analyzeUploadedDocument(
 
 const analyzeDocumentPrompt = ai.definePrompt({
   name: 'analyzeDocumentPrompt',
-  model: googleAI.model('gemini-1.5-flash'),
+  model: 'googleai/gemini-1.5-flash',
   input: {
     schema: AnalyzeUploadedDocumentInputSchema,
   },
