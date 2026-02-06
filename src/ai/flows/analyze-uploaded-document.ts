@@ -9,7 +9,7 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const AnalyzeUploadedDocumentInputSchema = z.object({
-  fileUrl: z.string().describe('The URL or Data URI of the document to analyze.'),
+  fileUrl: z.string().describe("The URL or Data URI of the document to analyze. Expected format for Data URI: 'data:<mimetype>;base64,<encoded_data>'."),
   currentCategoryId: z.string().describe('The current category context.'),
   availableCategories: z.array(z.object({
     id: z.string(),
@@ -44,7 +44,9 @@ const analyzeDocumentPrompt = ai.definePrompt({
     schema: AnalyzeUploadedDocumentOutputSchema,
   },
   prompt: `You are an expert document analyst for BusinessPilot.
-  Analyze the document at this URL: {{{fileUrl}}}
+  
+  TASK:
+  Analyze the following document: {{media url=fileUrl}}
   
   CURRENT CONTEXT: Category "{{{currentCategoryId}}}"
   
@@ -54,9 +56,9 @@ const analyzeDocumentPrompt = ai.definePrompt({
     Sub-folders: {{#each subCategories}} "{{this}}" {{/each}}
   {{/each}}
   
-  TASK:
+  INSTRUCTIONS:
   1. Extract a professional and clear title for this document.
-  2. Determine which main Category (ID) it belongs to.
+  2. Determine which main Category (ID) it belongs to from the available list.
   3. Determine which Sub-folder within that category it belongs to.
   4. Extract key data fields (dates, amounts, reference numbers).
   5. Provide a one-sentence summary of the document.

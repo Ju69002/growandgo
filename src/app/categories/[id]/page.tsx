@@ -10,7 +10,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useFirestore, useDoc, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, useUser, useCollection } from '@/firebase';
 import { doc, collection, query } from 'firebase/firestore';
 import { Category, User } from '@/lib/types';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { analyzeUploadedDocument, AnalyzeUploadedDocumentOutput } from '@/ai/flows/analyze-uploaded-document';
 import {
   AlertDialog,
@@ -46,6 +46,8 @@ export default function CategoryPage() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analyzedDoc, setAnalyzedDoc] = useState<AnalyzeUploadedDocumentOutput | null>(null);
   const [showValidation, setShowValidation] = useState(false);
+  const [currentFileUrl, setCurrentFileUrl] = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -70,35 +72,46 @@ export default function CategoryPage() {
 
   const { data: allCategories } = useCollection<Category>(categoriesQuery);
 
-  const handleStartImport = async () => {
-    if (!db || !companyId || !category || !allCategories) return;
-    setIsAnalyzing(true);
-    
-    // Simulation d'un fichier PDF (dans un vrai cas, on utiliserait un input file)
-    const mockFileUrl = `https://picsum.photos/seed/${Math.random()}/800/1200`;
-    
-    try {
-      const analysis = await analyzeUploadedDocument({
-        fileUrl: mockFileUrl,
-        currentCategoryId: categoryId,
-        availableCategories: allCategories.map(c => ({
-          id: c.id,
-          label: c.label,
-          subCategories: c.subCategories || []
-        }))
-      });
+  const handleStartImport = () => {
+    fileInputRef.current?.click();
+  };
 
-      setAnalyzedDoc(analysis);
-      setShowValidation(true);
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Erreur d'importation",
-        description: "L'IA n'a pas pu analyser le document.",
-      });
-    } finally {
-      setIsAnalyzing(false);
-    }
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !db || !companyId || !allCategories) return;
+
+    setIsAnalyzing(true);
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const dataUri = e.target?.result as string;
+      setCurrentFileUrl(dataUri);
+      
+      try {
+        const analysis = await analyzeUploadedDocument({
+          fileUrl: dataUri,
+          currentCategoryId: categoryId,
+          availableCategories: allCategories.map(c => ({
+            id: c.id,
+            label: c.label,
+            subCategories: c.subCategories || []
+          }))
+        });
+
+        setAnalyzedDoc(analysis);
+        setShowValidation(true);
+      } catch (error) {
+        toast({
+          variant: "destructive",
+          title: "Erreur d'importation",
+          description: "L'IA n'a pas pu analyser le document.",
+        });
+      } finally {
+        setIsAnalyzing(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const confirmClassification = () => {
@@ -113,7 +126,7 @@ export default function CategoryPage() {
       projectColumn: 'administrative',
       status: 'waiting_verification',
       extractedData: analyzedDoc.extractedData,
-      fileUrl: `https://picsum.photos/seed/${Math.random()}/800/1200`,
+      fileUrl: currentFileUrl,
       createdAt: new Date().toLocaleDateString(),
       companyId: companyId
     });
@@ -125,7 +138,6 @@ export default function CategoryPage() {
 
     setShowValidation(false);
     
-    // Si l'IA a suggéré une autre catégorie, on propose d'y aller
     if (analyzedDoc.suggestedCategoryId !== categoryId) {
       router.push(`/categories/${analyzedDoc.suggestedCategoryId}`);
     }
@@ -141,6 +153,14 @@ export default function CategoryPage() {
 
   return (
     <DashboardLayout>
+      <input 
+        type="file" 
+        className="hidden" 
+        ref={fileInputRef} 
+        onChange={handleFileChange}
+        accept="application/pdf,image/*"
+      />
+      
       <div className="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
