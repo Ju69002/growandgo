@@ -231,15 +231,19 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
 
       <Dialog open={!!viewingDoc} onOpenChange={(open) => !open && setViewingDoc(null)}>
         <DialogContent className="sm:max-w-[95vw] h-[95vh] p-0 flex flex-col gap-0 overflow-hidden bg-slate-950 border-none">
+          <div className="sr-only">
+            <DialogTitle>Visualisation de document</DialogTitle>
+            <DialogDescription>Aperçu du fichier sélectionné avec options de téléchargement.</DialogDescription>
+          </div>
           <DialogHeader className="p-4 border-b bg-card flex flex-row items-center justify-between space-y-0 z-20">
             <div className="flex-1 min-w-0 pr-4">
-              <DialogTitle className="text-xl font-bold flex items-center gap-2 truncate">
+              <div className="text-xl font-bold flex items-center gap-2 truncate">
                 <FileText className="w-5 h-5 text-primary flex-shrink-0" />
                 {viewingDoc?.name}
-              </DialogTitle>
-              <DialogDescription className="truncate text-xs">
+              </div>
+              <div className="truncate text-xs text-muted-foreground">
                 {viewingDoc?.subCategory || 'Général'} • Importé le {viewingDoc?.createdAt}
-              </DialogDescription>
+              </div>
             </div>
             <div className="flex gap-2 flex-shrink-0">
                <Button variant="outline" size="sm" asChild>

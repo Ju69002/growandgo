@@ -1,7 +1,7 @@
 'use server';
 
 /**
- * @fileOverview Flux pour analyser les documents via Gemini 1.5 Flash.
+ * @fileOverview Flux pour analyser les documents via Gemini 1.5 Flash 8B.
  * Effectue une analyse OCR pour identifier la catégorie, le sous-dossier, l'importance et le SIREN.
  */
 
@@ -45,7 +45,7 @@ export async function analyzeUploadedDocument(
 
 const analyzeDocumentPrompt = ai.definePrompt({
   name: 'analyzeDocumentPrompt',
-  model: 'googleai/gemini-1.5-flash',
+  model: 'googleai/gemini-1.5-flash-8b',
   input: {
     schema: AnalyzeUploadedDocumentInputSchema,
   },
@@ -63,7 +63,7 @@ const analyzeDocumentPrompt = ai.definePrompt({
   
   CONSIGNES :
   1. Identifie précisément le TITRE et l'EMETTEUR du document.
-  2. Extrais le numéro SIREN (9 chiffres) s'il est présent sur le document.
+  2. Extrais le numéro SIREN (9 chiffres) s'il est présent sur le document. C'est CRITIQUE pour l'utilisateur.
   3. Choisis la catégorie la plus logique (Finance, RH, Admin, etc.).
   4. REGLE DE CLASSEMENT : 
      - Si un sous-dossier existant correspond, utilise-le.
