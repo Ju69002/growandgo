@@ -4,7 +4,7 @@ import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { DocumentList } from '@/components/documents/document-list';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChevronLeft, FolderOpen, FileUp, FileText, Loader2, Sparkles, AlertCircle, CheckCircle2, Info } from 'lucide-react';
+import { ChevronLeft, FolderOpen, FileUp, FileText, Loader2, Sparkles, AlertCircle, CheckCircle2, Info, ImageIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirestore, useDoc, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useUser, useCollection } from '@/firebase';
@@ -138,9 +138,17 @@ export default function CategoryPage() {
     }
   };
 
+  const isImageFile = currentFileName.toLowerCase().match(/\.(jpg|jpeg|png|webp)$/);
+
   return (
     <DashboardLayout>
-      <input type="file" className="hidden" ref={fileInputRef} onChange={handleFileChange} accept="application/pdf,image/*" />
+      <input 
+        type="file" 
+        className="hidden" 
+        ref={fileInputRef} 
+        onChange={handleFileChange} 
+        accept="application/pdf,image/png,image/jpeg,image/webp" 
+      />
       
       <div className="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -155,7 +163,7 @@ export default function CategoryPage() {
             </div>
           </div>
           <Button size="lg" className="bg-primary hover:bg-primary/90 shadow-lg" onClick={() => fileInputRef.current?.click()}>
-            <FileUp className="w-5 h-5 mr-2" /> Importer un document
+            <FileUp className="w-5 h-5 mr-2" /> Importer un document / photo
           </Button>
         </div>
 
@@ -182,17 +190,18 @@ export default function CategoryPage() {
       </div>
 
       <Dialog open={importStep !== 'idle'} onOpenChange={(open) => !open && setImportStep('idle')}>
-        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl">
+        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl bg-card">
           <div className="sr-only">
-            <DialogTitle>Importation intelligente de document</DialogTitle>
+            <DialogTitle>Importation intelligente de document ou image</DialogTitle>
             <DialogDescription>Processus d'analyse OCR et de rangement automatique via IA.</DialogDescription>
           </div>
           
           {importStep === 'confirm_analysis' && (
-            <div className="p-8 space-y-6 bg-card">
+            <div className="p-8 space-y-6">
               <DialogHeader>
                 <DialogTitle className="text-2xl font-bold flex items-center gap-2">
-                  <FileText className="w-6 h-6 text-primary" /> Nouveau document
+                  {isImageFile ? <ImageIcon className="w-6 h-6 text-primary" /> : <FileText className="w-6 h-6 text-primary" />}
+                  Nouveau fichier
                 </DialogTitle>
                 <DialogDescription className="text-muted-foreground">
                   Fichier : <span className="font-semibold text-foreground">{currentFileName}</span>
@@ -201,7 +210,7 @@ export default function CategoryPage() {
               <div className="bg-primary/5 p-6 rounded-2xl border border-primary/20 text-center space-y-3">
                 <Sparkles className="w-10 h-10 text-primary mx-auto" />
                 <p className="text-sm font-medium">Lancer l'analyse intelligente ?</p>
-                <p className="text-xs text-muted-foreground">L'IA va lire le document pour identifier le meilleur dossier (OCR).</p>
+                <p className="text-xs text-muted-foreground">L'IA Gemini 2.5 Flash Lite va lire votre {isImageFile ? 'photo' : 'document'} pour identifier le meilleur dossier (OCR).</p>
               </div>
               <div className="flex gap-3">
                 <Button variant="outline" onClick={() => setImportStep('idle')} className="flex-1">Annuler</Button>
@@ -211,7 +220,7 @@ export default function CategoryPage() {
           )}
 
           {importStep === 'analyzing' && (
-            <div className="p-12 flex flex-col items-center justify-center text-center space-y-6 min-h-[350px] bg-card">
+            <div className="p-12 flex flex-col items-center justify-center text-center space-y-6 min-h-[350px]">
               <DialogHeader className="items-center">
                 <div className="relative">
                   <Loader2 className="w-16 h-16 text-primary animate-spin" />
@@ -219,14 +228,14 @@ export default function CategoryPage() {
                 </div>
                 <DialogTitle className="text-2xl font-bold mt-6">Lecture OCR en cours...</DialogTitle>
                 <DialogDescription className="max-w-[300px]">
-                  L'IA analyse le contenu textuel de votre document pour déterminer son importance et son rangement.
+                  L'IA analyse le contenu de votre {isImageFile ? 'image' : 'document'} pour déterminer son importance et son rangement.
                 </DialogDescription>
               </DialogHeader>
             </div>
           )}
 
           {importStep === 'confirm_placement' && analysisResult && (
-            <div className="p-8 space-y-6 bg-card">
+            <div className="p-8 space-y-6">
               <DialogHeader>
                 <DialogTitle className="text-2xl font-bold flex items-center gap-2">
                    <CheckCircle2 className="w-6 h-6 text-emerald-500" /> Analyse terminée
@@ -259,6 +268,13 @@ export default function CategoryPage() {
                     </Badge>
                   </div>
                 </div>
+
+                {analysisResult.extractedData.siren && (
+                  <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200 flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">SIREN Détecté</span>
+                    <Badge className="bg-emerald-600 font-mono tracking-widest">{analysisResult.extractedData.siren}</Badge>
+                  </div>
+                )}
 
                 <div className="p-4 bg-muted/30 rounded-xl border border-dashed">
                   <div className="flex gap-2 items-start">

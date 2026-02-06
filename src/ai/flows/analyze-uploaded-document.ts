@@ -1,7 +1,7 @@
 'use server';
 
 /**
- * @fileOverview Flux pour analyser les documents via Gemini 2.5 Flash Lite.
+ * @fileOverview Flux pour analyser les documents (PDF ou Images) via Gemini 2.5 Flash Lite.
  * Effectue une analyse OCR pour identifier la catégorie, le sous-dossier, l'importance et le SIREN.
  */
 
@@ -9,7 +9,7 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const AnalyzeUploadedDocumentInputSchema = z.object({
-  fileUrl: z.string().describe("Le contenu du document sous forme de Data URI (Base64)."),
+  fileUrl: z.string().describe("Le contenu du document ou de l'image sous forme de Data URI (Base64)."),
   currentCategoryId: z.string().describe('ID de la catégorie actuelle.'),
   availableCategories: z.array(z.object({
     id: z.string(),
@@ -54,7 +54,7 @@ const analyzeDocumentPrompt = ai.definePrompt({
   },
   prompt: `Tu es l'Expert Documentaliste de BusinessPilot.
   
-  MISSION : Analyse ce document par vision OCR : {{media url=fileUrl}}
+  MISSION : Analyse ce document (PDF ou Image) par vision OCR : {{media url=fileUrl}}
   
   STRUCTURE ACTUELLE :
   {{#each availableCategories}}
