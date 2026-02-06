@@ -183,6 +183,10 @@ export default function CategoryPage() {
 
       <Dialog open={importStep !== 'idle'} onOpenChange={(open) => !open && setImportStep('idle')}>
         <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl">
+          <div className="sr-only">
+            <DialogTitle>Importation intelligente de document</DialogTitle>
+            <DialogDescription>Processus d'analyse OCR et de rangement automatique via IA.</DialogDescription>
+          </div>
           
           {importStep === 'confirm_analysis' && (
             <div className="p-8 space-y-6 bg-card">

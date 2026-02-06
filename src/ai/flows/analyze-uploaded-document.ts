@@ -1,7 +1,7 @@
 'use server';
 
 /**
- * @fileOverview Flux pour analyser les documents via Gemini 1.5 Pro.
+ * @fileOverview Flux pour analyser les documents via Gemini 1.5 Flash.
  * Effectue une analyse OCR profonde pour identifier la catégorie, le sous-dossier et l'importance.
  */
 
@@ -26,13 +26,13 @@ const AnalyzeUploadedDocumentOutputSchema = z.object({
   suggestedSubCategory: z.string().describe('Nom du sous-dossier suggéré.'),
   isNewSubCategory: z.boolean().describe('Indique si ce sous-dossier doit être créé car inexistant et important.'),
   extractedData: z.object({
-    date: z.string().describe('Date extraite (ex: 12/05/2023)'),
-    montant: z.string().describe('Montant TTC identifié'),
-    emetteur: z.string().describe('Nom de l\'entreprise émettrice'),
-    reference: z.string().describe('Numéro de facture ou référence'),
+    date: z.string().describe('Date extraite du document.'),
+    montant: z.string().describe('Montant total TTC identifié.'),
+    emetteur: z.string().describe('Nom de l\'émetteur ou fournisseur.'),
+    reference: z.string().describe('Numéro de référence ou de facture.'),
   }).describe('Données structurées extraites.'),
-  summary: z.string().describe('Résumé très court.'),
-  reasoning: z.string().describe('Justification du classement intelligent.'),
+  summary: z.string().describe('Résumé très court du document.'),
+  reasoning: z.string().describe('Justification du choix de rangement.'),
 });
 export type AnalyzeUploadedDocumentOutput = z.infer<typeof AnalyzeUploadedDocumentOutputSchema>;
 
@@ -44,7 +44,7 @@ export async function analyzeUploadedDocument(
 
 const analyzeDocumentPrompt = ai.definePrompt({
   name: 'analyzeDocumentPrompt',
-  model: 'googleai/gemini-1.5-pro',
+  model: 'googleai/gemini-1.5-flash',
   input: {
     schema: AnalyzeUploadedDocumentInputSchema,
   },
