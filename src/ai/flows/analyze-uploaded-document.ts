@@ -2,7 +2,7 @@
 
 /**
  * @fileOverview Flux pour analyser les documents via Gemini 1.5 Flash.
- * Effectue une analyse OCR profonde pour identifier la catégorie, le sous-dossier et l'importance.
+ * Effectue une analyse OCR pour identifier la catégorie, le sous-dossier et l'importance.
  */
 
 import {ai} from '@/ai/genkit';
@@ -51,7 +51,7 @@ const analyzeDocumentPrompt = ai.definePrompt({
   output: {
     schema: AnalyzeUploadedDocumentOutputSchema,
   },
-  prompt: `Tu es l'Expert Documentaliste Suprême de BusinessPilot.
+  prompt: `Tu es l'Expert Documentaliste de BusinessPilot.
   
   MISSION : Analyse ce document par vision OCR : {{media url=fileUrl}}
   
@@ -64,9 +64,9 @@ const analyzeDocumentPrompt = ai.definePrompt({
   1. Identifie précisément le TITRE et l'EMETTEUR du document.
   2. Choisis la catégorie la plus logique (Finance, RH, Admin, etc.).
   3. REGLE DE CLASSEMENT : 
-     - Si un sous-dossier existant correspond parfaitement, utilise-le.
-     - SINON, si le document représente une nouvelle thématique IMPORTANTE (ex: nouveau contrat, nouveau fournisseur récurent, nouvelle taxe spécifique), invente un nom de sous-dossier PERTINENT et mets 'isNewSubCategory' à true.
-  4. Sois extrêmement précis sur les données extraites (Date, Montant, Emetteur).
+     - Si un sous-dossier existant correspond, utilise-le.
+     - SINON, si c'est un document important, suggère un nouveau nom de sous-dossier et mets 'isNewSubCategory' à true.
+  4. Extrais les données structurées (Date, Montant, Emetteur, Référence).
   
   Réponds uniquement en JSON valide.`,
 });
