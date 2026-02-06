@@ -3,12 +3,14 @@
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { DocumentList } from '@/components/documents/document-list';
 import { Button } from '@/components/ui/button';
-import { Upload, ChevronLeft, Filter, Download, Trash2 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Upload, ChevronLeft, Filter, Download, Trash2, FolderOpen } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirestore, useDoc, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, useUser } from '@/firebase';
 import { doc, collection } from 'firebase/firestore';
 import { Category, User } from '@/lib/types';
+import { useState } from 'react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,6 +29,7 @@ export default function CategoryPage() {
   const categoryId = params.id as string;
   const db = useFirestore();
   const { user } = useUser();
+  const [activeSubCategory, setActiveSubCategory] = useState<string>('all');
 
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -48,11 +51,11 @@ export default function CategoryPage() {
     if (!db || !companyId) return;
     const docsRef = collection(db, 'companies', companyId, 'documents');
     
-    // Pour le prototype, on simule l'ajout d'un document
     addDocumentNonBlocking(docsRef, {
-      name: "Document_Analysé_" + Math.floor(Math.random() * 1000) + ".pdf",
+      name: "Nouveau_Document_" + Math.floor(Math.random() * 1000) + ".pdf",
       categoryId: categoryId,
-      projectColumn: 'budget',
+      subCategory: activeSubCategory === 'all' ? (category?.subCategories?.[0] || 'Général') : activeSubCategory,
+      projectColumn: 'administrative',
       status: 'pending_analysis',
       extractedData: {},
       fileUrl: 'https://picsum.photos/seed/doc/200/300',
@@ -66,6 +69,8 @@ export default function CategoryPage() {
     deleteDocumentNonBlocking(categoryRef);
     router.push('/');
   };
+
+  const subCategories = category?.subCategories || [];
 
   return (
     <DashboardLayout>
@@ -83,24 +88,18 @@ export default function CategoryPage() {
               {isAdmin && (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="text-destructive hover:bg-destructive/10"
-                    >
+                    <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10">
                       <Trash2 className="w-5 h-5" />
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
                       <AlertDialogTitle>Supprimer cette catégorie ?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Toutes les données contenues dans cette tuile seront définitivement supprimées. Cette action est irréversible.
-                      </AlertDialogDescription>
+                      <AlertDialogDescription>Toutes les données seront définitivement supprimées.</AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Annuler</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleDeleteCategory} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      <AlertDialogAction onClick={handleDeleteCategory} className="bg-destructive text-white hover:bg-destructive/90">
                         Supprimer
                       </AlertDialogAction>
                     </AlertDialogFooter>
@@ -108,31 +107,43 @@ export default function CategoryPage() {
                 </AlertDialog>
               )}
             </div>
-            <p className="text-muted-foreground">
-              {category?.aiInstructions || "Gérez vos documents et organisez vos sous-dossiers."}
-            </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm">
-              <Filter className="w-4 h-4 mr-2" />
-              Filtres
-            </Button>
-            <Button variant="outline" size="sm">
-              <Download className="w-4 h-4 mr-2" />
-              Exporter
-            </Button>
-            <Button 
-              size="sm" 
-              className="bg-primary hover:bg-primary/90"
-              onClick={handleImport}
-            >
+            <Button size="sm" className="bg-primary hover:bg-primary/90" onClick={handleImport}>
               <Upload className="w-4 h-4 mr-2" />
-              Ajouter un fichier
+              Ajouter dans {activeSubCategory === 'all' ? 'le dossier' : activeSubCategory}
             </Button>
           </div>
         </div>
 
-        <DocumentList categoryId={categoryId} />
+        <div className="bg-card border rounded-2xl overflow-hidden shadow-sm">
+          <Tabs defaultValue="all" className="w-full" onValueChange={setActiveSubCategory}>
+            <div className="border-b bg-muted/20 px-4">
+              <TabsList className="h-14 bg-transparent gap-6">
+                <TabsTrigger value="all" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none rounded-none h-full px-4 font-semibold">
+                  Tous les documents
+                </TabsTrigger>
+                {subCategories.map((sub) => (
+                  <TabsTrigger key={sub} value={sub} className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none rounded-none h-full px-4 font-semibold flex items-center gap-2">
+                    <FolderOpen className="w-4 h-4" />
+                    {sub}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
+
+            <div className="p-6">
+              <TabsContent value="all" className="mt-0">
+                <DocumentList categoryId={categoryId} />
+              </TabsContent>
+              {subCategories.map((sub) => (
+                <TabsContent key={sub} value={sub} className="mt-0">
+                  <DocumentList categoryId={categoryId} subCategory={sub} />
+                </TabsContent>
+              ))}
+            </div>
+          </Tabs>
+        </div>
       </div>
     </DashboardLayout>
   );

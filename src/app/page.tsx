@@ -10,11 +10,36 @@ import { doc } from 'firebase/firestore';
 import { User, Company } from '@/lib/types';
 
 const DEFAULT_CATEGORIES = [
-  { id: 'finance', label: 'Finance', aiInstructions: 'Analyse des factures et trésorerie.' },
-  { id: 'admin', label: 'Administration', aiInstructions: 'Gestion des documents administratifs.' },
-  { id: 'rh', label: 'RH', aiInstructions: 'Gestion des contrats et documents employés.' },
-  { id: 'agenda', label: 'Agenda', aiInstructions: 'Organisation du planning.' },
-  { id: 'signatures', label: 'Signatures', aiInstructions: 'Suivi des signatures.' }
+  { 
+    id: 'finance', 
+    label: 'Finance', 
+    aiInstructions: 'Analyse des factures et trésorerie.',
+    subCategories: ['Factures Fournisseurs', 'Factures Clients', 'Bilans', 'Relevés Bancaires']
+  },
+  { 
+    id: 'admin', 
+    label: 'Administration', 
+    aiInstructions: 'Gestion des documents administratifs.',
+    subCategories: ['Juridique & Statuts', 'Assurances', 'Contrats', 'Kbis']
+  },
+  { 
+    id: 'rh', 
+    label: 'RH', 
+    aiInstructions: 'Gestion des contrats et documents employés.',
+    subCategories: ['Contrats Travail', 'Fiches de Paie', 'Mutuelle & Prévoyance', 'Candidatures']
+  },
+  { 
+    id: 'agenda', 
+    label: 'Agenda', 
+    aiInstructions: 'Organisation du planning.',
+    subCategories: ['Réunions', 'Planning Équipe', 'Déplacements']
+  },
+  { 
+    id: 'signatures', 
+    label: 'Signatures', 
+    aiInstructions: 'Suivi des signatures.',
+    subCategories: ['Devis', 'Contrats Client', 'PV de Réception']
+  }
 ];
 
 export default function Home() {
@@ -23,7 +48,6 @@ export default function Home() {
   const db = useFirestore();
   const [isInitializing, setIsInitializing] = useState(true);
 
-  // Sign-in anonyme si non connecté
   useEffect(() => {
     if (!isUserLoading && !user && auth) {
       initiateAnonymousSignIn(auth);
@@ -37,12 +61,10 @@ export default function Home() {
 
   const { data: profile, isLoading: isProfileLoading } = useDoc<User>(userProfileRef);
 
-  // Initialisation des données de démo
   useEffect(() => {
     if (user && !isProfileLoading && !profile && db) {
       const companyId = 'default-company';
       
-      // 1. Créer le profil utilisateur d'abord
       const userRef = doc(db, 'users', user.uid);
       setDocumentNonBlocking(userRef, {
         uid: user.uid,
@@ -53,7 +75,6 @@ export default function Home() {
         email: user.email || 'demo@businesspilot.ai'
       }, { merge: true });
 
-      // 2. Créer l'entreprise
       const companyRef = doc(db, 'companies', companyId);
       setDocumentNonBlocking(companyRef, {
         id: companyId,
@@ -67,7 +88,6 @@ export default function Home() {
         }
       }, { merge: true });
 
-      // 3. Créer les catégories par défaut
       DEFAULT_CATEGORIES.forEach(cat => {
         const catRef = doc(db, 'companies', companyId, 'categories', cat.id);
         setDocumentNonBlocking(catRef, {
@@ -77,12 +97,12 @@ export default function Home() {
           visibleToEmployees: true,
           type: 'standard',
           aiInstructions: cat.aiInstructions,
-          companyId: companyId
+          companyId: companyId,
+          subCategories: cat.subCategories
         }, { merge: true });
       });
     }
     
-    // Une fois qu'on a un profil, on arrête le chargement d'initialisation
     if (user && profile) {
       setIsInitializing(false);
     }
@@ -109,7 +129,7 @@ export default function Home() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-primary">Tableau de bord</h1>
             <p className="text-muted-foreground mt-1">
-              Bienvenue sur BusinessPilot. Votre Architecte IA peut changer la couleur du site si vous lui demandez.
+              Bienvenue sur BusinessPilot. Votre Architecte IA a organisé vos dossiers avec des sous-sections essentielles.
             </p>
           </div>
           {userRole !== 'employee' && (
@@ -125,7 +145,7 @@ export default function Home() {
             <Info className="h-4 w-4 text-primary" />
             <AlertTitle className="text-primary font-bold">Mode Architecte Visuel</AlertTitle>
             <AlertDescription className="text-primary/80">
-              Demandez au chatbot : "Change la couleur en vert" ou "Passe le site en rouge" pour personnaliser l'aspect visuel instantanément.
+              Demandez au chatbot : "Ajoute un sous-dossier Factures de loyer dans Finance" pour personnaliser votre structure.
             </AlertDescription>
           </Alert>
         )}

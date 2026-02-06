@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, FileText, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
+import { MoreHorizontal, FileText, CheckCircle2, AlertCircle, Clock, FolderOpen } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,7 +30,12 @@ const statusConfig: Record<DocumentStatus, { label: string; icon: any; color: st
   archived: { label: 'Archivé', icon: CheckCircle2, color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
 };
 
-export function DocumentList({ categoryId }: { categoryId: string }) {
+interface DocumentListProps {
+  categoryId: string;
+  subCategory?: string;
+}
+
+export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
   const db = useFirestore();
   const { user } = useUser();
 
@@ -44,11 +49,18 @@ export function DocumentList({ categoryId }: { categoryId: string }) {
 
   const docsQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
-    return query(
+    
+    let q = query(
       collection(db, 'companies', companyId, 'documents'),
       where('categoryId', '==', categoryId)
     );
-  }, [db, categoryId, companyId]);
+
+    if (subCategory) {
+      q = query(q, where('subCategory', '==', subCategory));
+    }
+
+    return q;
+  }, [db, categoryId, companyId, subCategory]);
 
   const { data: documents, isLoading } = useCollection<BusinessDocument>(docsQuery);
 
@@ -64,10 +76,10 @@ export function DocumentList({ categoryId }: { categoryId: string }) {
 
   if (!documents || documents.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed rounded-xl bg-card text-muted-foreground">
-        <FileText className="w-12 h-12 mb-4 opacity-20" />
-        <p className="font-medium text-lg">Aucun document trouvé</p>
-        <p className="text-sm">Importez votre premier fichier pour commencer l'analyse.</p>
+      <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed rounded-xl bg-muted/10 text-muted-foreground">
+        <FolderOpen className="w-12 h-12 mb-4 opacity-20" />
+        <p className="font-medium text-lg">Dossier vide</p>
+        <p className="text-sm">Aucun document n'a encore été classé dans {subCategory || 'cette section'}.</p>
       </div>
     );
   }
@@ -77,8 +89,8 @@ export function DocumentList({ categoryId }: { categoryId: string }) {
       <Table>
         <TableHeader className="bg-muted/30">
           <TableRow>
-            <TableHead className="w-[400px]">Document</TableHead>
-            <TableHead>Type</TableHead>
+            <TableHead className="w-[350px]">Document</TableHead>
+            <TableHead>Sous-dossier</TableHead>
             <TableHead>Statut</TableHead>
             <TableHead>Date d'import</TableHead>
             <TableHead>Détails IA</TableHead>
@@ -92,16 +104,17 @@ export function DocumentList({ categoryId }: { categoryId: string }) {
               <TableRow key={doc.id} className="hover:bg-muted/10 transition-colors">
                 <TableCell className="font-medium">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-muted rounded-lg">
-                      <FileText className="w-5 h-5 text-muted-foreground" />
+                    <div className="p-2 bg-muted rounded-lg text-primary">
+                      <FileText className="w-5 h-5" />
                     </div>
-                    <span className="truncate max-w-[250px]">{doc.name || 'Sans titre'}</span>
+                    <span className="truncate max-w-[200px]">{doc.name || 'Sans titre'}</span>
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge variant="outline" className="capitalize">
-                    {doc.projectColumn}
-                  </Badge>
+                  <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                    <FolderOpen className="w-3 h-3" />
+                    {doc.subCategory || 'Général'}
+                  </div>
                 </TableCell>
                 <TableCell>
                   <Badge className={status.color}>
@@ -113,14 +126,15 @@ export function DocumentList({ categoryId }: { categoryId: string }) {
                   {doc.createdAt}
                 </TableCell>
                 <TableCell>
-                  <div className="text-xs space-y-0.5">
-                    {Object.entries(doc.extractedData || {}).map(([k, v]) => (
-                      <div key={k}>
-                        <span className="text-muted-foreground uppercase text-[10px] font-bold">{k}:</span> {String(v)}
-                      </div>
-                    ))}
-                    {Object.keys(doc.extractedData || {}).length === 0 && (
-                      <span className="italic text-muted-foreground">Analyse en cours...</span>
+                  <div className="text-xs space-y-0.5 max-w-[150px]">
+                    {Object.entries(doc.extractedData || {}).length > 0 ? (
+                      Object.entries(doc.extractedData).slice(0, 2).map(([k, v]) => (
+                        <div key={k} className="truncate">
+                          <span className="text-muted-foreground uppercase text-[10px] font-bold">{k}:</span> {String(v)}
+                        </div>
+                      ))
+                    ) : (
+                      <span className="italic text-muted-foreground">Analyse IA...</span>
                     )}
                   </div>
                 </TableCell>
@@ -132,14 +146,10 @@ export function DocumentList({ categoryId }: { categoryId: string }) {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuItem>Voir le document</DropdownMenuItem>
-                      <DropdownMenuItem>Vérifier l'extraction</DropdownMenuItem>
-                      <DropdownMenuItem>Valider</DropdownMenuItem>
-                      <DropdownMenuItem 
-                        className="text-destructive"
-                        onClick={() => handleDelete(doc.id)}
-                      >
+                      <DropdownMenuLabel>Gestion</DropdownMenuLabel>
+                      <DropdownMenuItem>Voir</DropdownMenuItem>
+                      <DropdownMenuItem>Vérifier</DropdownMenuItem>
+                      <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(doc.id)}>
                         Supprimer
                       </DropdownMenuItem>
                     </DropdownMenuContent>

@@ -36,13 +36,15 @@ export interface Category {
   visibleToEmployees: boolean;
   aiInstructions: string;
   icon?: string;
-  color?: string; // Individual background color (e.g., "bg-green-500" or a custom HSL)
+  color?: string; 
+  subCategories?: string[]; // Liste des noms de sous-dossiers
 }
 
 export interface BusinessDocument {
   id: string;
   companyId: string;
   categoryId: string;
+  subCategory?: string; // Le sous-dossier associé
   projectColumn: 'technical' | 'administrative' | 'budget';
   status: DocumentStatus;
   extractedData: Record<string, any>;
