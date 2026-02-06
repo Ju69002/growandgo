@@ -4,7 +4,7 @@ import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { DocumentList } from '@/components/documents/document-list';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChevronLeft, Trash2, FolderOpen, Loader2, FileUp, Check, X, FileText, Info } from 'lucide-react';
+import { ChevronLeft, Trash2, FolderOpen, Loader2, FileUp, Check, X, FileText, Info, FileSearch } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirestore, useDoc, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, useUser, useCollection } from '@/firebase';
@@ -45,8 +45,12 @@ export default function CategoryPage() {
   const [activeSubCategory, setActiveSubCategory] = useState<string>('all');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analyzedDoc, setAnalyzedDoc] = useState<AnalyzeUploadedDocumentOutput | null>(null);
+  
+  const [showImportConfirm, setShowImportConfirm] = useState(false);
   const [showValidation, setShowValidation] = useState(false);
+  
   const [currentFileUrl, setCurrentFileUrl] = useState<string>("");
+  const [currentFileName, setCurrentFileName] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const userProfileRef = useMemoFirebase(() => {
@@ -78,7 +82,23 @@ export default function CategoryPage() {
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || !db || !companyId) return;
+    if (!file) return;
+
+    setCurrentFileName(file.name);
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUri = e.target?.result as string;
+      setCurrentFileUrl(dataUri);
+      setShowImportConfirm(true); // Ouvrir le premier pop-up de confirmation
+    };
+    reader.readAsDataURL(file);
+
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const startAiAnalysis = async () => {
+    if (!currentFileUrl || !db || !companyId) return;
 
     if (!allCategories || allCategories.length === 0) {
       toast({
@@ -89,53 +109,36 @@ export default function CategoryPage() {
       return;
     }
 
+    setShowImportConfirm(false);
     setIsAnalyzing(true);
 
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      const dataUri = e.target?.result as string;
-      setCurrentFileUrl(dataUri);
-      
-      try {
-        const analysis = await analyzeUploadedDocument({
-          fileUrl: dataUri,
-          currentCategoryId: categoryId,
-          availableCategories: allCategories.map(c => ({
-            id: c.id,
-            label: c.label,
-            subCategories: c.subCategories || []
-          }))
-        });
+    try {
+      const analysis = await analyzeUploadedDocument({
+        fileUrl: currentFileUrl,
+        currentCategoryId: categoryId,
+        availableCategories: allCategories.map(c => ({
+          id: c.id,
+          label: c.label,
+          subCategories: c.subCategories || []
+        }))
+      });
 
-        if (analysis) {
-          setAnalyzedDoc(analysis);
-          setShowValidation(true);
-        } else {
-          throw new Error("Pas de réponse de l'IA");
-        }
-      } catch (error) {
-        console.error("Analyse error:", error);
-        toast({
-          variant: "destructive",
-          title: "Erreur d'analyse",
-          description: "L'IA n'a pas pu traiter ce document. Vérifiez le format (PDF ou Image).",
-        });
-      } finally {
-        setIsAnalyzing(false);
-        if (fileInputRef.current) fileInputRef.current.value = "";
+      if (analysis) {
+        setAnalyzedDoc(analysis);
+        setShowValidation(true);
+      } else {
+        throw new Error("Pas de réponse de l'IA");
       }
-    };
-    
-    reader.onerror = () => {
-      setIsAnalyzing(false);
+    } catch (error) {
+      console.error("Analyse error:", error);
       toast({
         variant: "destructive",
-        title: "Erreur de lecture",
-        description: "Impossible de lire le fichier depuis votre ordinateur.",
+        title: "Erreur d'analyse",
+        description: "L'IA n'a pas pu traiter ce document. Vérifiez le format (PDF ou Image).",
       });
-    };
-
-    reader.readAsDataURL(file);
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const confirmClassification = () => {
@@ -229,7 +232,7 @@ export default function CategoryPage() {
               {isAnalyzing ? (
                 <>
                   <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Analyse IA...
+                  Analyse IA en cours...
                 </>
               ) : (
                 <>
@@ -271,6 +274,35 @@ export default function CategoryPage() {
         </div>
       </div>
 
+      {/* Pop-up 1 : Confirmation après sélection du fichier */}
+      <Dialog open={showImportConfirm} onOpenChange={setShowImportConfirm}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-primary">
+              <FileUp className="w-5 h-5" />
+              Document importé
+            </DialogTitle>
+            <DialogDescription>
+              Le fichier <strong>{currentFileName}</strong> a été chargé avec succès. Que souhaitez-vous faire ?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center justify-center py-6 bg-muted/20 rounded-xl border border-dashed">
+            <FileText className="w-12 h-12 text-muted-foreground mb-2" />
+            <span className="text-sm font-medium">{currentFileName}</span>
+          </div>
+          <DialogFooter className="flex flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setShowImportConfirm(false)} className="flex-1">
+              Annuler
+            </Button>
+            <Button onClick={startAiAnalysis} className="flex-1 bg-primary hover:bg-primary/90">
+              <FileSearch className="w-4 h-4 mr-2" />
+              Analyser et Classer par l'IA
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Pop-up 2 : Validation du classement IA */}
       <Dialog open={showValidation} onOpenChange={setShowValidation}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
@@ -279,7 +311,7 @@ export default function CategoryPage() {
               Confirmation du classement IA
             </DialogTitle>
             <DialogDescription>
-              L'IA a analysé votre document. Veuillez confirmer le rangement suggéré avant l'importation finale.
+              L'IA a analysé votre document. Veuillez confirmer le rangement suggéré.
             </DialogDescription>
           </DialogHeader>
 
