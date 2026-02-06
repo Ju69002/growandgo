@@ -4,7 +4,7 @@ import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { DocumentList } from '@/components/documents/document-list';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChevronLeft, FolderOpen, FileUp, FileText, Loader2, Sparkles, AlertCircle, CheckCircle2, Info, ImageIcon } from 'lucide-react';
+import { ChevronLeft, FolderOpen, FileUp, FileText, Loader2, Sparkles, CheckCircle2, Info, ImageIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirestore, useDoc, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useUser, useCollection } from '@/firebase';
@@ -24,6 +24,41 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
 type ImportStep = 'idle' | 'confirm_analysis' | 'analyzing' | 'confirm_placement';
+
+/**
+ * Utilitaire de compression d'image pour éviter de saturer Firestore (limite 1Mo)
+ */
+const compressImage = async (dataUrl: string, maxWidth = 1200, maxHeight = 1200, quality = 0.7): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > maxWidth) {
+          height *= maxWidth / width;
+          width = maxWidth;
+        }
+      } else {
+        if (height > maxHeight) {
+          width *= maxHeight / height;
+          height = maxHeight;
+        }
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return resolve(dataUrl);
+      ctx.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = reject;
+    img.src = dataUrl;
+  });
+};
 
 export default function CategoryPage() {
   const params = useParams();
@@ -66,13 +101,29 @@ export default function CategoryPage() {
     const file = event.target.files?.[0];
     if (!file) return;
     setCurrentFileName(file.name);
+
+    const isImage = file.type.startsWith('image/');
     const reader = new FileReader();
-    reader.onload = (e) => {
-      setCurrentFileUrl(e.target?.result as string);
+    
+    reader.onload = async (e) => {
+      let resultUrl = e.target?.result as string;
+      
+      if (isImage) {
+        try {
+          toast({
+            title: "Optimisation de l'image...",
+            description: "Réduction de la taille pour un traitement ultra-rapide.",
+          });
+          resultUrl = await compressImage(resultUrl);
+        } catch (err) {
+          console.error("Compression error", err);
+        }
+      }
+      
+      setCurrentFileUrl(resultUrl);
       setImportStep('confirm_analysis');
     };
     reader.readAsDataURL(file);
-    // On réinitialise l'input pour permettre de sélectionner le même fichier deux fois
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -96,7 +147,7 @@ export default function CategoryPage() {
       toast({
         variant: "destructive",
         title: "Erreur d'analyse IA",
-        description: "L'IA n'a pas pu traiter ce document. Passage au classement standard.",
+        description: "L'IA n'a pas pu traiter ce document. Vérifiez la connexion ou le format.",
       });
       setImportStep('idle');
     }
@@ -108,7 +159,6 @@ export default function CategoryPage() {
     const targetCategoryId = analysisResult.suggestedCategoryId;
     const targetSubCategory = analysisResult.suggestedSubCategory;
 
-    // Si c'est un nouveau sous-dossier suggéré par l'IA, on met à jour la catégorie
     if (analysisResult.isNewSubCategory) {
       const targetCatRef = doc(db, 'companies', companyId, 'categories', targetCategoryId);
       const targetCatData = allCategories?.find(c => c.id === targetCategoryId);
@@ -125,17 +175,16 @@ export default function CategoryPage() {
       status: 'waiting_verification',
       extractedData: analysisResult.extractedData,
       fileUrl: currentFileUrl,
-      createdAt: new Date().toLocaleDateString(),
+      createdAt: new Date().toLocaleDateString('fr-FR'),
       companyId: companyId
     });
 
     toast({
-      title: "Document classé avec succès !",
+      title: "Document classé !",
       description: `Rangé dans ${analysisResult.suggestedCategoryLabel} > ${targetSubCategory}`,
     });
 
     setImportStep('idle');
-    // Si l'IA a suggéré une autre catégorie, on redirige l'utilisateur
     if (targetCategoryId !== categoryId) {
       router.push(`/categories/${targetCategoryId}`);
     }
@@ -201,8 +250,8 @@ export default function CategoryPage() {
       <Dialog open={importStep !== 'idle'} onOpenChange={(open) => !open && setImportStep('idle')}>
         <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl bg-card">
           <div className="sr-only">
-            <DialogTitle>Importation intelligente de document ou image</DialogTitle>
-            <DialogDescription>Processus d'analyse OCR et de rangement automatique via IA.</DialogDescription>
+            <DialogTitle>Importation et analyse intelligente</DialogTitle>
+            <DialogDescription>Traitement du document par l'IA Gemini 2.5 Flash Lite.</DialogDescription>
           </div>
           
           {importStep === 'confirm_analysis' && (
@@ -212,14 +261,14 @@ export default function CategoryPage() {
                   {isImageFile ? <ImageIcon className="w-6 h-6 text-primary" /> : <FileText className="w-6 h-6 text-primary" />}
                   Nouveau fichier
                 </DialogTitle>
-                <DialogDescription className="text-muted-foreground">
-                  Fichier : <span className="font-semibold text-foreground">{currentFileName}</span>
+                <DialogDescription className="text-muted-foreground line-clamp-1">
+                  Fichier prêt : <span className="font-semibold text-foreground">{currentFileName}</span>
                 </DialogDescription>
               </DialogHeader>
               <div className="bg-primary/5 p-6 rounded-2xl border border-primary/20 text-center space-y-3">
                 <Sparkles className="w-10 h-10 text-primary mx-auto" />
-                <p className="text-sm font-medium">Lancer l'analyse intelligente ?</p>
-                <p className="text-xs text-muted-foreground">L'IA Gemini 2.5 Flash Lite va lire votre {isImageFile ? 'photo' : 'document'} pour identifier le meilleur dossier (OCR).</p>
+                <p className="text-sm font-medium">Lancer l'analyse OCR intelligente ?</p>
+                <p className="text-xs text-muted-foreground">L'IA Gemini va lire le contenu pour extraire le SIREN et classer le fichier au bon endroit.</p>
               </div>
               <div className="flex gap-3">
                 <Button variant="outline" onClick={() => setImportStep('idle')} className="flex-1">Annuler</Button>
@@ -237,7 +286,7 @@ export default function CategoryPage() {
                 </div>
                 <DialogTitle className="text-2xl font-bold mt-6">Lecture OCR en cours...</DialogTitle>
                 <DialogDescription className="max-w-[300px]">
-                  L'IA analyse le contenu de votre {isImageFile ? 'image' : 'document'} pour déterminer son importance et son rangement.
+                  Extraction du SIREN et des données clés via Gemini 2.5 Flash Lite.
                 </DialogDescription>
               </DialogHeader>
             </div>
@@ -249,7 +298,7 @@ export default function CategoryPage() {
                 <DialogTitle className="text-2xl font-bold flex items-center gap-2">
                    <CheckCircle2 className="w-6 h-6 text-emerald-500" /> Analyse terminée
                 </DialogTitle>
-                <DialogDescription>Voici la proposition de rangement établie par l'IA.</DialogDescription>
+                <DialogDescription>Proposition de rangement établie par l'IA.</DialogDescription>
               </DialogHeader>
 
               <div className="space-y-4">
@@ -264,7 +313,7 @@ export default function CategoryPage() {
                 )}>
                   <div className="flex justify-between items-center">
                     <span className={cn("text-[10px] font-bold uppercase tracking-wider", analysisResult.isNewSubCategory ? "text-amber-700" : "text-primary")}>
-                      {analysisResult.isNewSubCategory ? "Nouveau sous-dossier proposé" : "Dossier de destination"}
+                      {analysisResult.isNewSubCategory ? "Nouveau sous-dossier" : "Dossier cible"}
                     </span>
                     {analysisResult.isNewSubCategory && <Badge className="bg-amber-600">Création IA</Badge>}
                   </div>
@@ -278,13 +327,17 @@ export default function CategoryPage() {
                   </div>
                 </div>
 
-                <div className="p-4 bg-muted/30 rounded-xl border border-dashed">
-                  <div className="flex gap-2 items-start">
-                    <Info className="w-4 h-4 text-muted-foreground mt-0.5" />
-                    <p className="text-xs text-muted-foreground leading-relaxed italic">
-                      "{analysisResult.reasoning}"
-                    </p>
+                {analysisResult.extractedData?.siren && (
+                  <div className="p-3 bg-emerald-50 text-emerald-700 rounded-lg border border-emerald-100 flex items-center justify-between text-xs">
+                    <span className="font-medium uppercase">SIREN Détecté</span>
+                    <span className="font-bold font-mono">{analysisResult.extractedData.siren}</span>
                   </div>
+                )}
+
+                <div className="p-4 bg-muted/30 rounded-xl border border-dashed">
+                  <p className="text-xs text-muted-foreground leading-relaxed italic">
+                    "{analysisResult.reasoning}"
+                  </p>
                 </div>
               </div>
 
