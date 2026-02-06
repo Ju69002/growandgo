@@ -44,6 +44,7 @@ export async function analyzeUploadedDocument(
 
 const analyzeDocumentPrompt = ai.definePrompt({
   name: 'analyzeDocumentPrompt',
+  model: 'googleai/gemini-1.5-pro',
   input: {
     schema: AnalyzeUploadedDocumentInputSchema,
   },
@@ -75,8 +76,13 @@ const analyzeUploadedDocumentFlow = ai.defineFlow(
     outputSchema: AnalyzeUploadedDocumentOutputSchema,
   },
   async input => {
-    const {output} = await analyzeDocumentPrompt(input);
-    if (!output) throw new Error("Analyse impossible.");
-    return output;
+    try {
+      const {output} = await analyzeDocumentPrompt(input);
+      if (!output) throw new Error("L'IA n'a pas pu analyser le document.");
+      return output;
+    } catch (e) {
+      console.error("Gemini Flow Error:", e);
+      throw e;
+    }
   }
 );

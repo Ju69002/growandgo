@@ -75,10 +75,18 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
   const { data: documents, isLoading } = useCollection<BusinessDocument>(docsQuery);
 
   React.useEffect(() => {
-    if (viewingDoc?.fileUrl) {
+    let url: string | null = null;
+    
+    const prepareDoc = async () => {
+      if (!viewingDoc?.fileUrl) {
+        setSafeUrl(null);
+        return;
+      }
+
       setIsBlobLoading(true);
-      if (viewingDoc.fileUrl.startsWith('data:')) {
-        try {
+      
+      try {
+        if (viewingDoc.fileUrl.startsWith('data:')) {
           const parts = viewingDoc.fileUrl.split(',');
           const mime = parts[0].match(/:(.*?);/)?.[1] || 'application/octet-stream';
           const b64Data = parts[1];
@@ -89,22 +97,24 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
           }
           const byteArray = new Uint8Array(byteNumbers);
           const blob = new Blob([byteArray], { type: mime });
-          const url = URL.createObjectURL(blob);
+          url = URL.createObjectURL(blob);
           setSafeUrl(url);
-          setIsBlobLoading(false);
-          return () => URL.revokeObjectURL(url);
-        } catch (e) {
+        } else {
           setSafeUrl(viewingDoc.fileUrl);
-          setIsBlobLoading(false);
         }
-      } else {
+      } catch (e) {
+        console.error("Error creating blob URL", e);
         setSafeUrl(viewingDoc.fileUrl);
+      } finally {
         setIsBlobLoading(false);
       }
-    } else {
-      setSafeUrl(null);
-      setIsBlobLoading(false);
-    }
+    };
+
+    prepareDoc();
+
+    return () => {
+      if (url) URL.revokeObjectURL(url);
+    };
   }, [viewingDoc]);
 
   const handleDelete = (docId: string) => {
@@ -113,7 +123,10 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
     deleteDocumentNonBlocking(docRef);
   };
 
-  const isPDF = (url: string) => url.toLowerCase().includes('pdf') || url.toLowerCase().includes('application/pdf');
+  const isPDF = (doc: BusinessDocument | null) => {
+    if (!doc) return false;
+    return doc.fileUrl.toLowerCase().includes('pdf') || doc.fileUrl.toLowerCase().startsWith('data:application/pdf');
+  };
 
   if (isLoading) {
     return <div className="p-8 text-center text-muted-foreground animate-pulse">Chargement des documents...</div>;
@@ -189,7 +202,7 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
                             Ouvrir
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
-                            <a href={doc.fileUrl} download={doc.name} className="flex items-center">
+                            <a href={doc.fileUrl} download={doc.name} className="flex items-center w-full">
                               <Download className="w-4 h-4 mr-2" />
                               Télécharger
                             </a>
@@ -233,7 +246,7 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
                     Télécharger
                   </a>
                </Button>
-               <Button variant="ghost" size="icon" onClick={() => setViewingDoc(null)}>
+               <Button variant="ghost" size="icon" onClick={() => setViewingDoc(null)} className="text-muted-foreground">
                   <X className="w-5 h-5" />
                </Button>
             </div>
@@ -245,11 +258,12 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
                 <p className="text-sm font-medium animate-pulse">Préparation du document...</p>
               </div>
             ) : viewingDoc && safeUrl && (
-              isPDF(viewingDoc.fileUrl) ? (
+              isPDF(viewingDoc) ? (
                 <iframe
-                  src={`${safeUrl}#toolbar=0&navpanes=0`}
+                  src={safeUrl}
                   className="w-full h-full border-none bg-white"
                   title={viewingDoc.name}
+                  type="application/pdf"
                 />
               ) : (
                 <div className="relative w-full h-full flex items-center justify-center p-4">
