@@ -1,7 +1,7 @@
 'use server';
 
 /**
- * @fileOverview Flux pour analyser les documents via Gemini 1.5 Flash 8B.
+ * @fileOverview Flux pour analyser les documents via Gemini 1.5 Flash.
  * Effectue une analyse OCR pour identifier la catégorie, le sous-dossier, l'importance et le SIREN.
  */
 
@@ -45,7 +45,7 @@ export async function analyzeUploadedDocument(
 
 const analyzeDocumentPrompt = ai.definePrompt({
   name: 'analyzeDocumentPrompt',
-  model: 'googleai/gemini-1.5-flash-8b',
+  model: 'googleai/gemini-1.5-flash',
   input: {
     schema: AnalyzeUploadedDocumentInputSchema,
   },
