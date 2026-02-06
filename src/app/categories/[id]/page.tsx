@@ -4,13 +4,14 @@ import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { DocumentList } from '@/components/documents/document-list';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Upload, ChevronLeft, Filter, Download, Trash2, FolderOpen } from 'lucide-react';
+import { Upload, ChevronLeft, Trash2, FolderOpen, Loader2, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useFirestore, useDoc, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, useUser } from '@/firebase';
+import { useFirestore, useDoc, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, useUser, updateDocumentNonBlocking } from '@/firebase';
 import { doc, collection } from 'firebase/firestore';
 import { Category, User } from '@/lib/types';
 import { useState } from 'react';
+import { analyzeUploadedDocument } from '@/ai/flows/analyze-uploaded-document';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,15 +22,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
+} from "@/components/ui/alert-dialog";
+import { useToast } from '@/hooks/use-toast';
 
 export default function CategoryPage() {
   const params = useParams();
   const router = useRouter();
+  const { toast } = useToast();
   const categoryId = params.id as string;
   const db = useFirestore();
   const { user } = useUser();
   const [activeSubCategory, setActiveSubCategory] = useState<string>('all');
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -47,21 +51,52 @@ export default function CategoryPage() {
 
   const { data: category, isLoading } = useDoc<Category>(categoryRef);
 
-  const handleImport = () => {
-    if (!db || !companyId) return;
-    const docsRef = collection(db, 'companies', companyId, 'documents');
+  const handleImportWithAI = async () => {
+    if (!db || !companyId || !category) return;
+    setIsAnalyzing(true);
     
-    addDocumentNonBlocking(docsRef, {
-      name: "Nouveau_Document_" + Math.floor(Math.random() * 1000) + ".pdf",
-      categoryId: categoryId,
-      subCategory: activeSubCategory === 'all' ? (category?.subCategories?.[0] || 'Général') : activeSubCategory,
-      projectColumn: 'administrative',
-      status: 'pending_analysis',
-      extractedData: {},
-      fileUrl: 'https://picsum.photos/seed/doc/200/300',
-      createdAt: new Date().toLocaleDateString(),
-      companyId: companyId
-    });
+    // Simulation d'un fichier PDF
+    const mockFileUrl = `https://picsum.photos/seed/${Math.random()}/800/1200`;
+    
+    try {
+      // 1. On crée le document en mode "Analyse"
+      const docsRef = collection(db, 'companies', companyId, 'documents');
+      const tempDocId = "doc_" + Date.now();
+      
+      // 2. On lance l'analyse IA
+      const analysis = await analyzeUploadedDocument({
+        fileUrl: mockFileUrl,
+        categoryId: categoryId,
+        availableSubCategories: category.subCategories || ['Général']
+      });
+
+      // 3. On enregistre le document classé
+      addDocumentNonBlocking(docsRef, {
+        name: analysis.name,
+        categoryId: categoryId,
+        subCategory: analysis.suggestedSubCategory,
+        projectColumn: 'administrative',
+        status: 'waiting_verification',
+        extractedData: analysis.extractedData,
+        fileUrl: mockFileUrl,
+        createdAt: new Date().toLocaleDateString(),
+        companyId: companyId
+      });
+
+      toast({
+        title: "Document classé par l'IA",
+        description: `Le fichier a été rangé dans : ${analysis.suggestedSubCategory}`,
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Erreur d'analyse",
+        description: "L'IA n'a pas pu traiter ce document.",
+      });
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const handleDeleteCategory = () => {
@@ -109,9 +144,23 @@ export default function CategoryPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button size="sm" className="bg-primary hover:bg-primary/90" onClick={handleImport}>
-              <Upload className="w-4 h-4 mr-2" />
-              Ajouter dans {activeSubCategory === 'all' ? 'le dossier' : activeSubCategory}
+            <Button 
+              size="lg" 
+              className="bg-primary hover:bg-primary/90 shadow-lg transition-all active:scale-95" 
+              onClick={handleImportWithAI}
+              disabled={isAnalyzing}
+            >
+              {isAnalyzing ? (
+                <>
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  Analyse IA en cours...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-5 h-5 mr-2" />
+                  Scanner & Classer un PDF
+                </>
+              )}
             </Button>
           </div>
         </div>
