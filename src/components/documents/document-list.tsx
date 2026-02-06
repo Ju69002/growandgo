@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, FileText, CheckCircle2, AlertCircle, Clock, FolderOpen } from 'lucide-react';
+import { MoreHorizontal, FileText, CheckCircle2, AlertCircle, Clock, FolderOpen, Eye, X, Download } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,6 +19,13 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { BusinessDocument, DocumentStatus, User } from '@/lib/types';
 import { useFirestore, useCollection, useMemoFirebase, deleteDocumentNonBlocking, useUser, useDoc } from '@/firebase';
 import { collection, query, where, doc } from 'firebase/firestore';
@@ -38,6 +45,7 @@ interface DocumentListProps {
 export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
   const db = useFirestore();
   const { user } = useUser();
+  const [viewingDoc, setViewingDoc] = React.useState<BusinessDocument | null>(null);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -70,6 +78,8 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
     deleteDocumentNonBlocking(docRef);
   };
 
+  const isPDF = (url: string) => url.startsWith('data:application/pdf') || url.toLowerCase().endsWith('.pdf');
+
   if (isLoading) {
     return <div className="p-8 text-center text-muted-foreground animate-pulse">Chargement des documents...</div>;
   }
@@ -85,81 +95,138 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
   }
 
   return (
-    <div className="rounded-xl border bg-card shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2">
-      <Table>
-        <TableHeader className="bg-muted/30">
-          <TableRow>
-            <TableHead className="w-[350px]">Document</TableHead>
-            <TableHead>Sous-dossier</TableHead>
-            <TableHead>Statut</TableHead>
-            <TableHead>Date d'import</TableHead>
-            <TableHead>Détails IA</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {documents.map((doc) => {
-            const status = statusConfig[doc.status] || statusConfig.pending_analysis;
-            return (
-              <TableRow key={doc.id} className="hover:bg-muted/10 transition-colors">
-                <TableCell className="font-medium">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-muted rounded-lg text-primary">
-                      <FileText className="w-5 h-5" />
+    <>
+      <div className="rounded-xl border bg-card shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2">
+        <Table>
+          <TableHeader className="bg-muted/30">
+            <TableRow>
+              <TableHead className="w-[350px]">Document</TableHead>
+              <TableHead>Sous-dossier</TableHead>
+              <TableHead>Statut</TableHead>
+              <TableHead>Date d'import</TableHead>
+              <TableHead>Détails IA</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {documents.map((doc) => {
+              const status = statusConfig[doc.status] || statusConfig.pending_analysis;
+              return (
+                <TableRow key={doc.id} className="hover:bg-muted/10 transition-colors">
+                  <TableCell className="font-medium">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-muted rounded-lg text-primary">
+                        <FileText className="w-5 h-5" />
+                      </div>
+                      <span className="truncate max-w-[200px]">{doc.name || 'Sans titre'}</span>
                     </div>
-                    <span className="truncate max-w-[200px]">{doc.name || 'Sans titre'}</span>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-                    <FolderOpen className="w-3 h-3" />
-                    {doc.subCategory || 'Général'}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <Badge className={status.color}>
-                    <status.icon className="w-3 h-3 mr-1.5" />
-                    {status.label}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-muted-foreground text-sm">
-                  {doc.createdAt}
-                </TableCell>
-                <TableCell>
-                  <div className="text-xs space-y-0.5 max-w-[150px]">
-                    {Object.entries(doc.extractedData || {}).length > 0 ? (
-                      Object.entries(doc.extractedData).slice(0, 2).map(([k, v]) => (
-                        <div key={k} className="truncate">
-                          <span className="text-muted-foreground uppercase text-[10px] font-bold">{k}:</span> {String(v)}
-                        </div>
-                      ))
-                    ) : (
-                      <span className="italic text-muted-foreground">Analyse IA...</span>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <MoreHorizontal className="h-4 w-4" />
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                      <FolderOpen className="w-3 h-3" />
+                      {doc.subCategory || 'Général'}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge className={status.color}>
+                      <status.icon className="w-3 h-3 mr-1.5" />
+                      {status.label}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-sm">
+                    {doc.createdAt}
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-xs space-y-0.5 max-w-[150px]">
+                      {Object.entries(doc.extractedData || {}).length > 0 ? (
+                        Object.entries(doc.extractedData).slice(0, 2).map(([k, v]) => (
+                          <div key={k} className="truncate">
+                            <span className="text-muted-foreground uppercase text-[10px] font-bold">{k}:</span> {String(v)}
+                          </div>
+                        ))
+                      ) : (
+                        <span className="italic text-muted-foreground">Analyse IA...</span>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <Button variant="outline" size="sm" className="h-8 gap-2" onClick={() => setViewingDoc(doc)}>
+                        <Eye className="w-4 h-4" />
+                        Voir
                       </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Gestion</DropdownMenuLabel>
-                      <DropdownMenuItem>Voir</DropdownMenuItem>
-                      <DropdownMenuItem>Vérifier</DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(doc.id)}>
-                        Supprimer
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
-    </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Gestion</DropdownMenuLabel>
+                          <DropdownMenuItem onClick={() => setViewingDoc(doc)}>
+                            <Eye className="w-4 h-4 mr-2" />
+                            Ouvrir
+                          </DropdownMenuItem>
+                          <DropdownMenuItem>
+                            <Download className="w-4 h-4 mr-2" />
+                            Télécharger
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(doc.id)}>
+                            Supprimer
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+
+      <Dialog open={!!viewingDoc} onOpenChange={(open) => !open && setViewingDoc(null)}>
+        <DialogContent className="sm:max-w-[90vw] h-[90vh] p-0 flex flex-col gap-0 overflow-hidden">
+          <DialogHeader className="p-4 border-b bg-muted/10 flex flex-row items-center justify-between space-y-0">
+            <div>
+              <DialogTitle className="text-xl font-bold flex items-center gap-2">
+                <FileText className="w-5 h-5 text-primary" />
+                {viewingDoc?.name}
+              </DialogTitle>
+              <DialogDescription>
+                Rangé dans : {viewingDoc?.subCategory || 'Général'} • Importé le {viewingDoc?.createdAt}
+              </DialogDescription>
+            </div>
+            <div className="flex gap-2">
+               <Button variant="outline" size="sm" asChild>
+                  <a href={viewingDoc?.fileUrl} download={viewingDoc?.name}>
+                    <Download className="w-4 h-4 mr-2" />
+                    Télécharger
+                  </a>
+               </Button>
+            </div>
+          </DialogHeader>
+          <div className="flex-1 bg-slate-100 flex items-center justify-center p-4 overflow-hidden">
+            {viewingDoc && (
+              isPDF(viewingDoc.fileUrl) ? (
+                <iframe
+                  src={viewingDoc.fileUrl}
+                  className="w-full h-full rounded-lg border shadow-lg bg-white"
+                  title={viewingDoc.name}
+                />
+              ) : (
+                <div className="relative w-full h-full flex items-center justify-center overflow-auto">
+                  <img
+                    src={viewingDoc.fileUrl}
+                    alt={viewingDoc.name}
+                    className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
+                  />
+                </div>
+              )
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
