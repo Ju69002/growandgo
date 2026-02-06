@@ -1,3 +1,4 @@
+
 'use client';
 
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
@@ -104,7 +105,7 @@ export default function CategoryPage() {
         toast({
           variant: "destructive",
           title: "Erreur d'importation",
-          description: "L'IA n'a pas pu analyser le document.",
+          description: "L'IA n'a pas pu analyser le document. Assurez-vous qu'il s'agit d'un fichier lisible.",
         });
       } finally {
         setIsAnalyzing(false);
@@ -138,6 +139,7 @@ export default function CategoryPage() {
 
     setShowValidation(false);
     
+    // Si la catégorie suggérée est différente, on redirige vers celle-ci
     if (analyzedDoc.suggestedCategoryId !== categoryId) {
       router.push(`/categories/${analyzedDoc.suggestedCategoryId}`);
     }
@@ -252,10 +254,10 @@ export default function CategoryPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-primary">
               <Info className="w-5 h-5" />
-              Validation du classement IA
+              Confirmation du classement IA
             </DialogTitle>
             <DialogDescription>
-              L'IA a analysé votre document. Veuillez confirmer le rangement suggéré.
+              L'IA a analysé votre document. Veuillez confirmer le rangement suggéré avant l'importation finale.
             </DialogDescription>
           </DialogHeader>
 
@@ -275,7 +277,7 @@ export default function CategoryPage() {
 
                   <div className="grid grid-cols-2 gap-4 pt-2">
                     <div className="space-y-1">
-                      <span className="text-[10px] font-bold uppercase text-muted-foreground">Catégorie suggérée</span>
+                      <span className="text-[10px] font-bold uppercase text-muted-foreground">Ranger dans</span>
                       <div className="flex items-center gap-2 font-semibold">
                         <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20">
                           {analyzedDoc.suggestedCategoryLabel}
