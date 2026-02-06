@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, FileText, CheckCircle2, AlertCircle, Clock, FolderOpen, Eye, X, Download, ExternalLink, Loader2 } from 'lucide-react';
+import { MoreHorizontal, FileText, CheckCircle2, AlertCircle, Clock, FolderOpen, Eye, X, Download, ExternalLink, Loader2, Info } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -251,20 +251,26 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
                </Button>
             </div>
           </DialogHeader>
-          <div className="flex-1 bg-slate-800/50 flex items-center justify-center overflow-hidden relative">
+          <div className="flex-1 bg-slate-800/50 flex flex-col items-center justify-center overflow-hidden relative">
             {isBlobLoading ? (
               <div className="flex flex-col items-center gap-4 text-white">
                 <Loader2 className="w-12 h-12 animate-spin opacity-50" />
                 <p className="text-sm font-medium animate-pulse">Préparation du document...</p>
               </div>
-            ) : viewingDoc && safeUrl && (
+            ) : viewingDoc && safeUrl ? (
               isPDF(viewingDoc) ? (
-                <iframe
-                  src={safeUrl}
-                  className="w-full h-full border-none bg-white"
-                  title={viewingDoc.name}
-                  type="application/pdf"
-                />
+                <div className="w-full h-full flex flex-col">
+                  <div className="bg-amber-500/10 text-amber-200 px-4 py-2 text-xs flex items-center gap-2 border-b border-amber-500/20">
+                    <Info className="w-4 h-4" />
+                    Si le PDF ne s'affiche pas, utilisez les boutons "Ouvrir externe" ou "Télécharger" en haut à droite.
+                  </div>
+                  <iframe
+                    src={safeUrl}
+                    className="flex-1 w-full border-none bg-white"
+                    title={viewingDoc.name}
+                    type="application/pdf"
+                  />
+                </div>
               ) : (
                 <div className="relative w-full h-full flex items-center justify-center p-4">
                   <img
@@ -274,7 +280,7 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
                   />
                 </div>
               )
-            )}
+            ) : null}
           </div>
         </DialogContent>
       </Dialog>

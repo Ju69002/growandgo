@@ -31,7 +31,7 @@ const AnalyzeUploadedDocumentOutputSchema = z.object({
     emetteur: z.string().describe('Émetteur du document'),
     reference: z.string().describe('Référence ou numéro'),
   }),
-  summary: z.string().describe('Résumé du contenu.'),
+  summary: z.string().describe('Résumé très court du contenu.'),
   reasoning: z.string().describe('Pourquoi ce classement ?'),
 });
 export type AnalyzeUploadedDocumentOutput = z.infer<typeof AnalyzeUploadedDocumentOutputSchema>;
