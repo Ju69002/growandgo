@@ -1,3 +1,4 @@
+
 'use client';
 
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
@@ -90,7 +91,7 @@ export default function CategoryPage() {
     reader.onload = (e) => {
       const dataUri = e.target?.result as string;
       setCurrentFileUrl(dataUri);
-      setShowImportConfirm(true); // Ouvrir le premier pop-up de confirmation
+      setShowImportConfirm(true); 
     };
     reader.readAsDataURL(file);
 
@@ -274,16 +275,16 @@ export default function CategoryPage() {
         </div>
       </div>
 
-      {/* Pop-up 1 : Confirmation après sélection du fichier */}
+      {/* Étape 1 : Confirmation après sélection du fichier */}
       <Dialog open={showImportConfirm} onOpenChange={setShowImportConfirm}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-primary">
               <FileUp className="w-5 h-5" />
-              Document importé
+              Document chargé
             </DialogTitle>
             <DialogDescription>
-              Le fichier <strong>{currentFileName}</strong> a été chargé avec succès. Que souhaitez-vous faire ?
+              Le fichier <strong>{currentFileName}</strong> est prêt. Voulez-vous que l'IA l'analyse pour le classer automatiquement ?
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col items-center justify-center py-6 bg-muted/20 rounded-xl border border-dashed">
@@ -302,16 +303,16 @@ export default function CategoryPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Pop-up 2 : Validation du classement IA */}
+      {/* Étape 2 : Validation du diagnostic de l'IA */}
       <Dialog open={showValidation} onOpenChange={setShowValidation}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-primary">
               <Info className="w-5 h-5" />
-              Confirmation du classement IA
+              Diagnostic de l'IA
             </DialogTitle>
             <DialogDescription>
-              L'IA a analysé votre document. Veuillez confirmer le rangement suggéré.
+              Voici l'emplacement de rangement suggéré par l'IA après analyse du contenu.
             </DialogDescription>
           </DialogHeader>
 
@@ -323,15 +324,15 @@ export default function CategoryPage() {
                     <div className="p-3 bg-primary/10 rounded-xl text-primary">
                       <FileText className="w-8 h-8" />
                     </div>
-                    <div className="space-y-1">
-                      <h4 className="font-bold text-lg">{analyzedDoc.name}</h4>
+                    <div className="space-y-1 flex-1 min-w-0">
+                      <h4 className="font-bold text-lg truncate">{analyzedDoc.name}</h4>
                       <p className="text-sm text-muted-foreground">{analyzedDoc.summary}</p>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4 pt-2">
                     <div className="space-y-1">
-                      <span className="text-[10px] font-bold uppercase text-muted-foreground">Ranger dans</span>
+                      <span className="text-[10px] font-bold uppercase text-muted-foreground">Destination</span>
                       <div className="flex items-center gap-2 font-semibold">
                         <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20">
                           {analyzedDoc.suggestedCategoryLabel}
@@ -352,10 +353,10 @@ export default function CategoryPage() {
 
               {Object.keys(analyzedDoc.extractedData || {}).length > 0 && (
                 <div className="space-y-2">
-                  <span className="text-[10px] font-bold uppercase text-muted-foreground">Données extraites par l'IA</span>
+                  <span className="text-[10px] font-bold uppercase text-muted-foreground">Données extraites</span>
                   <div className="grid grid-cols-2 gap-2">
                     {Object.entries(analyzedDoc.extractedData).map(([key, value]) => (
-                      <div key={key} className="bg-muted/50 p-2 rounded-lg text-xs">
+                      <div key={key} className="bg-muted/50 p-2 rounded-lg text-xs truncate">
                         <span className="text-muted-foreground font-medium">{key}:</span> {String(value)}
                       </div>
                     ))}
@@ -372,7 +373,7 @@ export default function CategoryPage() {
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => setShowValidation(false)} className="flex-1">
               <X className="w-4 h-4 mr-2" />
-              Annuler
+              Ignorer
             </Button>
             <Button onClick={confirmClassification} className="flex-1 bg-primary hover:bg-primary/90">
               <Check className="w-4 h-4 mr-2" />
