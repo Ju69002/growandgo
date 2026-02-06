@@ -1,13 +1,12 @@
-
 'use client';
 
 /**
  * @fileOverview Service de synchronisation des calendriers.
- * Gère le mapping des données Google/Outlook vers le schéma Grow&Go.
+ * Gère le mapping et les appels réels aux API Google/Outlook.
  */
 
 import { CalendarEvent } from '@/lib/types';
-import { Firestore, doc, getDoc, setDoc, collection } from 'firebase/firestore';
+import { Firestore, doc, getDoc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase';
 
 export type ExternalSource = 'google' | 'outlook';
@@ -33,12 +32,10 @@ export function mapGoogleEvent(googleEvent: any, companyId: string, userId: stri
 
 /**
  * Mappe un événement Microsoft Graph (Outlook) vers le schéma interne
- * Correction : Ajout de vérifications de sécurité sur les adresses des participants
  */
 export function mapOutlookEvent(outlookEvent: any, companyId: string, userId: string): Partial<CalendarEvent> {
-  // Filtrage sécurisé des participants pour éviter l'erreur sur .address
   const attendees = (outlookEvent.attendees || [])
-    .filter((a: any) => a?.emailAddress?.address) // On ne garde que ceux qui ont une adresse
+    .filter((a: any) => a?.emailAddress?.address)
     .map((a: any) => a.emailAddress.address);
 
   return {
@@ -57,6 +54,36 @@ export function mapOutlookEvent(outlookEvent: any, companyId: string, userId: st
 }
 
 /**
+ * Appelle l'API Google pour récupérer les événements
+ */
+export async function fetchGoogleEvents(token: string, timeMin: string, timeMax: string) {
+  const response = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${timeMin}&timeMax=${timeMax}&singleEvents=true`,
+    {
+      headers: { Authorization: `Bearer ${token}` }
+    }
+  );
+  if (!response.ok) throw new Error('Failed to fetch Google events');
+  const data = await response.json();
+  return data.items || [];
+}
+
+/**
+ * Appelle l'API Microsoft Graph pour récupérer les événements Outlook
+ */
+export async function fetchOutlookEvents(token: string, timeMin: string) {
+  const response = await fetch(
+    `https://graph.microsoft.com/v1.0/me/calendar/events?$filter=start/dateTime ge '${timeMin}'&$select=id,subject,bodyPreview,start,end,attendees,lastModifiedDateTime`,
+    {
+      headers: { Authorization: `Bearer ${token}` }
+    }
+  );
+  if (!response.ok) throw new Error('Failed to fetch Outlook events');
+  const data = await response.json();
+  return data.value || [];
+}
+
+/**
  * Logique d'Upsert avec vérification de la date de mise à jour
  */
 export async function syncEventToFirestore(
@@ -65,7 +92,6 @@ export async function syncEventToFirestore(
 ) {
   if (!eventData.id_externe || !eventData.companyId) return;
 
-  // On utilise l'ID externe comme ID de document pour garantir l'unicité
   const eventRef = doc(db, 'companies', eventData.companyId, 'events', eventData.id_externe);
   
   try {
@@ -76,12 +102,10 @@ export async function syncEventToFirestore(
       const existingDate = new Date(existingEvent.derniere_maj || 0).getTime();
       const newDate = new Date(eventData.derniere_maj!).getTime();
 
-      // Mise à jour uniquement si la donnée source est plus récente
       if (newDate > existingDate) {
         setDocumentNonBlocking(eventRef, eventData, { merge: true });
       }
     } else {
-      // Création d'un nouvel événement
       setDocumentNonBlocking(eventRef, eventData, { merge: true });
     }
   } catch (error) {
@@ -94,7 +118,7 @@ export async function syncEventToFirestore(
  */
 export function getSyncTimeRange() {
   const now = new Date();
-  const timeMin = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString(); // -30 jours
-  const timeMax = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString(); // +12 mois
+  const timeMin = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const timeMax = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString();
   return { timeMin, timeMax };
 }
