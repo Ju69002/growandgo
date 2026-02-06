@@ -5,7 +5,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Mail, Calendar as CalendarIcon, Plus, Users, Chrome, Layout, Loader2, Link2, LogIn } from 'lucide-react';
+import { Mail, Calendar as CalendarIcon, Plus, Users, Chrome, Layout, Loader2, Link2, LogIn, AlertTriangle } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser, useAuth } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
 import { CalendarEvent } from '@/lib/types';
@@ -58,7 +58,7 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
     try {
       toast({
         title: "Connexion en cours...",
-        description: `Veuillez vous authentifier auprès de ${service === 'google' ? 'Google' : 'Microsoft'}.`,
+        description: `Ouverture de la fenêtre ${service === 'google' ? 'Google' : 'Microsoft'}...`,
       });
 
       let token: string | undefined;
@@ -86,7 +86,6 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
         description: `Importation de ${externalEvents.length} événements trouvés.`,
       });
 
-      // Traitement et Upsert dans Firestore
       for (const extEvent of externalEvents) {
         const mapped = service === 'google' 
           ? mapGoogleEvent(extEvent, companyId, user.uid)
@@ -101,11 +100,17 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
         description: `Votre agenda Grow&Go est à jour avec ${service}.`,
       });
     } catch (error: any) {
-      console.error(error);
+      console.error("Auth/Sync Error:", error);
+      
+      let errorMsg = error.message || "Une erreur est survenue.";
+      if (error.code === 'auth/operation-not-allowed') {
+        errorMsg = `Le fournisseur ${service} n'est pas activé dans votre console Firebase. Allez dans Authentication > Sign-in method.`;
+      }
+
       toast({
         variant: "destructive",
-        title: "Erreur de synchronisation",
-        description: error.message || "Une erreur est survenue lors de la connexion.",
+        title: "Erreur de connexion",
+        description: errorMsg,
       });
     } finally {
       setIsSyncing(false);
@@ -114,7 +119,6 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
 
   return (
     <div className="flex flex-col lg:flex-row h-full">
-      {/* Sidebar de contrôle */}
       <div className="w-full lg:w-80 border-r bg-muted/10 p-6 space-y-6">
         <div className="space-y-4">
           <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
@@ -155,7 +159,6 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
         </div>
       </div>
 
-      {/* Vue Planning principale */}
       <div className="flex-1 p-8 space-y-8 overflow-y-auto">
         <div className="flex items-center justify-between">
           <div className="space-y-1">
