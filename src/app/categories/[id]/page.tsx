@@ -4,14 +4,14 @@ import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { DocumentList } from '@/components/documents/document-list';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Upload, ChevronLeft, Trash2, FolderOpen, Loader2, Sparkles } from 'lucide-react';
+import { ChevronLeft, Trash2, FolderOpen, Loader2, FileUp, Check, X, FileText, Info } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useFirestore, useDoc, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, useUser, updateDocumentNonBlocking } from '@/firebase';
-import { doc, collection } from 'firebase/firestore';
+import { useFirestore, useDoc, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, useUser, useCollection } from '@/firebase';
+import { doc, collection, query } from 'firebase/firestore';
 import { Category, User } from '@/lib/types';
 import { useState } from 'react';
-import { analyzeUploadedDocument } from '@/ai/flows/analyze-uploaded-document';
+import { analyzeUploadedDocument, AnalyzeUploadedDocumentOutput } from '@/ai/flows/analyze-uploaded-document';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,7 +23,17 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useToast } from '@/hooks/use-toast';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 
 export default function CategoryPage() {
   const params = useParams();
@@ -34,6 +44,8 @@ export default function CategoryPage() {
   const { user } = useUser();
   const [activeSubCategory, setActiveSubCategory] = useState<string>('all');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analyzedDoc, setAnalyzedDoc] = useState<AnalyzeUploadedDocumentOutput | null>(null);
+  const [showValidation, setShowValidation] = useState(false);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -49,53 +61,73 @@ export default function CategoryPage() {
     return doc(db, 'companies', companyId, 'categories', categoryId);
   }, [db, categoryId, companyId]);
 
-  const { data: category, isLoading } = useDoc<Category>(categoryRef);
+  const { data: category, isLoading: isCatLoading } = useDoc<Category>(categoryRef);
 
-  const handleImportWithAI = async () => {
-    if (!db || !companyId || !category) return;
+  const categoriesQuery = useMemoFirebase(() => {
+    if (!db || !companyId) return null;
+    return query(collection(db, 'companies', companyId, 'categories'));
+  }, [db, companyId]);
+
+  const { data: allCategories } = useCollection<Category>(categoriesQuery);
+
+  const handleStartImport = async () => {
+    if (!db || !companyId || !category || !allCategories) return;
     setIsAnalyzing(true);
     
-    // Simulation d'un fichier PDF
+    // Simulation d'un fichier PDF (dans un vrai cas, on utiliserait un input file)
     const mockFileUrl = `https://picsum.photos/seed/${Math.random()}/800/1200`;
     
     try {
-      // 1. On crée le document en mode "Analyse"
-      const docsRef = collection(db, 'companies', companyId, 'documents');
-      const tempDocId = "doc_" + Date.now();
-      
-      // 2. On lance l'analyse IA
       const analysis = await analyzeUploadedDocument({
         fileUrl: mockFileUrl,
-        categoryId: categoryId,
-        availableSubCategories: category.subCategories || ['Général']
+        currentCategoryId: categoryId,
+        availableCategories: allCategories.map(c => ({
+          id: c.id,
+          label: c.label,
+          subCategories: c.subCategories || []
+        }))
       });
 
-      // 3. On enregistre le document classé
-      addDocumentNonBlocking(docsRef, {
-        name: analysis.name,
-        categoryId: categoryId,
-        subCategory: analysis.suggestedSubCategory,
-        projectColumn: 'administrative',
-        status: 'waiting_verification',
-        extractedData: analysis.extractedData,
-        fileUrl: mockFileUrl,
-        createdAt: new Date().toLocaleDateString(),
-        companyId: companyId
-      });
-
-      toast({
-        title: "Document classé par l'IA",
-        description: `Le fichier a été rangé dans : ${analysis.suggestedSubCategory}`,
-      });
+      setAnalyzedDoc(analysis);
+      setShowValidation(true);
     } catch (error) {
-      console.error(error);
       toast({
         variant: "destructive",
-        title: "Erreur d'analyse",
-        description: "L'IA n'a pas pu traiter ce document.",
+        title: "Erreur d'importation",
+        description: "L'IA n'a pas pu analyser le document.",
       });
     } finally {
       setIsAnalyzing(false);
+    }
+  };
+
+  const confirmClassification = () => {
+    if (!db || !companyId || !analyzedDoc) return;
+
+    const docsRef = collection(db, 'companies', companyId, 'documents');
+    
+    addDocumentNonBlocking(docsRef, {
+      name: analyzedDoc.name,
+      categoryId: analyzedDoc.suggestedCategoryId,
+      subCategory: analyzedDoc.suggestedSubCategory,
+      projectColumn: 'administrative',
+      status: 'waiting_verification',
+      extractedData: analyzedDoc.extractedData,
+      fileUrl: `https://picsum.photos/seed/${Math.random()}/800/1200`,
+      createdAt: new Date().toLocaleDateString(),
+      companyId: companyId
+    });
+
+    toast({
+      title: "Document classé avec succès",
+      description: `Le document a été rangé dans ${analyzedDoc.suggestedCategoryLabel} > ${analyzedDoc.suggestedSubCategory}`,
+    });
+
+    setShowValidation(false);
+    
+    // Si l'IA a suggéré une autre catégorie, on propose d'y aller
+    if (analyzedDoc.suggestedCategoryId !== categoryId) {
+      router.push(`/categories/${analyzedDoc.suggestedCategoryId}`);
     }
   };
 
@@ -118,7 +150,7 @@ export default function CategoryPage() {
             </Link>
             <div className="flex items-center gap-3">
               <h1 className="text-3xl font-bold tracking-tight text-primary">
-                {isLoading ? 'Chargement...' : (category?.label || 'Catégorie')}
+                {isCatLoading ? 'Chargement...' : (category?.label || 'Catégorie')}
               </h1>
               {isAdmin && (
                 <AlertDialog>
@@ -147,18 +179,18 @@ export default function CategoryPage() {
             <Button 
               size="lg" 
               className="bg-primary hover:bg-primary/90 shadow-lg transition-all active:scale-95" 
-              onClick={handleImportWithAI}
+              onClick={handleStartImport}
               disabled={isAnalyzing}
             >
               {isAnalyzing ? (
                 <>
                   <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Analyse IA en cours...
+                  Analyse IA...
                 </>
               ) : (
                 <>
-                  <Sparkles className="w-5 h-5 mr-2" />
-                  Scanner & Classer un PDF
+                  <FileUp className="w-5 h-5 mr-2" />
+                  Importer un document
                 </>
               )}
             </Button>
@@ -194,6 +226,81 @@ export default function CategoryPage() {
           </Tabs>
         </div>
       </div>
+
+      <Dialog open={showValidation} onOpenChange={setShowValidation}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-primary">
+              <Info className="w-5 h-5" />
+              Validation du classement IA
+            </DialogTitle>
+            <DialogDescription>
+              L'IA a analysé votre document. Veuillez confirmer le rangement suggéré.
+            </DialogDescription>
+          </DialogHeader>
+
+          {analyzedDoc && (
+            <div className="space-y-6 py-4">
+              <Card className="bg-muted/30 border-none">
+                <CardContent className="p-4 space-y-4">
+                  <div className="flex items-start gap-4">
+                    <div className="p-3 bg-primary/10 rounded-xl text-primary">
+                      <FileText className="w-8 h-8" />
+                    </div>
+                    <div className="space-y-1">
+                      <h4 className="font-bold text-lg">{analyzedDoc.name}</h4>
+                      <p className="text-sm text-muted-foreground">{analyzedDoc.summary}</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 pt-2">
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-bold uppercase text-muted-foreground">Catégorie suggérée</span>
+                      <div className="flex items-center gap-2 font-semibold">
+                        <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20">
+                          {analyzedDoc.suggestedCategoryLabel}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-bold uppercase text-muted-foreground">Sous-dossier</span>
+                      <div className="flex items-center gap-2 font-semibold">
+                        <Badge variant="outline" className="bg-secondary/10 text-secondary border-secondary/20">
+                          {analyzedDoc.suggestedSubCategory}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {Object.keys(analyzedDoc.extractedData).length > 0 && (
+                <div className="space-y-2">
+                  <span className="text-[10px] font-bold uppercase text-muted-foreground">Données extraites par l'IA</span>
+                  <div className="grid grid-cols-2 gap-2">
+                    {Object.entries(analyzedDoc.extractedData).map(([key, value]) => (
+                      <div key={key} className="bg-muted/50 p-2 rounded-lg text-xs">
+                        <span className="text-muted-foreground font-medium">{key}:</span> {String(value)}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setShowValidation(false)} className="flex-1">
+              <X className="w-4 h-4 mr-2" />
+              Annuler
+            </Button>
+            <Button onClick={confirmClassification} className="flex-1 bg-primary hover:bg-primary/90">
+              <Check className="w-4 h-4 mr-2" />
+              Valider & Ranger
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }
