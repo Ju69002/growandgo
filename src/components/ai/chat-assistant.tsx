@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -20,12 +21,12 @@ type Message = {
 
 const THEME_COLOR_MAP: Record<string, { primary: string; background: string; foreground: string }> = {
   'noir': { primary: '0 0% 100%', background: '222 47% 11%', foreground: '210 40% 98%' },
-  'blanc': { primary: '231 48% 48%', background: '0 0% 96%', foreground: '222 47% 11%' },
-  'rouge': { primary: '0 84% 60%', background: '0 0% 96%', foreground: '222 47% 11%' },
-  'vert': { primary: '142 76% 36%', background: '0 0% 96%', foreground: '222 47% 11%' },
-  'bleu': { primary: '221 83% 53%', background: '0 0% 96%', foreground: '222 47% 11%' },
-  'jaune': { primary: '47 95% 55%', background: '0 0% 96%', foreground: '222 47% 11%' },
-  'violet': { primary: '262 83% 58%', background: '0 0% 96%', foreground: '222 47% 11%' },
+  'blanc': { primary: '157 44% 21%', background: '43 38% 96%', foreground: '157 44% 11%' },
+  'rouge': { primary: '0 84% 60%', background: '43 38% 96%', foreground: '157 44% 11%' },
+  'vert': { primary: '142 76% 36%', background: '43 38% 96%', foreground: '157 44% 11%' },
+  'bleu': { primary: '221 83% 53%', background: '43 38% 96%', foreground: '157 44% 11%' },
+  'jaune': { primary: '47 95% 55%', background: '43 38% 96%', foreground: '157 44% 11%' },
+  'violet': { primary: '262 83% 58%', background: '43 38% 96%', foreground: '157 44% 11%' },
 };
 
 const getColorStyle = (color?: string) => {
@@ -46,7 +47,7 @@ export function ChatAssistant() {
   const { user } = useUser();
   const db = useFirestore();
   const [messages, setMessages] = React.useState<Message[]>([
-    { role: 'assistant', content: 'Bonjour ! Je suis votre Architecte Suprême. Je peux transformer votre interface selon vos désirs. Que souhaitez-vous changer ?' }
+    { role: 'assistant', content: 'Bonjour ! Je suis l\'Architecte Suprême de Grow&Go. Je peux transformer votre interface selon vos désirs. Que souhaitez-vous changer ?' }
   ]);
   const [input, setInput] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
@@ -82,7 +83,7 @@ export function ChatAssistant() {
           badgeCount: 0,
           visibleToEmployees: true,
           type: 'custom',
-          aiInstructions: `Analyse spécialisée pour ${label}.`,
+          aiInstructions: `Analyse spécialisée pour Grow&Go - ${label}.`,
           companyId,
           color: getColorStyle(color),
           icon: icon || 'maison'
@@ -108,7 +109,7 @@ export function ChatAssistant() {
         updateDocumentNonBlocking(companyRef, { [`modulesConfig.${key}`]: enabled ?? true });
       }
 
-      setMessages(prev => [...prev, { role: 'assistant', content: "C'est fait ! La transformation a été appliquée avec succès." }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: "C'est fait ! La transformation Grow&Go a été appliquée." }]);
     } catch (error) {
       setMessages(prev => [...prev, { role: 'assistant', content: "Désolé, une erreur technique a empêché l'application." }]);
     }
@@ -144,7 +145,7 @@ export function ChatAssistant() {
 
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: result.analysisResult || "Plan établi. Souhaitez-vous que j'agisse ?" 
+        content: result.analysisResult || "Plan établi pour Grow&Go. Souhaitez-vous que j'agisse ?" 
       }]);
     } catch (error) {
       setMessages(prev => [...prev, { role: 'assistant', content: "Je suis prêt. Pourriez-vous préciser votre demande de design ?" }]);
@@ -158,7 +159,7 @@ export function ChatAssistant() {
       {!isOpen ? (
         <Button
           onClick={() => setIsOpen(true)}
-          className="h-14 w-14 rounded-full shadow-xl bg-primary hover:bg-primary/90 transition-transform hover:scale-110"
+          className="h-14 w-14 rounded-full shadow-xl bg-primary hover:bg-primary/90 transition-transform hover:scale-110 border-2 border-white/20"
         >
           <Sparkles className="h-6 w-6 text-white" />
         </Button>
@@ -167,7 +168,7 @@ export function ChatAssistant() {
           <CardHeader className="bg-primary text-primary-foreground rounded-t-xl p-4 flex flex-row items-center justify-between space-y-0">
             <div className="flex items-center gap-2">
               <Bot className="h-5 w-5" />
-              <CardTitle className="text-base font-bold">Architecte IA Suprême</CardTitle>
+              <CardTitle className="text-base font-bold">Architecte Grow&Go</CardTitle>
             </div>
             <X className="h-5 w-5 cursor-pointer hover:opacity-80" onClick={() => setIsOpen(false)} />
           </CardHeader>
@@ -176,9 +177,8 @@ export function ChatAssistant() {
               <div className="space-y-4">
                 {messages.map((m, i) => (
                   <div key={i} className={cn("flex", m.role === 'user' ? "justify-end" : "justify-start")}>
-                    <div className={cn(
-                      "max-w-[85%] p-3 rounded-2xl text-sm shadow-sm",
-                      m.role === 'user' ? "bg-primary text-primary-foreground" : "bg-muted border"
+                    <div className={cn( m.role === 'user' ? "bg-primary text-primary-foreground" : "bg-muted border",
+                      "max-w-[85%] p-3 rounded-2xl text-sm shadow-sm font-medium"
                     )}>
                       {m.content}
                     </div>
@@ -188,7 +188,7 @@ export function ChatAssistant() {
                 {pendingAction && !isLoading && (
                   <div className="flex justify-start">
                     <div className="flex flex-col gap-2 p-3 bg-primary/5 border rounded-2xl max-w-[85%]">
-                      <p className="text-xs font-bold text-primary uppercase">Validation de l'Architecte</p>
+                      <p className="text-xs font-bold text-primary uppercase">Validation Grow&Go</p>
                       <div className="flex gap-2">
                         <Button size="sm" onClick={() => executeAction(pendingAction)} className="bg-emerald-600 hover:bg-emerald-700 h-8">
                           <Check className="w-4 h-4 mr-1" />
@@ -216,7 +216,7 @@ export function ChatAssistant() {
           <CardFooter className="p-3 border-t">
             <div className="flex w-full items-center gap-2">
               <Input
-                placeholder={pendingAction ? "Action en attente..." : "Ex: maison rouge..."}
+                placeholder={pendingAction ? "Action en attente..." : "Ex: maison en vert..."}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}

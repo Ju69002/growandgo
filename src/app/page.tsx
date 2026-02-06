@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -13,13 +14,13 @@ const DEFAULT_CATEGORIES = [
   { 
     id: 'finance', 
     label: 'Finance', 
-    aiInstructions: 'Analyse des factures et trésorerie.',
+    aiInstructions: 'Analyse des factures et trésorerie pour Grow&Go.',
     subCategories: ['Factures Fournisseurs', 'Factures Clients', 'Bilans', 'Relevés Bancaires']
   },
   { 
     id: 'admin', 
     label: 'Administration', 
-    aiInstructions: 'Gestion des documents administratifs.',
+    aiInstructions: 'Gestion des documents administratifs et juridiques.',
     subCategories: ['Juridique & Statuts', 'Assurances', 'Contrats', 'Kbis']
   },
   { 
@@ -31,13 +32,13 @@ const DEFAULT_CATEGORIES = [
   { 
     id: 'agenda', 
     label: 'Agenda', 
-    aiInstructions: 'Organisation du planning.',
+    aiInstructions: 'Organisation du planning équipe.',
     subCategories: ['Réunions', 'Planning Équipe', 'Déplacements']
   },
   { 
     id: 'signatures', 
     label: 'Signatures', 
-    aiInstructions: 'Suivi des signatures.',
+    aiInstructions: 'Suivi des signatures de contrats.',
     subCategories: ['Devis', 'Contrats Client', 'PV de Réception']
   }
 ];
@@ -71,16 +72,17 @@ export default function Home() {
         companyId: companyId,
         role: 'admin',
         adminMode: true,
-        name: user.displayName || 'Utilisateur Démo',
-        email: user.email || 'demo@businesspilot.ai'
+        name: user.displayName || 'Utilisateur Grow&Go',
+        email: user.email || 'demo@growandgo.ai'
       }, { merge: true });
 
       const companyRef = doc(db, 'companies', companyId);
       setDocumentNonBlocking(companyRef, {
         id: companyId,
-        name: 'Ma Super Entreprise',
+        name: 'Grow&Go Design Studio',
         subscriptionStatus: 'active',
-        primaryColor: '231 48% 48%',
+        primaryColor: '157 44% 21%',
+        backgroundColor: '43 38% 96%',
         modulesConfig: {
           showRh: true,
           showFinance: true,
@@ -113,7 +115,7 @@ export default function Home() {
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="text-center space-y-4">
           <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto" />
-          <p className="text-muted-foreground animate-pulse">Initialisation de votre espace BusinessPilot...</p>
+          <p className="text-muted-foreground animate-pulse">Initialisation de votre espace Grow&Go...</p>
         </div>
       </div>
     );
@@ -129,7 +131,7 @@ export default function Home() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-primary">Tableau de bord</h1>
             <p className="text-muted-foreground mt-1">
-              Bienvenue sur BusinessPilot. Votre Architecte IA a organisé vos dossiers avec des sous-sections essentielles.
+              Bienvenue sur Grow&Go. Votre Architecte IA a organisé vos dossiers avec efficacité.
             </p>
           </div>
           {userRole !== 'employee' && (
@@ -143,9 +145,9 @@ export default function Home() {
         {adminMode && (
           <Alert className="bg-primary/5 border-primary/20 animate-in fade-in slide-in-from-top-4 duration-500">
             <Info className="h-4 w-4 text-primary" />
-            <AlertTitle className="text-primary font-bold">Mode Architecte Visuel</AlertTitle>
+            <AlertTitle className="text-primary font-bold">Mode Architecte de Marque</AlertTitle>
             <AlertDescription className="text-primary/80">
-              Demandez au chatbot : "Ajoute un sous-dossier Factures de loyer dans Finance" pour personnaliser votre structure.
+              Demandez au chatbot : "Change la couleur du site en noir" ou "Renomme Finance en Trésorerie".
             </AlertDescription>
           </Alert>
         )}

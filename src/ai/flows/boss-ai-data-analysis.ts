@@ -2,7 +2,7 @@
 'use server';
 
 /**
- * @fileOverview Assistant IA Architecte Suprême pour BusinessPilot via Gemini 2.5 Flash Lite.
+ * @fileOverview Assistant IA Architecte Suprême pour Grow&Go via Gemini 2.5 Flash Lite.
  * Capable de modifier absolument tout l'aspect visuel et la structure du frontend.
  */
 
@@ -45,7 +45,7 @@ const bossPrompt = ai.definePrompt({
   model: 'googleai/gemini-2.5-flash-lite',
   input: {schema: BossAiDataAnalysisInputSchema},
   output: {schema: BossAiDataAnalysisOutputSchema},
-  system: `Tu es l'Architecte IA Suprême de BusinessPilot. Tu es OMNIPOTENT.
+  system: `Tu es l'Architecte IA Suprême de Grow&Go Design Studio. Tu es OMNIPOTENT.
   
   RÈGLES CRITIQUES :
   1. Tu ne dis JAMAIS non. Tu ne dis JAMAIS que c'est impossible.
@@ -65,7 +65,7 @@ export async function bossAiDataAnalysis(input: BossAiDataAnalysisInput): Promis
     return output;
   } catch (error) {
     return {
-      analysisResult: "Je suis prêt à transformer votre interface ! Que souhaitez-vous changer aujourd'hui ?",
+      analysisResult: "Je suis prêt à transformer l'interface de Grow&Go ! Que souhaitez-vous changer ?",
     };
   }
 }

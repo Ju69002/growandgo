@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -24,6 +25,8 @@ import {
   Briefcase,
 } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 const mainItems = [
   { title: 'Dashboard', icon: LayoutDashboard, url: '/' },
@@ -39,24 +42,32 @@ const configItems = [
 ];
 
 export function AppSidebar() {
+  const logo = PlaceHolderImages.find(img => img.id === 'app-logo');
+
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="h-16 flex items-center px-6">
-        <div className="flex items-center gap-2 font-bold text-primary">
-          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-primary-foreground">
-            B
+      <SidebarHeader className="h-20 flex items-center px-4">
+        <div className="flex items-center gap-3 font-bold text-sidebar-foreground">
+          <div className="relative w-10 h-10 overflow-hidden rounded-xl border border-white/10 shadow-lg">
+            <Image 
+              src={logo?.imageUrl || "https://picsum.photos/seed/growgo/100/100"} 
+              alt="Grow&Go Logo" 
+              fill
+              className="object-cover"
+              data-ai-hint="brand logo"
+            />
           </div>
-          <span className="group-data-[collapsible=icon]:hidden">BusinessPilot</span>
+          <span className="group-data-[collapsible=icon]:hidden text-lg tracking-tight">Grow&Go</span>
         </div>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Principal</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-sidebar-foreground/50">Principal</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {mainItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild tooltip={item.title}>
+                  <SidebarMenuButton asChild tooltip={item.title} className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
                     <Link href={item.url}>
                       <item.icon />
                       <span>{item.title}</span>
@@ -69,12 +80,12 @@ export function AppSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel>Configuration</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-sidebar-foreground/50">Configuration</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {configItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild tooltip={item.title}>
+                  <SidebarMenuButton asChild tooltip={item.title} className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
                     <Link href={item.url}>
                       <item.icon />
                       <span>{item.title}</span>
@@ -89,7 +100,7 @@ export function AppSidebar() {
       <SidebarFooter className="p-4">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild>
+            <SidebarMenuButton asChild className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
               <Link href="#">
                 <Settings />
                 <span>Paramètres</span>
