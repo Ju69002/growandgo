@@ -1,4 +1,3 @@
-
 'use client';
 
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
@@ -9,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChevronLeft, FolderOpen, FileUp, FileText, Loader2, Sparkles, CheckCircle2, Info, ImageIcon, Calendar } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useFirestore, useDoc, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useUser, useCollection } from '@/firebase';
+import { useFirestore, useDoc, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, useUser, useCollection } from '@/firebase';
 import { doc, collection, query } from 'firebase/firestore';
 import { Category, User } from '@/lib/types';
 import { useState, useRef } from 'react';
@@ -27,16 +26,12 @@ import { cn } from '@/lib/utils';
 
 type ImportStep = 'idle' | 'confirm_analysis' | 'analyzing' | 'confirm_placement';
 
-/**
- * Utilitaire de compression d'image pour éviter de saturer Firestore (limite 1Mo)
- */
 const compressImage = async (dataUrl: string, maxWidth = 1200, maxHeight = 1200, quality = 0.7): Promise<string> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
       let width = img.width;
       let height = img.height;
-
       if (width > height) {
         if (width > maxWidth) {
           height *= maxWidth / width;
@@ -48,7 +43,6 @@ const compressImage = async (dataUrl: string, maxWidth = 1200, maxHeight = 1200,
           height = maxHeight;
         }
       }
-
       const canvas = document.createElement('canvas');
       canvas.width = width;
       canvas.height = height;
@@ -103,25 +97,16 @@ export default function CategoryPage() {
     const file = event.target.files?.[0];
     if (!file) return;
     setCurrentFileName(file.name);
-
     const isImage = file.type.startsWith('image/');
     const reader = new FileReader();
-    
     reader.onload = async (e) => {
       let resultUrl = e.target?.result as string;
-      
       if (isImage) {
         try {
-          toast({
-            title: "Optimisation de l'image...",
-            description: "Réduction de la taille pour un traitement ultra-rapide.",
-          });
+          toast({ title: "Optimisation de l'image...", description: "Réduction de la taille pour un traitement ultra-rapide." });
           resultUrl = await compressImage(resultUrl);
-        } catch (err) {
-          console.error("Compression error", err);
-        }
+        } catch (err) { console.error(err); }
       }
-      
       setCurrentFileUrl(resultUrl);
       setImportStep('confirm_analysis');
     };
@@ -145,29 +130,21 @@ export default function CategoryPage() {
       setAnalysisResult(result);
       setImportStep('confirm_placement');
     } catch (error) {
-      console.error(error);
-      toast({
-        variant: "destructive",
-        title: "Erreur d'analyse IA",
-        description: "L'IA n'a pas pu traiter ce document. Vérifiez la connexion ou le format.",
-      });
+      toast({ variant: "destructive", title: "Erreur d'analyse IA", description: "L'IA n'a pas pu traiter ce document." });
       setImportStep('idle');
     }
   };
 
   const finalizeImport = () => {
     if (!db || !companyId || !analysisResult) return;
-
     const targetCategoryId = analysisResult.suggestedCategoryId;
     const targetSubCategory = analysisResult.suggestedSubCategory;
-
     if (analysisResult.isNewSubCategory) {
       const targetCatRef = doc(db, 'companies', companyId, 'categories', targetCategoryId);
       const targetCatData = allCategories?.find(c => c.id === targetCategoryId);
       const updatedSubs = [...(targetCatData?.subCategories || []), targetSubCategory];
       updateDocumentNonBlocking(targetCatRef, { subCategories: updatedSubs });
     }
-
     const docsRef = collection(db, 'companies', companyId, 'documents');
     addDocumentNonBlocking(docsRef, {
       name: analysisResult.name,
@@ -180,33 +157,19 @@ export default function CategoryPage() {
       createdAt: new Date().toLocaleDateString('fr-FR'),
       companyId: companyId
     });
-
-    toast({
-      title: "Document classé !",
-      description: `Rangé dans ${analysisResult.suggestedCategoryLabel} > ${targetSubCategory}`,
-    });
-
+    toast({ title: "Document classé !", description: `Rangé dans ${analysisResult.suggestedCategoryLabel} > ${targetSubCategory}` });
     setImportStep('idle');
-    if (targetCategoryId !== categoryId) {
-      router.push(`/categories/${targetCategoryId}`);
-    }
+    if (targetCategoryId !== categoryId) router.push(`/categories/${targetCategoryId}`);
   };
 
-  const isImageFile = currentFileName.toLowerCase().match(/\.(jpg|jpeg|png|webp)$/);
   const isAgenda = categoryId === 'agenda';
 
   return (
     <DashboardLayout>
-      <input 
-        type="file" 
-        className="hidden" 
-        ref={fileInputRef} 
-        onChange={handleFileChange} 
-        accept="application/pdf,image/png,image/jpeg,image/webp" 
-      />
+      <input type="file" className="hidden" ref={fileInputRef} onChange={handleFileChange} accept="application/pdf,image/png,image/jpeg,image/webp" />
       
-      <div className="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className={cn("space-y-6 mx-auto py-8", isAgenda ? "w-full px-0" : "max-w-7xl px-4 sm:px-6 lg:px-8")}>
+        <div className={cn("flex flex-col md:flex-row md:items-center justify-between gap-4", isAgenda && "px-8")}>
           <div className="space-y-1">
             <Link href="/" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary transition-colors mb-2">
               <ChevronLeft className="w-4 h-4 mr-1" /> Retour au tableau de bord
@@ -227,7 +190,7 @@ export default function CategoryPage() {
         </div>
 
         {isAgenda ? (
-          <div className="bg-card border rounded-2xl p-8 shadow-sm">
+          <div className="w-full bg-background min-h-[80vh]">
             <SharedCalendar companyId={companyId} />
           </div>
         ) : (
@@ -260,98 +223,37 @@ export default function CategoryPage() {
 
       <Dialog open={importStep !== 'idle'} onOpenChange={(open) => !open && setImportStep('idle')}>
         <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl bg-card">
-          <div className="sr-only">
-            <DialogTitle>Importation et analyse intelligente</DialogTitle>
-            <DialogDescription>Traitement du document par l'IA Gemini 2.5 Flash Lite.</DialogDescription>
-          </div>
-          
+          <DialogHeader className="p-6 pb-0">
+            <DialogTitle>Importation intelligente</DialogTitle>
+            <DialogDescription>Traitement via Gemini 2.5 Flash Lite.</DialogDescription>
+          </DialogHeader>
           {importStep === 'confirm_analysis' && (
             <div className="p-8 space-y-6">
-              <DialogHeader>
-                <DialogTitle className="text-2xl font-bold flex items-center gap-2">
-                  {isImageFile ? <ImageIcon className="w-6 h-6 text-primary" /> : <FileText className="w-6 h-6 text-primary" />}
-                  Nouveau fichier
-                </DialogTitle>
-                <DialogDescription className="text-muted-foreground line-clamp-1">
-                  Fichier prêt : <span className="font-semibold text-foreground">{currentFileName}</span>
-                </DialogDescription>
-              </DialogHeader>
               <div className="bg-primary/5 p-6 rounded-2xl border border-primary/20 text-center space-y-3">
                 <Sparkles className="w-10 h-10 text-primary mx-auto" />
-                <p className="text-sm font-medium">Lancer l'analyse OCR intelligente ?</p>
-                <p className="text-xs text-muted-foreground">L'IA Gemini va lire le contenu pour extraire le SIREN et classer le fichier au bon endroit.</p>
+                <p className="text-sm font-medium">Lancer l'analyse OCR ?</p>
               </div>
               <div className="flex gap-3">
                 <Button variant="outline" onClick={() => setImportStep('idle')} className="flex-1">Annuler</Button>
-                <Button onClick={startAiAnalysis} className="flex-1 bg-primary">Analyser via IA</Button>
+                <Button onClick={startAiAnalysis} className="flex-1 bg-primary">Analyser</Button>
               </div>
             </div>
           )}
-
           {importStep === 'analyzing' && (
-            <div className="p-12 flex flex-col items-center justify-center text-center space-y-6 min-h-[350px]">
-              <DialogHeader className="items-center">
-                <div className="relative">
-                  <Loader2 className="w-16 h-16 text-primary animate-spin" />
-                  <Sparkles className="w-6 h-6 text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
-                </div>
-                <DialogTitle className="text-2xl font-bold mt-6">Lecture OCR en cours...</DialogTitle>
-                <DialogDescription className="max-w-[300px]">
-                  Extraction du SIREN et des données clés via Gemini 2.5 Flash Lite.
-                </DialogDescription>
-              </DialogHeader>
+            <div className="p-12 flex flex-col items-center justify-center text-center space-y-6">
+              <Loader2 className="w-16 h-16 text-primary animate-spin" />
+              <p className="font-medium">Lecture OCR en cours...</p>
             </div>
           )}
-
           {importStep === 'confirm_placement' && analysisResult && (
             <div className="p-8 space-y-6">
-              <DialogHeader>
-                <DialogTitle className="text-2xl font-bold flex items-center gap-2">
-                   <CheckCircle2 className="w-6 h-6 text-emerald-500" /> Analyse terminée
-                </DialogTitle>
-                <DialogDescription>Proposition de rangement établie par l'IA.</DialogDescription>
-              </DialogHeader>
-
-              <div className="space-y-4">
-                <div className="p-4 bg-muted/50 rounded-xl border space-y-1">
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Titre identifié</span>
-                  <p className="font-bold text-primary">{analysisResult.name}</p>
-                </div>
-
-                <div className={cn(
-                  "p-4 rounded-xl border space-y-2",
-                  analysisResult.isNewSubCategory ? "bg-amber-50 border-amber-200" : "bg-primary/5 border-primary/20"
-                )}>
-                  <div className="flex justify-between items-center">
-                    <span className={cn("text-[10px] font-bold uppercase tracking-wider", analysisResult.isNewSubCategory ? "text-amber-700" : "text-primary")}>
-                      {analysisResult.isNewSubCategory ? "Nouveau sous-dossier" : "Dossier cible"}
-                    </span>
-                    {analysisResult.isNewSubCategory && <Badge className="bg-amber-600">Création IA</Badge>}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge className="bg-primary">{analysisResult.suggestedCategoryLabel}</Badge>
-                    <span className="text-muted-foreground">/</span>
-                    <Badge variant="secondary" className="flex items-center gap-1">
-                      <FolderOpen className="w-3 h-3" />
-                      {analysisResult.suggestedSubCategory}
-                    </Badge>
-                  </div>
-                </div>
-
-                {analysisResult.extractedData?.siren && (
-                  <div className="p-3 bg-emerald-50 text-emerald-700 rounded-lg border border-emerald-100 flex items-center justify-between text-xs">
-                    <span className="font-medium uppercase">SIREN Détecté</span>
-                    <span className="font-bold font-mono">{analysisResult.extractedData.siren}</span>
-                  </div>
-                )}
-
-                <div className="p-4 bg-muted/30 rounded-xl border border-dashed">
-                  <p className="text-xs text-muted-foreground leading-relaxed italic">
-                    "{analysisResult.reasoning}"
-                  </p>
+              <div className="p-4 bg-muted/50 rounded-xl border">
+                <p className="font-bold text-primary">{analysisResult.name}</p>
+                <div className="mt-2 flex gap-2">
+                  <Badge>{analysisResult.suggestedCategoryLabel}</Badge>
+                  <Badge variant="outline">{analysisResult.suggestedSubCategory}</Badge>
                 </div>
               </div>
-
               <div className="flex gap-3">
                 <Button variant="outline" onClick={() => setImportStep('idle')} className="flex-1">Ignorer</Button>
                 <Button onClick={finalizeImport} className="flex-1 bg-primary">Valider & Ranger</Button>
