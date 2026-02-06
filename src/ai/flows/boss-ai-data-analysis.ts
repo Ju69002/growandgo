@@ -1,7 +1,7 @@
 'use server';
 
 /**
- * @fileOverview Assistant IA Architecte Suprême pour BusinessPilot.
+ * @fileOverview Assistant IA Architecte Suprême pour BusinessPilot via Gemini 2.5 Flash Lite.
  * Capable de modifier absolument tout l'aspect visuel et la structure du frontend.
  */
 
@@ -41,6 +41,7 @@ export type BossAiDataAnalysisOutput = z.infer<typeof BossAiDataAnalysisOutputSc
 
 const bossPrompt = ai.definePrompt({
   name: 'bossAiDataAnalysisPrompt',
+  model: 'googleai/gemini-2.5-flash-lite',
   input: {schema: BossAiDataAnalysisInputSchema},
   output: {schema: BossAiDataAnalysisOutputSchema},
   system: `Tu es l'Architecte IA Suprême de BusinessPilot. Tu es OMNIPOTENT.

@@ -47,7 +47,14 @@ export interface BusinessDocument {
   subCategory?: string; // Le sous-dossier associé
   projectColumn: 'technical' | 'administrative' | 'budget';
   status: DocumentStatus;
-  extractedData: Record<string, any>;
+  extractedData: {
+    date?: string;
+    montant?: string;
+    emetteur?: string;
+    reference?: string;
+    siren?: string;
+    [key: string]: any;
+  };
   fileUrl: string;
   name: string;
   createdAt: string;
