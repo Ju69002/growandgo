@@ -1,4 +1,3 @@
-
 'use client';
 
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
@@ -253,11 +252,9 @@ export default function CategoryPage() {
         </div>
       </div>
 
-      {/* MODAL UNIQUE POUR LE FLUX D'IMPORTATION */}
       <Dialog open={importStep !== 'idle'} onOpenChange={(open) => !open && setImportStep('idle')}>
         <DialogContent className="sm:max-w-[550px] p-0 overflow-hidden border-none shadow-2xl">
           
-          {/* ÉTAPE 1 : CONFIRMATION D'IMPORT */}
           {importStep === 'confirm' && (
             <div className="p-8 space-y-6">
               <DialogHeader className="flex flex-col items-center text-center space-y-4">
@@ -286,7 +283,6 @@ export default function CategoryPage() {
             </div>
           )}
 
-          {/* ÉTAPE 2 : ANALYSE EN COURS */}
           {importStep === 'analyzing' && (
             <div className="p-12 flex flex-col items-center justify-center text-center space-y-6 min-h-[400px]">
               <DialogHeader className="items-center">
@@ -305,7 +301,6 @@ export default function CategoryPage() {
             </div>
           )}
 
-          {/* ÉTAPE 3 : RÉSULTATS ET VALIDATION */}
           {importStep === 'results' && analyzedDoc && (
             <div className="animate-in fade-in zoom-in duration-300">
               <div className="bg-primary p-6 text-primary-foreground flex items-center justify-between">
@@ -313,7 +308,7 @@ export default function CategoryPage() {
                   <Sparkles className="w-6 h-6" />
                   <DialogHeader>
                     <DialogTitle className="text-xl font-bold text-primary-foreground">Diagnostic de l'Architecte</DialogTitle>
-                    <DialogDescription className="hidden">Confirmation du rangement du document analysé par l'IA.</DialogDescription>
+                    <DialogDescription className="text-primary-foreground/80 text-xs">Vérifiez les informations extraites avant de ranger le document.</DialogDescription>
                   </DialogHeader>
                 </div>
                 <Button variant="ghost" size="icon" onClick={() => setImportStep('idle')} className="text-primary-foreground hover:bg-white/10">
