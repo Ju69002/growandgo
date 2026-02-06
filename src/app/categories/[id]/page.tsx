@@ -95,7 +95,7 @@ export default function CategoryPage() {
       toast({
         variant: "destructive",
         title: "Erreur d'analyse IA",
-        description: "L'IA n'a pas pu traiter ce document. Vérifiez le format ou la connexion.",
+        description: "L'IA n'a pas pu traiter ce document. Passage au classement standard.",
       });
       setImportStep('idle');
     }

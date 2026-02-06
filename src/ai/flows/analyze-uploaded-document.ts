@@ -7,6 +7,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import {googleAI} from '@genkit-ai/google-genai';
 
 const AnalyzeUploadedDocumentInputSchema = z.object({
   fileUrl: z.string().describe("Le contenu du document sous forme de Data URI (Base64)."),
@@ -45,7 +46,7 @@ export async function analyzeUploadedDocument(
 
 const analyzeDocumentPrompt = ai.definePrompt({
   name: 'analyzeDocumentPrompt',
-  model: 'googleai/gemini-1.5-flash',
+  model: googleAI.model('gemini-1.5-flash'),
   input: {
     schema: AnalyzeUploadedDocumentInputSchema,
   },
@@ -63,7 +64,7 @@ const analyzeDocumentPrompt = ai.definePrompt({
   
   CONSIGNES :
   1. Identifie précisément le TITRE et l'EMETTEUR du document.
-  2. Extrais le numéro SIREN (9 chiffres) s'il est présent sur le document. C'est CRITIQUE pour l'utilisateur.
+  2. Extrais impérativement le numéro SIREN (9 chiffres) s'il est présent sur le document. C'est CRITIQUE pour l'utilisateur.
   3. Choisis la catégorie la plus logique (Finance, RH, Admin, etc.).
   4. REGLE DE CLASSEMENT : 
      - Si un sous-dossier existant correspond, utilise-le.
