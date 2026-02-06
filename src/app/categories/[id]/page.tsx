@@ -1,11 +1,10 @@
-
 'use client';
 
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { DocumentList } from '@/components/documents/document-list';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChevronLeft, Trash2, FolderOpen, Loader2, FileUp, Check, X, FileText, Info, FileSearch } from 'lucide-react';
+import { ChevronLeft, Trash2, FolderOpen, Loader2, FileUp, Check, X, FileText, Info, FileSearch, BrainCircuit } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirestore, useDoc, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, useUser, useCollection } from '@/firebase';
@@ -35,6 +34,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 
 export default function CategoryPage() {
   const params = useParams();
@@ -44,9 +44,10 @@ export default function CategoryPage() {
   const db = useFirestore();
   const { user } = useUser();
   const [activeSubCategory, setActiveSubCategory] = useState<string>('all');
+  
+  // States pour le flux d'importation
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analyzedDoc, setAnalyzedDoc] = useState<AnalyzeUploadedDocumentOutput | null>(null);
-  
   const [showImportConfirm, setShowImportConfirm] = useState(false);
   const [showValidation, setShowValidation] = useState(false);
   
@@ -99,13 +100,11 @@ export default function CategoryPage() {
   };
 
   const startAiAnalysis = async () => {
-    if (!currentFileUrl || !db || !companyId) return;
-
-    if (!allCategories || allCategories.length === 0) {
+    if (!currentFileUrl || !db || !companyId || !allCategories) {
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: "Les catégories ne sont pas encore chargées. Veuillez réessayer.",
+        description: "Préparation de l'analyse impossible. Vérifiez que tout est chargé.",
       });
       return;
     }
@@ -128,14 +127,14 @@ export default function CategoryPage() {
         setAnalyzedDoc(analysis);
         setShowValidation(true);
       } else {
-        throw new Error("Pas de réponse de l'IA");
+        throw new Error("L'IA n'a pas retourné de diagnostic.");
       }
     } catch (error) {
       console.error("Analyse error:", error);
       toast({
         variant: "destructive",
-        title: "Erreur d'analyse",
-        description: "L'IA n'a pas pu traiter ce document. Vérifiez le format (PDF ou Image).",
+        title: "Échec de l'analyse",
+        description: "L'IA n'a pas pu lire ou classer ce document.",
       });
     } finally {
       setIsAnalyzing(false);
@@ -160,8 +159,8 @@ export default function CategoryPage() {
     });
 
     toast({
-      title: "Document classé avec succès",
-      description: `Le document a été rangé dans ${analyzedDoc.suggestedCategoryLabel} > ${analyzedDoc.suggestedSubCategory}`,
+      title: "Document rangé !",
+      description: `${analyzedDoc.name} est maintenant dans ${analyzedDoc.suggestedCategoryLabel} > ${analyzedDoc.suggestedSubCategory}`,
     });
 
     setShowValidation(false);
@@ -169,12 +168,6 @@ export default function CategoryPage() {
     if (analyzedDoc.suggestedCategoryId !== categoryId) {
       router.push(`/categories/${analyzedDoc.suggestedCategoryId}`);
     }
-  };
-
-  const handleDeleteCategory = () => {
-    if (!db || !categoryRef) return;
-    deleteDocumentNonBlocking(categoryRef);
-    router.push('/');
   };
 
   const subCategories = category?.subCategories || [];
@@ -214,7 +207,10 @@ export default function CategoryPage() {
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Annuler</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleDeleteCategory} className="bg-destructive text-white hover:bg-destructive/90">
+                      <AlertDialogAction onClick={() => {
+                        if (categoryRef) deleteDocumentNonBlocking(categoryRef);
+                        router.push('/');
+                      }} className="bg-destructive text-white hover:bg-destructive/90">
                         Supprimer
                       </AlertDialogAction>
                     </AlertDialogFooter>
@@ -233,7 +229,7 @@ export default function CategoryPage() {
               {isAnalyzing ? (
                 <>
                   <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Analyse IA en cours...
+                  L'IA analyse le document...
                 </>
               ) : (
                 <>
@@ -275,89 +271,104 @@ export default function CategoryPage() {
         </div>
       </div>
 
-      {/* Étape 1 : Confirmation après sélection du fichier */}
+      {/* Étape 1 : Pop-up d'accueil après sélection du fichier */}
       <Dialog open={showImportConfirm} onOpenChange={setShowImportConfirm}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-primary">
-              <FileUp className="w-5 h-5" />
-              Document chargé
+            <DialogTitle className="flex items-center gap-2 text-primary text-xl">
+              <FileUp className="w-6 h-6" />
+              Fichier chargé
             </DialogTitle>
-            <DialogDescription>
-              Le fichier <strong>{currentFileName}</strong> est prêt. Voulez-vous que l'IA l'analyse pour le classer automatiquement ?
+            <DialogDescription className="text-base pt-2">
+              Le fichier <strong>{currentFileName}</strong> a été chargé avec succès.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col items-center justify-center py-6 bg-muted/20 rounded-xl border border-dashed">
-            <FileText className="w-12 h-12 text-muted-foreground mb-2" />
-            <span className="text-sm font-medium">{currentFileName}</span>
+          <div className="flex flex-col items-center justify-center py-10 bg-muted/30 rounded-2xl border-2 border-dashed border-primary/20">
+            <FileText className="w-16 h-16 text-primary/40 mb-3" />
+            <span className="text-sm font-bold text-primary/80 uppercase tracking-widest">{currentFileName.split('.').pop()}</span>
           </div>
-          <DialogFooter className="flex flex-col sm:flex-row gap-2">
-            <Button variant="outline" onClick={() => setShowImportConfirm(false)} className="flex-1">
+          <p className="text-sm text-muted-foreground text-center">
+            Voulez-vous que l'IA utilise l'OCR pour analyser et classer ce document automatiquement ?
+          </p>
+          <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-2">
+            <Button variant="ghost" onClick={() => setShowImportConfirm(false)} className="flex-1">
               Annuler
             </Button>
-            <Button onClick={startAiAnalysis} className="flex-1 bg-primary hover:bg-primary/90">
-              <FileSearch className="w-4 h-4 mr-2" />
-              Analyser et Classer par l'IA
+            <Button onClick={startAiAnalysis} className="flex-1 bg-primary hover:bg-primary/90 shadow-md">
+              <BrainCircuit className="w-4 h-4 mr-2" />
+              Analyser & Classer
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Étape 2 : Validation du diagnostic de l'IA */}
+      {/* Étape 2 : Pop-up de Diagnostic et Validation de la destination */}
       <Dialog open={showValidation} onOpenChange={setShowValidation}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[550px]">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-primary">
-              <Info className="w-5 h-5" />
+            <DialogTitle className="flex items-center gap-2 text-primary text-xl">
+              <BrainCircuit className="w-6 h-6" />
               Diagnostic de l'IA
             </DialogTitle>
-            <DialogDescription>
-              Voici l'emplacement de rangement suggéré par l'IA après analyse du contenu.
+            <DialogDescription className="text-base pt-1">
+              L'IA a terminé l'analyse OCR et suggère l'emplacement suivant :
             </DialogDescription>
           </DialogHeader>
 
           {analyzedDoc ? (
             <div className="space-y-6 py-4">
-              <Card className="bg-muted/30 border-none">
-                <CardContent className="p-4 space-y-4">
+              <Card className="bg-primary/5 border-primary/10 border-2 shadow-none overflow-hidden">
+                <CardContent className="p-5 space-y-4">
                   <div className="flex items-start gap-4">
-                    <div className="p-3 bg-primary/10 rounded-xl text-primary">
+                    <div className="p-3 bg-primary text-primary-foreground rounded-xl shadow-lg">
                       <FileText className="w-8 h-8" />
                     </div>
                     <div className="space-y-1 flex-1 min-w-0">
-                      <h4 className="font-bold text-lg truncate">{analyzedDoc.name}</h4>
-                      <p className="text-sm text-muted-foreground">{analyzedDoc.summary}</p>
+                      <h4 className="font-bold text-xl text-primary leading-tight">{analyzedDoc.name}</h4>
+                      <p className="text-sm text-muted-foreground font-medium italic">"{analyzedDoc.summary}"</p>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4 pt-2">
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-bold uppercase text-muted-foreground">Destination</span>
-                      <div className="flex items-center gap-2 font-semibold">
-                        <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20">
+                  <Separator className="bg-primary/10" />
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5 p-3 bg-white rounded-lg border shadow-sm">
+                      <span className="text-[10px] font-black uppercase text-primary/60 tracking-tighter">Destination Suggérée</span>
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-primary hover:bg-primary text-white text-xs px-2.5 py-0.5">
                           {analyzedDoc.suggestedCategoryLabel}
                         </Badge>
                       </div>
                     </div>
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-bold uppercase text-muted-foreground">Sous-dossier</span>
-                      <div className="flex items-center gap-2 font-semibold">
-                        <Badge variant="outline" className="bg-secondary/10 text-secondary border-secondary/20">
+                    <div className="space-y-1.5 p-3 bg-white rounded-lg border shadow-sm">
+                      <span className="text-[10px] font-black uppercase text-secondary/60 tracking-tighter">Sous-Dossier</span>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="border-secondary text-secondary font-bold text-xs px-2.5 py-0.5">
                           {analyzedDoc.suggestedSubCategory}
                         </Badge>
                       </div>
                     </div>
                   </div>
+
+                  {analyzedDoc.reasoning && (
+                    <div className="p-3 bg-muted/40 rounded-lg text-xs text-muted-foreground">
+                      <span className="font-bold text-foreground">Logique IA :</span> {analyzedDoc.reasoning}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
               {Object.keys(analyzedDoc.extractedData || {}).length > 0 && (
                 <div className="space-y-2">
-                  <span className="text-[10px] font-bold uppercase text-muted-foreground">Données extraites</span>
+                  <div className="flex items-center gap-2">
+                    <Info className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Données OCR extraites</span>
+                  </div>
                   <div className="grid grid-cols-2 gap-2">
-                    {Object.entries(analyzedDoc.extractedData).map(([key, value]) => (
-                      <div key={key} className="bg-muted/50 p-2 rounded-lg text-xs truncate">
-                        <span className="text-muted-foreground font-medium">{key}:</span> {String(value)}
+                    {Object.entries(analyzedDoc.extractedData).slice(0, 6).map(([key, value]) => (
+                      <div key={key} className="bg-muted/30 p-2.5 rounded-xl text-[11px] truncate border border-transparent hover:border-muted-foreground/20 transition-colors">
+                        <span className="text-muted-foreground font-bold uppercase text-[9px] block mb-0.5">{key}</span> 
+                        <span className="font-semibold text-foreground">{String(value)}</span>
                       </div>
                     ))}
                   </div>
@@ -365,18 +376,19 @@ export default function CategoryPage() {
               )}
             </div>
           ) : (
-            <div className="flex items-center justify-center p-8">
-              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <div className="flex flex-col items-center justify-center p-12 space-y-4">
+              <Loader2 className="w-10 h-10 animate-spin text-primary" />
+              <p className="text-muted-foreground animate-pulse">Finalisation du diagnostic...</p>
             </div>
           )}
 
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setShowValidation(false)} className="flex-1">
+          <DialogFooter className="gap-3 sm:gap-0 pt-2">
+            <Button variant="outline" onClick={() => setShowValidation(false)} className="flex-1 h-11">
               <X className="w-4 h-4 mr-2" />
               Ignorer
             </Button>
-            <Button onClick={confirmClassification} className="flex-1 bg-primary hover:bg-primary/90">
-              <Check className="w-4 h-4 mr-2" />
+            <Button onClick={confirmClassification} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white h-11 shadow-lg active:scale-95 transition-all">
+              <Check className="w-5 h-5 mr-2" />
               Valider & Ranger
             </Button>
           </DialogFooter>

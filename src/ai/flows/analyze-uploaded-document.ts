@@ -1,31 +1,32 @@
 'use server';
 
 /**
- * @fileOverview Flow for analyzing uploaded documents using Gemini Vision/OCR.
- * Classifies the document and extracts key data, suggesting the best category and sub-category.
+ * @fileOverview Flux pour analyser les documents téléchargés via Gemini Vision/OCR.
+ * Lit le contenu du document et suggère le meilleur emplacement de rangement (Dossier > Sous-dossier).
  */
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const AnalyzeUploadedDocumentInputSchema = z.object({
-  fileUrl: z.string().describe("The URL or Data URI of the document to analyze. Expected format for Data URI: 'data:<mimetype>;base64,<encoded_data>'."),
-  currentCategoryId: z.string().describe('The current category context.'),
+  fileUrl: z.string().describe("Le contenu du document sous forme de Data URI (doit inclure le type MIME et l'encodage Base64)."),
+  currentCategoryId: z.string().describe('Le contexte de la catégorie actuelle.'),
   availableCategories: z.array(z.object({
     id: z.string(),
     label: z.string(),
     subCategories: z.array(z.string())
-  })).describe('List of all available categories and their sub-folders.'),
+  })).describe('Liste de toutes les catégories et sous-dossiers disponibles dans l\'entreprise.'),
 });
 export type AnalyzeUploadedDocumentInput = z.infer<typeof AnalyzeUploadedDocumentInputSchema>;
 
 const AnalyzeUploadedDocumentOutputSchema = z.object({
-  name: z.string().describe('A clean title for the document.'),
-  suggestedCategoryId: z.string().describe('The most appropriate main category ID.'),
-  suggestedCategoryLabel: z.string().describe('The label of the suggested category.'),
-  suggestedSubCategory: z.string().describe('The most appropriate sub-folder for this document.'),
-  extractedData: z.record(z.any()).describe('Key data extracted (dates, amounts, reference numbers).'),
-  summary: z.string().describe('A brief summary of what the document is.'),
+  name: z.string().describe('Un titre professionnel et clair extrait du document.'),
+  suggestedCategoryId: z.string().describe('L\'identifiant de la catégorie principale la plus appropriée.'),
+  suggestedCategoryLabel: z.string().describe('Le nom de la catégorie suggérée.'),
+  suggestedSubCategory: z.string().describe('Le sous-dossier le plus adapté au contenu.'),
+  extractedData: z.record(z.any()).describe('Données clés extraites (dates, montants, numéros de référence, noms).'),
+  summary: z.string().describe('Un court résumé du document et pourquoi il a été classé ici.'),
+  reasoning: z.string().describe('Explication rapide de la logique de classement choisie.'),
 });
 export type AnalyzeUploadedDocumentOutput = z.infer<typeof AnalyzeUploadedDocumentOutputSchema>;
 
@@ -43,27 +44,28 @@ const analyzeDocumentPrompt = ai.definePrompt({
   output: {
     schema: AnalyzeUploadedDocumentOutputSchema,
   },
-  prompt: `You are an expert document analyst for BusinessPilot.
+  prompt: `Tu es l'Expert Documentaliste IA de BusinessPilot.
   
-  TASK:
-  Analyze the provided document image or file: {{media url=fileUrl}}
+  TON OBJECTIF :
+  Analyser le document fourni : {{media url=fileUrl}}
+  Tu dois utiliser tes capacités de vision/OCR pour lire le contenu textuel et comprendre de quoi il s'agit précisément.
   
-  CURRENT CONTEXT: Category ID "{{{currentCategoryId}}}"
+  CONTEXTE ACTUEL : Tu es dans le dossier "{{{currentCategoryId}}}".
   
-  AVAILABLE CATEGORIES & SUB-FOLDERS:
+  DOSSIERS ET SOUS-SECTIONS DISPONIBLES :
   {{#each availableCategories}}
-  - Category: {{label}} (ID: {{id}})
-    Sub-folders: {{#each subCategories}} "{{this}}" {{/each}}
+  - Catégorie : {{label}} (ID: {{id}})
+    Sous-dossiers : {{#each subCategories}} "{{this}}" {{/each}}
   {{/each}}
   
-  INSTRUCTIONS:
-  1. Extract a professional and clear title for this document.
-  2. Determine which main Category (ID) it belongs to from the available list. If it matches a standard category (Finance, RH, Admin, etc.), prioritize it.
-  3. Determine which Sub-folder within that category it belongs to.
-  4. Extract key data fields (dates, amounts, reference numbers, customer/vendor names).
-  5. Provide a one-sentence summary of the document.
+  INSTRUCTIONS :
+  1. Extrais un titre clair (ex: "Facture EDF Mars 2024", "Contrat de Travail - Jean Dupont").
+  2. Identifie la meilleure Catégorie parmi la liste. Si c'est une facture, c'est "Finance". Si c'est lié au personnel, c'est "RH".
+  3. Choisis le sous-dossier le plus précis. Si aucun ne correspond parfaitement, suggère le plus proche.
+  4. Extrais les métadonnées (Dates, Montants TTC/HT, IBAN, SIREN, etc.) dans extractedData.
+  5. Explique ton raisonnement brièvement.
   
-  Return the result in structured JSON. Be precise and helpful.`,
+  Réponds uniquement au format JSON structuré.`,
 });
 
 const analyzeUploadedDocumentFlow = ai.defineFlow(
@@ -75,10 +77,10 @@ const analyzeUploadedDocumentFlow = ai.defineFlow(
   async input => {
     try {
       const {output} = await analyzeDocumentPrompt(input);
-      if (!output) throw new Error("L'IA n'a pas retourné de résultat");
+      if (!output) throw new Error("L'IA n'a pas pu analyser le document.");
       return output;
     } catch (e) {
-      console.error("Genkit Flow Error:", e);
+      console.error("Genkit Analysis Error:", e);
       throw e;
     }
   }
