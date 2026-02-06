@@ -1,3 +1,4 @@
+
 export type UserRole = 'super_admin' | 'admin' | 'employee';
 
 export type DocumentStatus = 'pending_analysis' | 'waiting_verification' | 'waiting_validation' | 'archived';
@@ -58,4 +59,16 @@ export interface BusinessDocument {
   fileUrl: string;
   name: string;
   createdAt: string;
+}
+
+export interface CalendarEvent {
+  id: string;
+  companyId: string;
+  title: string;
+  description?: string;
+  startTime: string; // ISO string
+  endTime: string; // ISO string
+  attendees: string[]; // Emails
+  source: 'local' | 'google' | 'outlook';
+  type: 'meeting' | 'task' | 'event';
 }

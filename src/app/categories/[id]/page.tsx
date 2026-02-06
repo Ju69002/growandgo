@@ -1,10 +1,12 @@
+
 'use client';
 
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { DocumentList } from '@/components/documents/document-list';
+import { SharedCalendar } from '@/components/agenda/shared-calendar';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChevronLeft, FolderOpen, FileUp, FileText, Loader2, Sparkles, CheckCircle2, Info, ImageIcon } from 'lucide-react';
+import { ChevronLeft, FolderOpen, FileUp, FileText, Loader2, Sparkles, CheckCircle2, Info, ImageIcon, Calendar } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirestore, useDoc, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useUser, useCollection } from '@/firebase';
@@ -191,6 +193,7 @@ export default function CategoryPage() {
   };
 
   const isImageFile = currentFileName.toLowerCase().match(/\.(jpg|jpeg|png|webp)$/);
+  const isAgenda = categoryId === 'agenda';
 
   return (
     <DashboardLayout>
@@ -214,37 +217,45 @@ export default function CategoryPage() {
               </h1>
             </div>
           </div>
-          <div className="flex gap-3">
-            <Button size="lg" className="bg-primary hover:bg-primary/90 shadow-lg" onClick={() => fileInputRef.current?.click()}>
-              <FileUp className="w-5 h-5 mr-2" /> Importer un document / photo
-            </Button>
-          </div>
+          {!isAgenda && (
+            <div className="flex gap-3">
+              <Button size="lg" className="bg-primary hover:bg-primary/90 shadow-lg" onClick={() => fileInputRef.current?.click()}>
+                <FileUp className="w-5 h-5 mr-2" /> Importer un document / photo
+              </Button>
+            </div>
+          )}
         </div>
 
-        <div className="bg-card border rounded-2xl overflow-hidden shadow-sm">
-          <Tabs defaultValue="all" className="w-full" onValueChange={setActiveSubCategory}>
-            <div className="border-b bg-muted/20 px-4">
-              <TabsList className="h-14 bg-transparent gap-6">
-                <TabsTrigger value="all" className="rounded-none h-full px-4 font-semibold data-[state=active]:border-b-2 data-[state=active]:border-primary">Tout voir</TabsTrigger>
-                {(category?.subCategories || []).map((sub) => (
-                  <TabsTrigger key={sub} value={sub} className="rounded-none h-full px-4 font-semibold data-[state=active]:border-b-2 data-[state=active]:border-primary flex items-center gap-2">
-                    <FolderOpen className="w-4 h-4" /> {sub}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </div>
-            <div className="p-6">
-              <TabsContent value="all" className="mt-0">
-                <DocumentList categoryId={categoryId} />
-              </TabsContent>
-              {(category?.subCategories || []).map((sub) => (
-                <TabsContent key={sub} value={sub} className="mt-0">
-                  <DocumentList categoryId={categoryId} subCategory={sub} />
+        {isAgenda ? (
+          <div className="bg-card border rounded-2xl p-8 shadow-sm">
+            <SharedCalendar companyId={companyId} />
+          </div>
+        ) : (
+          <div className="bg-card border rounded-2xl overflow-hidden shadow-sm">
+            <Tabs defaultValue="all" className="w-full" onValueChange={setActiveSubCategory}>
+              <div className="border-b bg-muted/20 px-4">
+                <TabsList className="h-14 bg-transparent gap-6">
+                  <TabsTrigger value="all" className="rounded-none h-full px-4 font-semibold data-[state=active]:border-b-2 data-[state=active]:border-primary">Tout voir</TabsTrigger>
+                  {(category?.subCategories || []).map((sub) => (
+                    <TabsTrigger key={sub} value={sub} className="rounded-none h-full px-4 font-semibold data-[state=active]:border-b-2 data-[state=active]:border-primary flex items-center gap-2">
+                      <FolderOpen className="w-4 h-4" /> {sub}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </div>
+              <div className="p-6">
+                <TabsContent value="all" className="mt-0">
+                  <DocumentList categoryId={categoryId} />
                 </TabsContent>
-              ))}
-            </div>
-          </Tabs>
-        </div>
+                {(category?.subCategories || []).map((sub) => (
+                  <TabsContent key={sub} value={sub} className="mt-0">
+                    <DocumentList categoryId={categoryId} subCategory={sub} />
+                  </TabsContent>
+                ))}
+              </div>
+            </Tabs>
+          </div>
+        )}
       </div>
 
       <Dialog open={importStep !== 'idle'} onOpenChange={(open) => !open && setImportStep('idle')}>
