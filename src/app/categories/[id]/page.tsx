@@ -1,4 +1,3 @@
-
 'use client';
 
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
@@ -79,7 +78,16 @@ export default function CategoryPage() {
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || !db || !companyId || !allCategories) return;
+    if (!file || !db || !companyId) return;
+
+    if (!allCategories || allCategories.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: "Les catégories ne sont pas encore chargées. Veuillez réessayer.",
+      });
+      return;
+    }
 
     setIsAnalyzing(true);
 
@@ -99,19 +107,34 @@ export default function CategoryPage() {
           }))
         });
 
-        setAnalyzedDoc(analysis);
-        setShowValidation(true);
+        if (analysis) {
+          setAnalyzedDoc(analysis);
+          setShowValidation(true);
+        } else {
+          throw new Error("Pas de réponse de l'IA");
+        }
       } catch (error) {
+        console.error("Analyse error:", error);
         toast({
           variant: "destructive",
-          title: "Erreur d'importation",
-          description: "L'IA n'a pas pu analyser le document. Assurez-vous qu'il s'agit d'un fichier lisible.",
+          title: "Erreur d'analyse",
+          description: "L'IA n'a pas pu traiter ce document. Vérifiez le format (PDF ou Image).",
         });
       } finally {
         setIsAnalyzing(false);
         if (fileInputRef.current) fileInputRef.current.value = "";
       }
     };
+    
+    reader.onerror = () => {
+      setIsAnalyzing(false);
+      toast({
+        variant: "destructive",
+        title: "Erreur de lecture",
+        description: "Impossible de lire le fichier depuis votre ordinateur.",
+      });
+    };
+
     reader.readAsDataURL(file);
   };
 
@@ -139,7 +162,6 @@ export default function CategoryPage() {
 
     setShowValidation(false);
     
-    // Si la catégorie suggérée est différente, on redirige vers celle-ci
     if (analyzedDoc.suggestedCategoryId !== categoryId) {
       router.push(`/categories/${analyzedDoc.suggestedCategoryId}`);
     }
@@ -261,7 +283,7 @@ export default function CategoryPage() {
             </DialogDescription>
           </DialogHeader>
 
-          {analyzedDoc && (
+          {analyzedDoc ? (
             <div className="space-y-6 py-4">
               <Card className="bg-muted/30 border-none">
                 <CardContent className="p-4 space-y-4">
@@ -296,7 +318,7 @@ export default function CategoryPage() {
                 </CardContent>
               </Card>
 
-              {Object.keys(analyzedDoc.extractedData).length > 0 && (
+              {Object.keys(analyzedDoc.extractedData || {}).length > 0 && (
                 <div className="space-y-2">
                   <span className="text-[10px] font-bold uppercase text-muted-foreground">Données extraites par l'IA</span>
                   <div className="grid grid-cols-2 gap-2">
@@ -308,6 +330,10 @@ export default function CategoryPage() {
                   </div>
                 </div>
               )}
+            </div>
+          ) : (
+            <div className="flex items-center justify-center p-8">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
             </div>
           )}
 

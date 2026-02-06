@@ -46,9 +46,9 @@ const analyzeDocumentPrompt = ai.definePrompt({
   prompt: `You are an expert document analyst for BusinessPilot.
   
   TASK:
-  Analyze the following document: {{media url=fileUrl}}
+  Analyze the provided document image or file: {{media url=fileUrl}}
   
-  CURRENT CONTEXT: Category "{{{currentCategoryId}}}"
+  CURRENT CONTEXT: Category ID "{{{currentCategoryId}}}"
   
   AVAILABLE CATEGORIES & SUB-FOLDERS:
   {{#each availableCategories}}
@@ -58,12 +58,12 @@ const analyzeDocumentPrompt = ai.definePrompt({
   
   INSTRUCTIONS:
   1. Extract a professional and clear title for this document.
-  2. Determine which main Category (ID) it belongs to from the available list.
+  2. Determine which main Category (ID) it belongs to from the available list. If it matches a standard category (Finance, RH, Admin, etc.), prioritize it.
   3. Determine which Sub-folder within that category it belongs to.
-  4. Extract key data fields (dates, amounts, reference numbers).
+  4. Extract key data fields (dates, amounts, reference numbers, customer/vendor names).
   5. Provide a one-sentence summary of the document.
   
-  Return the result in structured JSON. Pick the most logical category even if it differs from the current context.`,
+  Return the result in structured JSON. Be precise and helpful.`,
 });
 
 const analyzeUploadedDocumentFlow = ai.defineFlow(
@@ -73,8 +73,13 @@ const analyzeUploadedDocumentFlow = ai.defineFlow(
     outputSchema: AnalyzeUploadedDocumentOutputSchema,
   },
   async input => {
-    const {output} = await analyzeDocumentPrompt(input);
-    if (!output) throw new Error("Analyse IA échouée");
-    return output;
+    try {
+      const {output} = await analyzeDocumentPrompt(input);
+      if (!output) throw new Error("L'IA n'a pas retourné de résultat");
+      return output;
+    } catch (e) {
+      console.error("Genkit Flow Error:", e);
+      throw e;
+    }
   }
 );
