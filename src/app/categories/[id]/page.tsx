@@ -260,15 +260,15 @@ export default function CategoryPage() {
           {/* ÉTAPE 1 : CONFIRMATION D'IMPORT */}
           {importStep === 'confirm' && (
             <div className="p-8 space-y-6">
-              <div className="flex flex-col items-center text-center space-y-4">
+              <DialogHeader className="flex flex-col items-center text-center space-y-4">
                 <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center text-primary">
                   <FileText className="w-8 h-8" />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-bold text-primary">Document prêt</h2>
-                  <p className="text-muted-foreground">Fichier : <span className="font-semibold text-foreground">{currentFileName}</span></p>
+                  <DialogTitle className="text-2xl font-bold text-primary">Document prêt</DialogTitle>
+                  <DialogDescription className="text-muted-foreground">Fichier : <span className="font-semibold text-foreground">{currentFileName}</span></DialogDescription>
                 </div>
-              </div>
+              </DialogHeader>
               <div className="bg-muted/50 p-6 rounded-2xl border-2 border-dashed border-primary/20 text-center">
                 <p className="text-sm text-muted-foreground">
                   Voulez-vous que l'IA utilise l'OCR pour analyser, nommer et classer ce document automatiquement dans vos dossiers ?
@@ -289,14 +289,14 @@ export default function CategoryPage() {
           {/* ÉTAPE 2 : ANALYSE EN COURS */}
           {importStep === 'analyzing' && (
             <div className="p-12 flex flex-col items-center justify-center text-center space-y-6 min-h-[400px]">
-              <div className="relative">
-                <div className="w-24 h-24 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-                <BrainCircuit className="w-10 h-10 text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
-              </div>
-              <div className="space-y-2">
-                <h2 className="text-2xl font-bold text-primary animate-pulse">Analyse OCR en cours...</h2>
-                <p className="text-muted-foreground max-w-[300px]">L'IA lit le contenu de votre document pour déterminer le meilleur emplacement.</p>
-              </div>
+              <DialogHeader className="items-center">
+                <div className="relative mb-4">
+                  <div className="w-24 h-24 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+                  <BrainCircuit className="w-10 h-10 text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
+                </div>
+                <DialogTitle className="text-2xl font-bold text-primary animate-pulse text-center">Analyse OCR en cours...</DialogTitle>
+                <DialogDescription className="text-muted-foreground max-w-[300px] text-center">L'IA lit le contenu de votre document pour déterminer le meilleur emplacement.</DialogDescription>
+              </DialogHeader>
               <div className="flex gap-2">
                 <div className="w-2 h-2 bg-primary/40 rounded-full animate-bounce"></div>
                 <div className="w-2 h-2 bg-primary/60 rounded-full animate-bounce [animation-delay:0.2s]"></div>
@@ -311,7 +311,10 @@ export default function CategoryPage() {
               <div className="bg-primary p-6 text-primary-foreground flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <Sparkles className="w-6 h-6" />
-                  <h2 className="text-xl font-bold">Diagnostic de l'Architecte</h2>
+                  <DialogHeader>
+                    <DialogTitle className="text-xl font-bold text-primary-foreground">Diagnostic de l'Architecte</DialogTitle>
+                    <DialogDescription className="hidden">Confirmation du rangement du document analysé par l'IA.</DialogDescription>
+                  </DialogHeader>
                 </div>
                 <Button variant="ghost" size="icon" onClick={() => setImportStep('idle')} className="text-primary-foreground hover:bg-white/10">
                   <X className="w-5 h-5" />
