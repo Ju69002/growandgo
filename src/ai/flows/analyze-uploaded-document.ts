@@ -2,7 +2,7 @@
 
 /**
  * @fileOverview Flux pour analyser les documents via Gemini 1.5 Pro.
- * Identifie la catégorie, le sous-dossier et suggère la création de nouveaux dossiers si nécessaire.
+ * Effectue une analyse OCR profonde pour identifier la catégorie, le sous-dossier et l'importance.
  */
 
 import {ai} from '@/ai/genkit';
@@ -20,19 +20,19 @@ const AnalyzeUploadedDocumentInputSchema = z.object({
 export type AnalyzeUploadedDocumentInput = z.infer<typeof AnalyzeUploadedDocumentInputSchema>;
 
 const AnalyzeUploadedDocumentOutputSchema = z.object({
-  name: z.string().describe('Titre clair extrait du document.'),
-  suggestedCategoryId: z.string().describe('ID de la catégorie principale.'),
-  suggestedCategoryLabel: z.string().describe('Nom de la catégorie.'),
+  name: z.string().describe('Titre clair extrait du document par OCR.'),
+  suggestedCategoryId: z.string().describe('ID de la catégorie principale la plus adaptée.'),
+  suggestedCategoryLabel: z.string().describe('Nom de la catégorie choisie.'),
   suggestedSubCategory: z.string().describe('Nom du sous-dossier suggéré.'),
-  isNewSubCategory: z.boolean().describe('Indique si ce sous-dossier doit être créé car inexistant.'),
+  isNewSubCategory: z.boolean().describe('Indique si ce sous-dossier doit être créé car inexistant et important.'),
   extractedData: z.object({
-    date: z.string().describe('Date du document'),
-    montant: z.string().describe('Montant si applicable'),
-    emetteur: z.string().describe('Émetteur du document'),
-    reference: z.string().describe('Référence ou numéro'),
-  }).describe('Données clés extraites du document.'),
-  summary: z.string().describe('Résumé très court du contenu.'),
-  reasoning: z.string().describe('Pourquoi ce classement ? Explique ta réflexion.'),
+    date: z.string().describe('Date extraite (ex: 12/05/2023)'),
+    montant: z.string().describe('Montant TTC identifié'),
+    emetteur: z.string().describe('Nom de l\'entreprise émettrice'),
+    reference: z.string().describe('Numéro de facture ou référence'),
+  }).describe('Données structurées extraites.'),
+  summary: z.string().describe('Résumé très court.'),
+  reasoning: z.string().describe('Justification du classement intelligent.'),
 });
 export type AnalyzeUploadedDocumentOutput = z.infer<typeof AnalyzeUploadedDocumentOutputSchema>;
 
@@ -51,22 +51,24 @@ const analyzeDocumentPrompt = ai.definePrompt({
   output: {
     schema: AnalyzeUploadedDocumentOutputSchema,
   },
-  prompt: `Tu es l'Expert Documentaliste de BusinessPilot.
+  prompt: `Tu es l'Expert Documentaliste Suprême de BusinessPilot.
   
-  ANALYSE CE DOCUMENT : {{media url=fileUrl}}
+  MISSION : Analyse ce document par vision OCR : {{media url=fileUrl}}
   
-  STRUCTURE ACTUELLE DES DOSSIERS :
+  STRUCTURE ACTUELLE :
   {{#each availableCategories}}
-  - {{label}} (ID: {{id}}) > Sous-dossiers existants : {{#each subCategories}}"{{this}}" {{/each}}
+  - {{label}} (ID: {{id}}) > Sous-dossiers : {{#each subCategories}}"{{this}}" {{/each}}
   {{/each}}
   
-  MISSION :
-  1. Lis le document par OCR/Vision.
-  2. Trouve la catégorie et le sous-dossier le plus adapté parmi l'existant.
-  3. RÉFLEXION : SI aucun sous-dossier existant ne convient ET que le document est important (ex: nouveau type de contrat, nouvelle taxe, etc.), suggère un NOUVEAU nom de sous-dossier pertinent et mets isNewSubCategory à true.
-  4. Extrais les données clés (Date, Montant, Émetteur, Référence).
+  CONSIGNES :
+  1. Identifie précisément le TITRE et l'EMETTEUR du document.
+  2. Choisis la catégorie la plus logique (Finance, RH, Admin, etc.).
+  3. REGLE DE CLASSEMENT : 
+     - Si un sous-dossier existant correspond parfaitement, utilise-le.
+     - SINON, si le document représente une nouvelle thématique IMPORTANTE (ex: nouveau contrat, nouveau fournisseur récurent, nouvelle taxe spécifique), invente un nom de sous-dossier PERTINENT et mets 'isNewSubCategory' à true.
+  4. Sois extrêmement précis sur les données extraites (Date, Montant, Emetteur).
   
-  Réponds en JSON uniquement en suivant le schéma de sortie.`,
+  Réponds uniquement en JSON valide.`,
 });
 
 const analyzeUploadedDocumentFlow = ai.defineFlow(

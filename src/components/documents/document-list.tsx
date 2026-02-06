@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, FileText, CheckCircle2, AlertCircle, Clock, FolderOpen, Eye, X, Download, ExternalLink, Loader2, Info } from 'lucide-react';
+import { MoreHorizontal, FileText, CheckCircle2, AlertCircle, Clock, FolderOpen, Eye, X, Download, ExternalLink, Loader2, Info, EyeOff } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,6 +48,7 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
   const [viewingDoc, setViewingDoc] = React.useState<BusinessDocument | null>(null);
   const [safeUrl, setSafeUrl] = React.useState<string | null>(null);
   const [isBlobLoading, setIsBlobLoading] = React.useState(false);
+  const [iframeError, setIframeError] = React.useState(false);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -76,6 +77,7 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
 
   React.useEffect(() => {
     let url: string | null = null;
+    setIframeError(false);
     
     const prepareDoc = async () => {
       if (!viewingDoc?.fileUrl) {
@@ -222,14 +224,14 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
       </div>
 
       <Dialog open={!!viewingDoc} onOpenChange={(open) => !open && setViewingDoc(null)}>
-        <DialogContent className="sm:max-w-[95vw] h-[95vh] p-0 flex flex-col gap-0 overflow-hidden bg-slate-900 border-none">
+        <DialogContent className="sm:max-w-[95vw] h-[95vh] p-0 flex flex-col gap-0 overflow-hidden bg-slate-950 border-none">
           <DialogHeader className="p-4 border-b bg-card flex flex-row items-center justify-between space-y-0 z-20">
             <div className="flex-1 min-w-0 pr-4">
               <DialogTitle className="text-xl font-bold flex items-center gap-2 truncate">
                 <FileText className="w-5 h-5 text-primary flex-shrink-0" />
                 {viewingDoc?.name}
               </DialogTitle>
-              <DialogDescription className="truncate">
+              <DialogDescription className="truncate text-xs">
                 {viewingDoc?.subCategory || 'Général'} • Importé le {viewingDoc?.createdAt}
               </DialogDescription>
             </div>
@@ -246,41 +248,55 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
                     Télécharger
                   </a>
                </Button>
-               <Button variant="ghost" size="icon" onClick={() => setViewingDoc(null)} className="text-muted-foreground">
+               <Button variant="ghost" size="icon" onClick={() => setViewingDoc(null)} className="text-muted-foreground hover:bg-muted">
                   <X className="w-5 h-5" />
                </Button>
             </div>
           </DialogHeader>
-          <div className="flex-1 bg-slate-800/50 flex flex-col items-center justify-center overflow-hidden relative">
+          <div className="flex-1 bg-slate-900 flex flex-col items-center justify-center overflow-hidden relative">
             {isBlobLoading ? (
               <div className="flex flex-col items-center gap-4 text-white">
-                <Loader2 className="w-12 h-12 animate-spin opacity-50" />
-                <p className="text-sm font-medium animate-pulse">Préparation du document...</p>
+                <Loader2 className="w-12 h-12 animate-spin opacity-50 text-primary" />
+                <p className="text-sm font-medium animate-pulse">Préparation sécurisée du document...</p>
               </div>
             ) : viewingDoc && safeUrl ? (
               isPDF(viewingDoc) ? (
                 <div className="w-full h-full flex flex-col">
-                  <div className="bg-amber-500/10 text-amber-200 px-4 py-2 text-xs flex items-center gap-2 border-b border-amber-500/20">
-                    <Info className="w-4 h-4" />
-                    Si le PDF ne s'affiche pas, utilisez les boutons "Ouvrir externe" ou "Télécharger" en haut à droite.
+                  <div className="bg-amber-500/15 text-amber-200 px-6 py-3 text-xs flex flex-col md:flex-row md:items-center gap-3 border-b border-amber-500/30">
+                    <div className="flex items-center gap-2 font-bold">
+                      <AlertCircle className="w-4 h-4" />
+                      AIDE À L'AFFICHAGE
+                    </div>
+                    <p className="flex-1 opacity-90">
+                      Si Chrome affiche un écran gris ou bloque l'aperçu, cliquez sur <strong>Ouvrir externe</strong> ou <strong>Télécharger</strong> en haut à droite.
+                    </p>
                   </div>
                   <iframe
-                    src={safeUrl}
+                    src={`${safeUrl}#toolbar=0&navpanes=0`}
                     className="flex-1 w-full border-none bg-white"
                     title={viewingDoc.name}
-                    type="application/pdf"
+                    onLoad={() => setIframeError(false)}
+                    onError={() => setIframeError(true)}
                   />
                 </div>
               ) : (
-                <div className="relative w-full h-full flex items-center justify-center p-4">
+                <div className="relative w-full h-full flex items-center justify-center p-8">
                   <img
                     src={safeUrl}
                     alt={viewingDoc.name}
-                    className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+                    className="max-w-full max-h-full object-contain rounded-lg shadow-[0_0_50px_rgba(0,0,0,0.5)] border border-white/10"
                   />
                 </div>
               )
-            ) : null}
+            ) : (
+               <div className="flex flex-col items-center gap-4 text-white p-8 text-center">
+                  <EyeOff className="w-12 h-12 opacity-30" />
+                  <p className="max-w-md">Impossible d'afficher l'aperçu direct dans le navigateur.</p>
+                  <Button variant="secondary" asChild>
+                     <a href={viewingDoc?.fileUrl} target="_blank" rel="noopener noreferrer">Ouvrir dans un nouvel onglet</a>
+                  </Button>
+               </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>

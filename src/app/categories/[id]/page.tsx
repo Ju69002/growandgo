@@ -4,7 +4,7 @@ import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { DocumentList } from '@/components/documents/document-list';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChevronLeft, FolderOpen, FileUp, FileText, Loader2, Sparkles, AlertCircle } from 'lucide-react';
+import { ChevronLeft, FolderOpen, FileUp, FileText, Loader2, Sparkles, AlertCircle, CheckCircle2, Info } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirestore, useDoc, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useUser, useCollection } from '@/firebase';
@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 type ImportStep = 'idle' | 'confirm_analysis' | 'analyzing' | 'confirm_placement';
 
@@ -90,10 +91,11 @@ export default function CategoryPage() {
       setAnalysisResult(result);
       setImportStep('confirm_placement');
     } catch (error) {
+      console.error(error);
       toast({
         variant: "destructive",
-        title: "Erreur d'analyse",
-        description: "L'IA n'a pas pu traiter ce document.",
+        title: "Erreur d'analyse IA",
+        description: "L'IA n'a pas pu traiter ce document. Vérifiez le format ou la connexion.",
       });
       setImportStep('idle');
     }
@@ -126,7 +128,7 @@ export default function CategoryPage() {
     });
 
     toast({
-      title: "Document classé !",
+      title: "Document classé avec succès !",
       description: `Rangé dans ${analysisResult.suggestedCategoryLabel} > ${targetSubCategory}`,
     });
 
@@ -180,21 +182,22 @@ export default function CategoryPage() {
       </div>
 
       <Dialog open={importStep !== 'idle'} onOpenChange={(open) => !open && setImportStep('idle')}>
-        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden">
+        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl">
           
           {importStep === 'confirm_analysis' && (
-            <div className="p-8 space-y-6">
+            <div className="p-8 space-y-6 bg-card">
               <DialogHeader>
                 <DialogTitle className="text-2xl font-bold flex items-center gap-2">
                   <FileText className="w-6 h-6 text-primary" /> Nouveau document
                 </DialogTitle>
-                <DialogDescription>
-                  Fichier sélectionné : <span className="font-semibold text-foreground">{currentFileName}</span>
+                <DialogDescription className="text-muted-foreground">
+                  Fichier : <span className="font-semibold text-foreground">{currentFileName}</span>
                 </DialogDescription>
               </DialogHeader>
               <div className="bg-primary/5 p-6 rounded-2xl border border-primary/20 text-center space-y-3">
                 <Sparkles className="w-10 h-10 text-primary mx-auto" />
-                <p className="text-sm font-medium">Lancer l'analyse intelligente pour classer ce document ?</p>
+                <p className="text-sm font-medium">Lancer l'analyse intelligente ?</p>
+                <p className="text-xs text-muted-foreground">L'IA va lire le document pour identifier le meilleur dossier (OCR).</p>
               </div>
               <div className="flex gap-3">
                 <Button variant="outline" onClick={() => setImportStep('idle')} className="flex-1">Annuler</Button>
@@ -204,35 +207,45 @@ export default function CategoryPage() {
           )}
 
           {importStep === 'analyzing' && (
-            <div className="p-12 flex flex-col items-center justify-center text-center space-y-6 min-h-[350px]">
+            <div className="p-12 flex flex-col items-center justify-center text-center space-y-6 min-h-[350px] bg-card">
               <DialogHeader className="items-center">
                 <div className="relative">
                   <Loader2 className="w-16 h-16 text-primary animate-spin" />
                   <Sparkles className="w-6 h-6 text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
                 </div>
-                <DialogTitle className="text-2xl font-bold mt-6">Analyse OCR en cours...</DialogTitle>
+                <DialogTitle className="text-2xl font-bold mt-6">Lecture OCR en cours...</DialogTitle>
                 <DialogDescription className="max-w-[300px]">
-                  L'IA lit votre document pour déterminer le meilleur emplacement.
+                  L'IA analyse le contenu textuel de votre document pour déterminer son importance et son rangement.
                 </DialogDescription>
               </DialogHeader>
             </div>
           )}
 
           {importStep === 'confirm_placement' && analysisResult && (
-            <div className="p-8 space-y-6">
+            <div className="p-8 space-y-6 bg-card">
               <DialogHeader>
-                <DialogTitle className="text-2xl font-bold">Diagnostic de l'IA</DialogTitle>
-                <DialogDescription>Proposition de classement intelligent basée sur le contenu lu.</DialogDescription>
+                <DialogTitle className="text-2xl font-bold flex items-center gap-2">
+                   <CheckCircle2 className="w-6 h-6 text-emerald-500" /> Analyse terminée
+                </DialogTitle>
+                <DialogDescription>Voici la proposition de rangement établie par l'IA.</DialogDescription>
               </DialogHeader>
 
               <div className="space-y-4">
-                <div className="p-4 bg-muted/50 rounded-xl border space-y-2">
-                  <span className="text-xs font-bold text-muted-foreground uppercase">Titre extrait</span>
+                <div className="p-4 bg-muted/50 rounded-xl border space-y-1">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Titre identifié</span>
                   <p className="font-bold text-primary">{analysisResult.name}</p>
                 </div>
 
-                <div className="p-4 bg-primary/5 rounded-xl border border-primary/20 space-y-2">
-                  <span className="text-xs font-bold text-primary uppercase">Destination suggérée</span>
+                <div className={cn(
+                  "p-4 rounded-xl border space-y-2",
+                  analysisResult.isNewSubCategory ? "bg-amber-50 border-amber-200" : "bg-primary/5 border-primary/20"
+                )}>
+                  <div className="flex justify-between items-center">
+                    <span className={cn("text-[10px] font-bold uppercase tracking-wider", analysisResult.isNewSubCategory ? "text-amber-700" : "text-primary")}>
+                      {analysisResult.isNewSubCategory ? "Nouveau sous-dossier proposé" : "Dossier de destination"}
+                    </span>
+                    {analysisResult.isNewSubCategory && <Badge className="bg-amber-600">Création IA</Badge>}
+                  </div>
                   <div className="flex items-center gap-2">
                     <Badge className="bg-primary">{analysisResult.suggestedCategoryLabel}</Badge>
                     <span className="text-muted-foreground">/</span>
@@ -243,10 +256,10 @@ export default function CategoryPage() {
                   </div>
                 </div>
 
-                <div className="p-4 bg-amber-50 rounded-xl border border-amber-200">
+                <div className="p-4 bg-muted/30 rounded-xl border border-dashed">
                   <div className="flex gap-2 items-start">
-                    <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5" />
-                    <p className="text-xs text-amber-800 leading-relaxed italic">
+                    <Info className="w-4 h-4 text-muted-foreground mt-0.5" />
+                    <p className="text-xs text-muted-foreground leading-relaxed italic">
                       "{analysisResult.reasoning}"
                     </p>
                   </div>
