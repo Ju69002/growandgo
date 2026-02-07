@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -47,7 +46,7 @@ export function ChatAssistant() {
   const { user } = useUser();
   const db = useFirestore();
   const [messages, setMessages] = React.useState<Message[]>([
-    { role: 'assistant', content: 'Bonjour ! Je suis l\'Architecte Suprême de Grow&Go. Je peux transformer votre interface selon vos désirs. Que souhaitez-vous changer ?' }
+    { role: 'assistant', content: 'Bonjour ! Je suis votre Expert Design Grow&Go. Je peux transformer votre interface. Que souhaitez-vous changer ?' }
   ]);
   const [input, setInput] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
@@ -109,9 +108,9 @@ export function ChatAssistant() {
         updateDocumentNonBlocking(companyRef, { [`modulesConfig.${key}`]: enabled ?? true });
       }
 
-      setMessages(prev => [...prev, { role: 'assistant', content: "C'est fait ! La transformation Grow&Go a été appliquée." }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: "C'est fait ! La transformation a été appliquée à votre studio." }]);
     } catch (error) {
-      setMessages(prev => [...prev, { role: 'assistant', content: "Désolé, une erreur technique a empêché l'application." }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: "Désolé, je n'ai pas pu appliquer ce changement technique." }]);
     }
     setPendingAction(null);
   };
@@ -127,7 +126,7 @@ export function ChatAssistant() {
     if (!adminMode) {
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: "Désolé, je ne suis pas habilité à faire ça car le Mode Architecte est désactivé." 
+        content: "Désolé, je ne peux pas agir car le Mode Patron est désactivé." 
       }]);
       setIsLoading(false);
       return;
@@ -145,10 +144,10 @@ export function ChatAssistant() {
 
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: result.analysisResult || "Plan établi pour Grow&Go. Souhaitez-vous que j'agisse ?" 
+        content: result.analysisResult || "Plan de design établi. Souhaitez-vous valider ?" 
       }]);
     } catch (error) {
-      setMessages(prev => [...prev, { role: 'assistant', content: "Je suis prêt. Pourriez-vous préciser votre demande de design ?" }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: "Je suis à votre écoute. Quelle modification de design souhaitez-vous ?" }]);
     } finally {
       setIsLoading(false);
     }
@@ -168,7 +167,7 @@ export function ChatAssistant() {
           <CardHeader className="bg-primary text-primary-foreground rounded-t-xl p-4 flex flex-row items-center justify-between space-y-0">
             <div className="flex items-center gap-2">
               <Bot className="h-5 w-5" />
-              <CardTitle className="text-base font-bold">Architecte Grow&Go</CardTitle>
+              <CardTitle className="text-base font-bold">Expert Design Grow&Go</CardTitle>
             </div>
             <X className="h-5 w-5 cursor-pointer hover:opacity-80" onClick={() => setIsOpen(false)} />
           </CardHeader>
@@ -188,11 +187,11 @@ export function ChatAssistant() {
                 {pendingAction && !isLoading && (
                   <div className="flex justify-start">
                     <div className="flex flex-col gap-2 p-3 bg-primary/5 border rounded-2xl max-w-[85%]">
-                      <p className="text-xs font-bold text-primary uppercase">Validation Grow&Go</p>
+                      <p className="text-xs font-bold text-primary uppercase">Confirmation Patron</p>
                       <div className="flex gap-2">
                         <Button size="sm" onClick={() => executeAction(pendingAction)} className="bg-emerald-600 hover:bg-emerald-700 h-8">
                           <Check className="w-4 h-4 mr-1" />
-                          Confirmer
+                          Appliquer
                         </Button>
                         <Button size="sm" variant="outline" onClick={() => setPendingAction(null)} className="h-8">
                           <Ban className="w-4 h-4 mr-1" />
@@ -216,7 +215,7 @@ export function ChatAssistant() {
           <CardFooter className="p-3 border-t">
             <div className="flex w-full items-center gap-2">
               <Input
-                placeholder={pendingAction ? "Action en attente..." : "Ex: maison en vert..."}
+                placeholder={pendingAction ? "Action en attente..." : "Ex: site en vert..."}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}

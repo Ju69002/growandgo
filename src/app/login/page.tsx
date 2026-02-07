@@ -28,7 +28,6 @@ export default function LoginPage() {
   const { toast } = useToast();
   const logo = PlaceHolderImages.find(img => img.id === 'app-logo');
 
-  // Redirection automatique si déjà connecté
   useEffect(() => {
     if (!isUserLoading && user) {
       router.push('/');
@@ -39,58 +38,56 @@ export default function LoginPage() {
     e.preventDefault();
     if (!auth || !db) return;
 
+    const trimmedId = id.trim();
+    
+    // Vérification de la casse stricte pour JSecchi
+    if (trimmedId.toLowerCase() === 'jsecchi' && trimmedId !== 'JSecchi') {
+      toast({ 
+        variant: "destructive", 
+        title: "Identifiant incorrect", 
+        description: "L'identifiant est sensible à la casse." 
+      });
+      return;
+    }
+
     setIsLoading(true);
-    const email = `${id.toLowerCase().trim()}@growandgo.ai`;
+    const email = `${trimmedId.toLowerCase()}@growandgo.ai`;
 
     try {
       if (isSignUp) {
+        // Interdire la création d'un JSecchi avec la mauvaise casse
+        if (trimmedId.toLowerCase() === 'jsecchi' && trimmedId !== 'JSecchi') {
+          throw new Error('ID_RESERVED');
+        }
+
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const newUser = userCredential.user;
         
+        const isSuperAdmin = trimmedId === 'JSecchi';
         const userRef = doc(db, 'users', newUser.uid);
+        
         setDocumentNonBlocking(userRef, {
           uid: newUser.uid,
-          companyId: id.toLowerCase().trim() === 'jsecchi' ? 'growandgo-hq' : 'default-company',
-          role: id.toLowerCase().trim() === 'jsecchi' ? 'super_admin' : 'employee',
-          adminMode: id.toLowerCase().trim() === 'jsecchi',
-          isCategoryModifier: id.toLowerCase().trim() === 'jsecchi',
-          name: name || id,
-          email: email
+          companyId: isSuperAdmin ? 'growandgo-hq' : 'default-company',
+          role: isSuperAdmin ? 'super_admin' : 'employee',
+          adminMode: isSuperAdmin,
+          isCategoryModifier: isSuperAdmin,
+          name: name || trimmedId,
+          email: email,
+          loginId: trimmedId // On stocke l'ID exact pour référence
         }, { merge: true });
 
         toast({ title: "Compte créé !", description: "Bienvenue dans l'univers Grow&Go." });
       } else {
-        const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        const loggedUser = userCredential.user;
-
-        if (id.toLowerCase().trim() === 'jsecchi') {
-          const userRef = doc(db, 'users', loggedUser.uid);
-          const userSnap = await getDoc(userRef);
-          if (!userSnap.exists()) {
-            setDocumentNonBlocking(userRef, {
-              uid: loggedUser.uid,
-              companyId: 'growandgo-hq',
-              role: 'super_admin',
-              adminMode: true,
-              isCategoryModifier: true,
-              name: 'JSecchi (Propriétaire)',
-              email: email
-            }, { merge: true });
-          }
-        }
+        await signInWithEmailAndPassword(auth, email, password);
         toast({ title: "Connexion réussie", description: `Ravi de vous revoir.` });
       }
       router.push('/');
     } catch (error: any) {
-      let message = "Une erreur est survenue.";
+      let message = "Identifiant ou mot de passe incorrect.";
       
-      if (
-        error.code === 'auth/wrong-password' || 
-        error.code === 'auth/invalid-credential' || 
-        error.code === 'auth/user-not-found' ||
-        error.code === 'auth/invalid-email'
-      ) {
-        message = "Identifiant ou mot de passe incorrect.";
+      if (error.message === 'ID_RESERVED') {
+        message = "Cet identifiant est réservé avec sa casse exacte (JSecchi).";
       } else if (error.code === 'auth/email-already-in-use') {
         message = "Cet identifiant est déjà utilisé.";
       } else if (error.code === 'auth/weak-password') {
@@ -99,7 +96,7 @@ export default function LoginPage() {
       
       toast({ 
         variant: "destructive", 
-        title: isSignUp ? "Échec de l'inscription" : "Échec de connexion", 
+        title: "Échec", 
         description: message 
       });
     } finally {
@@ -122,7 +119,7 @@ export default function LoginPage() {
           <div>
             <CardTitle className="text-2xl font-black text-[#1E4D3B] uppercase tracking-tighter">Grow&Go Design Studio</CardTitle>
             <CardDescription className="text-[#1E4D3B]/60 font-medium">
-              {isSignUp ? "Créez votre compte pour commencer." : "Veuillez vous identifier pour accéder à vos dossiers."}
+              {isSignUp ? "Créez votre compte personnel." : "Veuillez vous identifier pour accéder à vos dossiers."}
             </CardDescription>
           </div>
         </CardHeader>
@@ -146,7 +143,7 @@ export default function LoginPage() {
             )}
             
             <div className="space-y-2">
-              <Label htmlFor="id" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Identifiant</Label>
+              <Label htmlFor="id" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Identifiant (Sensible à la casse)</Label>
               <div className="relative">
                 <UserCircle className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
                 <Input 
@@ -191,7 +188,8 @@ export default function LoginPage() {
                 className="w-full text-xs font-bold uppercase tracking-widest text-[#1E4D3B]/60 hover:bg-[#1E4D3B]/5 rounded-xl"
                 onClick={() => {
                   setIsSignUp(!isSignUp);
-                  toast({ title: isSignUp ? "Mode Connexion" : "Mode Inscription" });
+                  setId('');
+                  setPassword('');
                 }}
               >
                 {isSignUp ? "Déjà un compte ? Se connecter" : "Pas encore de compte ? S'inscrire"}
@@ -199,7 +197,7 @@ export default function LoginPage() {
             </div>
           </form>
           <div className="mt-8 pt-6 border-t border-[#F5F2EA] text-center text-[10px] text-muted-foreground uppercase tracking-widest font-bold">
-            BusinessPilot SaaS - Sécurisé par JSecchi
+            BusinessPilot SaaS • Sécurité JSecchi
           </div>
         </CardContent>
       </Card>

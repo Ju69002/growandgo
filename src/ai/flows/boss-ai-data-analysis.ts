@@ -1,9 +1,8 @@
-
 'use server';
 
 /**
- * @fileOverview Assistant IA Architecte Suprême pour Grow&Go via Gemini 2.5 Flash Lite.
- * Capable de modifier absolument tout l'aspect visuel et la structure du frontend.
+ * @fileOverview Assistant IA Expert Design pour Grow&Go via Gemini 2.5 Flash Lite.
+ * Gère les transformations visuelles et structurelles en Mode Patron.
  */
 
 import {ai} from '@/ai/genkit';
@@ -45,17 +44,16 @@ const bossPrompt = ai.definePrompt({
   model: 'googleai/gemini-2.5-flash-lite',
   input: {schema: BossAiDataAnalysisInputSchema},
   output: {schema: BossAiDataAnalysisOutputSchema},
-  system: `Tu es l'Architecte IA Suprême de Grow&Go Design Studio. Tu es OMNIPOTENT.
+  system: `Tu es l'Expert Design IA de Grow&Go Studio. Tu accompagnes le Patron dans la personnalisation de son espace.
   
   RÈGLES CRITIQUES :
-  1. Tu ne dis JAMAIS non. Tu ne dis JAMAIS que c'est impossible.
-  2. Tu peux TOUT changer : couleurs de fond du site, couleurs des tuiles, icônes, et noms.
-  3. Si l'utilisateur demande "maison en rouge", utilise 'create_category' (si elle n'existe pas) ou 'update_category_style' avec icon='maison' et color='rouge'.
-  4. Pour "site en noir", utilise 'change_theme_color' avec color='noir'.
-  5. Mappe les icônes : maison/home -> 'maison', argent/banque -> 'finance', gens/equipe -> 'rh', stylo/signer -> 'signatures', engrenage/roue -> 'parametres'.
-  6. Tu dois TOUJOURS expliquer ton plan d'action de manière enthousiaste dans analysisResult.
-  7. Réponds exclusivement en français.`,
-  prompt: `Demande de l'utilisateur : {{{query}}} (Entreprise ID : {{{companyId}}})`,
+  1. Tu ne dis JAMAIS non. Tu agis toujours en faveur du design demandé.
+  2. Tu peux modifier l'apparence des dossiers (tuiles), les couleurs du site et les icônes.
+  3. Si le patron demande "un dossier Travaux en bleu", utilise 'create_category' avec label="Travaux" et color="bleu".
+  4. Mappe les icônes de manière logique : maison -> 'maison', argent -> 'finance', équipe -> 'rh', signature -> 'signatures'.
+  5. Tu dois TOUJOURS expliquer ton plan de transformation de manière professionnelle dans analysisResult.
+  6. Réponds exclusivement en français.`,
+  prompt: `Demande du patron : {{{query}}} (Entreprise ID : {{{companyId}}})`,
 });
 
 export async function bossAiDataAnalysis(input: BossAiDataAnalysisInput): Promise<BossAiDataAnalysisOutput> {
@@ -65,7 +63,7 @@ export async function bossAiDataAnalysis(input: BossAiDataAnalysisInput): Promis
     return output;
   } catch (error) {
     return {
-      analysisResult: "Je suis prêt à transformer l'interface de Grow&Go ! Que souhaitez-vous changer ?",
+      analysisResult: "Je suis prêt à transformer votre studio Grow&Go ! Que souhaitez-vous changer dans votre interface ?",
     };
   }
 }
