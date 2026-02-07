@@ -86,13 +86,11 @@ export default function AccountsPage() {
 
   const handleDeleteUser = (userId: string) => {
     if (!db) return;
-    // Supprime l'entrée utilisateur de la base de données. 
-    // L'utilisateur devra se réinscrire pour recréer un profil.
     const userRef = doc(db, 'users', userId);
     deleteDocumentNonBlocking(userRef);
     toast({ 
       title: "Utilisateur supprimé", 
-      description: "Le profil a été retiré de la base de données. L'accès est révoqué." 
+      description: "Le profil a été retiré de la base de données. L'accès est révoqué immédiatement." 
     });
   };
 
@@ -128,7 +126,7 @@ export default function AccountsPage() {
           <CardHeader className="bg-primary text-primary-foreground p-8">
             <CardTitle className="text-xl flex items-center gap-2">
               <ShieldCheck className="w-6 h-6" />
-              Liste des Identifiants
+              Liste des Accès
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -142,8 +140,8 @@ export default function AccountsPage() {
                 <TableHeader className="bg-muted/50">
                   <TableRow>
                     <TableHead className="w-[250px] font-black uppercase text-[10px] tracking-widest pl-8">Utilisateur</TableHead>
-                    <TableHead className="font-black uppercase text-[10px] tracking-widest">ID de connexion</TableHead>
-                    <TableHead className="font-black uppercase text-[10px] tracking-widest">Rôle Actuel</TableHead>
+                    <TableHead className="font-black uppercase text-[10px] tracking-widest">Identifiant</TableHead>
+                    <TableHead className="font-black uppercase text-[10px] tracking-widest">Rôle</TableHead>
                     <TableHead className="text-right font-black uppercase text-[10px] tracking-widest pr-8">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -199,7 +197,8 @@ export default function AccountsPage() {
                                 <Button 
                                   variant="ghost" 
                                   size="icon" 
-                                  className="h-9 w-9 text-rose-600 hover:bg-rose-50 hover:text-rose-700 rounded-full transition-colors"
+                                  className="h-9 w-9 text-rose-800 hover:bg-rose-100 hover:text-rose-900 rounded-full transition-colors"
+                                  title="Supprimer cet utilisateur"
                                 >
                                   <Trash2 className="w-5 h-5 stroke-[2.5]" />
                                 </Button>
@@ -207,18 +206,18 @@ export default function AccountsPage() {
                               <AlertDialogContent className="rounded-[2rem] border-none shadow-2xl">
                                 <AlertDialogHeader>
                                   <AlertDialogTitle className="text-2xl font-black uppercase flex items-center gap-2">
-                                    <AlertTriangle className="text-rose-600 w-6 h-6" />
+                                    <AlertTriangle className="text-rose-800 w-6 h-6" />
                                     Supprimer le compte ?
                                   </AlertDialogTitle>
                                   <AlertDialogDescription className="text-base">
-                                    Cette action retirera <strong>{u.name}</strong> de la base de données. L'utilisateur devra <strong>se réinscrire</strong> s'il souhaite revenir dans le studio.
+                                    Cette action retirera <strong>{u.name}</strong> de la base de données. L'utilisateur devra <strong>se réinscrire</strong> s'il souhaite accéder à nouveau au studio.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter className="mt-6 gap-3">
-                                  <AlertDialogCancel className="rounded-full font-bold h-11 px-8">Annuler</AlertDialogCancel>
+                                  <AlertDialogCancel className="rounded-full font-bold h-11 px-8 border-primary/20">Annuler</AlertDialogCancel>
                                   <AlertDialogAction 
                                     onClick={() => handleDeleteUser(u.uid)}
-                                    className="bg-rose-600 hover:bg-rose-700 text-white rounded-full font-bold h-11 px-8"
+                                    className="bg-rose-800 hover:bg-rose-900 text-white rounded-full font-bold h-11 px-8"
                                   >
                                     Confirmer la suppression
                                   </AlertDialogAction>
@@ -243,7 +242,7 @@ export default function AccountsPage() {
           <div className="space-y-1">
             <p className="font-bold text-amber-900 uppercase text-xs tracking-widest">Note de Sécurité</p>
             <p className="text-amber-800 text-sm">
-              La suppression d'un utilisateur est immédiate. Ses documents et données restent archivés, mais son accès est révoqué jusqu'à une nouvelle inscription.
+              La suppression est immédiate. Les documents déjà importés par cet utilisateur ne seront pas supprimés, mais son accès sera révoqué.
             </p>
           </div>
         </div>
