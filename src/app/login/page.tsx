@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { useAuth, useFirestore, setDocumentNonBlocking, useUser } from '@/firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Lock, UserCircle, UserPlus } from 'lucide-react';
@@ -42,7 +42,7 @@ export default function LoginPage() {
     if (!trimmedId) return;
 
     setIsLoading(true);
-    // On normalise l'email en minuscules pour que la connexion soit insensible à la casse de l'ID
+    // On utilise l'email pour Firebase Auth (l'email lui-même est insensible à la casse dans Firebase)
     const email = `${trimmedId.toLowerCase()}@growandgo.ai`;
 
     try {
@@ -50,8 +50,8 @@ export default function LoginPage() {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const newUser = userCredential.user;
         
-        // JSecchi est reconnu peu importe la casse (jsecchi, JSECCHI, etc.)
-        const isSuperAdmin = trimmedId.toLowerCase() === 'jsecchi';
+        // JSecchi est le seul Super Admin (Sensible à la casse pour la détection du rôle)
+        const isSuperAdmin = trimmedId === 'JSecchi';
         const userRef = doc(db, 'users', newUser.uid);
         
         setDocumentNonBlocking(userRef, {
@@ -62,28 +62,36 @@ export default function LoginPage() {
           isCategoryModifier: isSuperAdmin,
           name: name || trimmedId,
           email: email,
-          loginId: trimmedId.toLowerCase()
+          loginId: trimmedId // On stocke l'ID exact pour vérification ultérieure
         }, { merge: true });
 
         toast({ title: "Compte créé !", description: "Bienvenue dans l'univers Grow&Go." });
       } else {
-        await signInWithEmailAndPassword(auth, email, password);
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const loggedUser = userCredential.user;
+
+        // Vérification stricte de la casse du loginId stocké dans Firestore
+        const userRef = doc(db, 'users', loggedUser.uid);
+        const userSnap = await getDoc(userRef);
+        
+        if (userSnap.exists()) {
+          const userData = userSnap.data();
+          if (userData.loginId !== trimmedId) {
+            // Si l'ID saisi ne correspond pas exactement (casse), on déconnecte et on refuse
+            await signOut(auth);
+            throw new Error('invalid-case');
+          }
+        }
+
         toast({ title: "Connexion réussie", description: `Ravi de vous revoir.` });
       }
       router.push('/');
     } catch (error: any) {
-      let message = "Identifiant ou mot de passe incorrect.";
-      
-      if (error.code === 'auth/email-already-in-use') {
-        message = "Cet identifiant est déjà utilisé.";
-      } else if (error.code === 'auth/weak-password') {
-        message = "Le mot de passe doit contenir au moins 6 caractères.";
-      }
-      
+      // Message unique pour ID ou MDP incorrect
       toast({ 
         variant: "destructive", 
         title: "Échec", 
-        description: message 
+        description: "Identifiant ou mot de passe incorrect." 
       });
     } finally {
       setIsLoading(false);
@@ -103,7 +111,7 @@ export default function LoginPage() {
             />
           </div>
           <div>
-            <CardTitle className="text-2xl font-black text-[#1E4D3B] uppercase tracking-tighter">Grow&Go Design Studio</CardTitle>
+            <CardTitle className="text-2xl font-bold text-[#1E4D3B] uppercase tracking-tighter">Grow&Go Design Studio</CardTitle>
             <CardDescription className="text-[#1E4D3B]/60 font-medium">
               {isSignUp ? "Créez votre compte personnel." : "Veuillez vous identifier pour accéder à vos dossiers."}
             </CardDescription>
@@ -183,7 +191,7 @@ export default function LoginPage() {
             </div>
           </form>
           <div className="mt-8 pt-6 border-t border-[#F5F2EA] text-center text-[10px] text-muted-foreground uppercase tracking-widest font-bold">
-            BusinessPilot SaaS • Sécurité JSecchi
+            BusinessPilot SaaS • Sécurité Propriétaire
           </div>
         </CardContent>
       </Card>
