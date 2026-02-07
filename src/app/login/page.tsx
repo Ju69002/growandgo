@@ -83,33 +83,64 @@ export default function LoginPage() {
           }
         }
       } else {
-        const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        const loggedUser = userCredential.user;
+        try {
+          const userCredential = await signInWithEmailAndPassword(auth, email, password);
+          const loggedUser = userCredential.user;
 
-        const userRef = doc(db, 'users', loggedUser.uid);
-        const userSnap = await getDoc(userRef);
-        
-        if (userSnap.exists()) {
-          const userData = userSnap.data();
-          if (userData.loginId !== trimmedId) {
+          const userRef = doc(db, 'users', loggedUser.uid);
+          const userSnap = await getDoc(userRef);
+          
+          if (userSnap.exists()) {
+            const userData = userSnap.data();
+            // Vérification stricte de la casse demandée par l'utilisateur
+            if (userData.loginId !== trimmedId) {
+              await signOut(auth);
+              // Message générique pour erreur de casse (souhait de l'utilisateur)
+              toast({ 
+                variant: "destructive", 
+                title: "Échec", 
+                description: "Identifiant ou mot de passe incorrect." 
+              });
+              setIsLoading(false);
+              return;
+            }
+          } else {
+            // Document non trouvé dans la base Firestore
             await signOut(auth);
-            throw new Error('invalid-case');
+            toast({ 
+              variant: "destructive", 
+              title: "Échec", 
+              description: "Identifiant non reconnu dans la base." 
+            });
+            setIsLoading(false);
+            return;
           }
-        } else {
-          // Document non trouvé, l'utilisateur a peut-être un compte auth mais pas de profil
-          await signOut(auth);
-          throw new Error('no-profile');
+          
+          toast({ title: "Connexion réussie", description: "Chargement de votre espace..." });
+          router.push('/');
+        } catch (authError: any) {
+          // Gestion des erreurs Firebase Auth (mot de passe faux, etc.)
+          if (authError.code === 'auth/user-not-found' || authError.code === 'auth/invalid-email') {
+            toast({ 
+              variant: "destructive", 
+              title: "Échec", 
+              description: "Identifiant non reconnu." 
+            });
+          } else {
+            toast({ 
+              variant: "destructive", 
+              title: "Échec", 
+              description: "Identifiant ou mot de passe incorrect." 
+            });
+          }
         }
-        
-        toast({ title: "Connexion réussie", description: "Chargement de votre espace..." });
-        router.push('/');
       }
     } catch (error: any) {
       console.error("Auth Error:", error);
       toast({ 
         variant: "destructive", 
         title: "Échec", 
-        description: "Identifiant ou mot de passe incorrect." 
+        description: "Une erreur est survenue." 
       });
     } finally {
       setIsLoading(false);
