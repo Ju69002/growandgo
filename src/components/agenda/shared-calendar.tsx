@@ -13,7 +13,8 @@ import {
   ChevronRight, 
   Maximize2, 
   Minimize2,
-  ListFilter
+  ListFilter,
+  Chrome
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
@@ -29,7 +30,7 @@ interface SharedCalendarProps {
 }
 
 export function SharedCalendar({ companyId, isCompact = false, defaultView = '3day' }: SharedCalendarProps) {
-  const [viewMode, setViewMode] = React.useState<'3day' | 'month'>(defaultView);
+  const [viewMode, setViewMode] = React.useState<'3day' | 'month'>(isCompact ? '3day' : defaultView);
   const [currentDate, setCurrentDate] = React.useState(new Date());
   const db = useFirestore();
 
@@ -68,8 +69,8 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
 
     return (
       <div className={cn(
-        "grid gap-6 h-full",
-        isCompact ? "grid-cols-3 gap-2 p-2" : "grid-cols-1 md:grid-cols-3 p-8 min-h-[600px]"
+        "grid gap-4 h-full",
+        isCompact ? "grid-cols-3 gap-2 p-3" : "grid-cols-1 md:grid-cols-3 p-8 min-h-[600px]"
       )}>
         {days.map((day, idx) => {
           const dayEvents = getEventsForDay(day);
@@ -77,37 +78,40 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
 
           return (
             <div key={idx} className={cn(
-              "flex flex-col gap-2 rounded-[24px] border transition-all overflow-hidden",
-              isTday ? "bg-primary/5 border-primary/20" : "bg-card shadow-sm",
-              isCompact ? "p-3 border-none" : "p-6"
+              "flex flex-col gap-2 rounded-2xl border transition-all overflow-hidden",
+              isTday ? "bg-primary/[0.03] border-primary/20" : "bg-card shadow-sm",
+              isCompact ? "p-2 border-none" : "p-6"
             )}>
-              <div className={cn("flex flex-col border-b pb-2 mb-2", isCompact && "items-center text-center")}>
-                <p className="text-[9px] font-black uppercase tracking-wider text-primary/60">
+              <div className={cn("flex flex-col border-b pb-1 mb-1", isCompact && "items-center text-center")}>
+                <p className="text-[8px] font-black uppercase tracking-wider text-primary/60">
                   {isTday ? "Auj." : format(day, "EEE", { locale: fr })}
                 </p>
-                <h3 className={cn("font-black", isCompact ? "text-sm" : "text-xl")}>
+                <h3 className={cn("font-black text-primary", isCompact ? "text-xs" : "text-xl")}>
                   {format(day, "d MMM", { locale: fr })}
                 </h3>
               </div>
               
-              <div className="flex-1 space-y-2 overflow-y-auto pr-1">
+              <div className="flex-1 space-y-1.5 overflow-y-auto pr-0.5 custom-scrollbar">
                 {dayEvents.length > 0 ? (
-                  dayEvents.slice(0, isCompact ? 2 : 10).map(event => (
+                  dayEvents.slice(0, isCompact ? 3 : 10).map(event => (
                     <div key={event.id} className={cn(
-                      "bg-background rounded-xl border group hover:border-primary/50 transition-colors",
+                      "bg-white rounded-lg border-l-4 border-primary shadow-sm hover:border-l-primary/50 transition-colors",
                       isCompact ? "p-1.5" : "p-3"
                     )}>
-                      <p className="text-[8px] font-black text-primary truncate">
-                        {event.debut ? format(parseISO(event.debut), "HH:mm") : "--:--"}
-                      </p>
-                      <h4 className={cn("font-bold leading-tight line-clamp-1", isCompact ? "text-[9px]" : "text-xs")}>
+                      <div className="flex items-center justify-between mb-0.5">
+                        <p className="text-[7px] font-black text-primary/70">
+                          {event.debut ? format(parseISO(event.debut), "HH:mm") : "--:--"}
+                        </p>
+                        {event.source === 'google' && <Chrome className="w-2 h-2 text-primary opacity-30" />}
+                      </div>
+                      <h4 className={cn("font-bold leading-tight text-foreground line-clamp-2", isCompact ? "text-[8px]" : "text-xs")}>
                         {event.titre}
                       </h4>
                     </div>
                   ))
                 ) : (
-                  <div className="h-full flex flex-col items-center justify-center opacity-20 text-center">
-                    <p className="text-[8px] font-bold uppercase tracking-widest">Libre</p>
+                  <div className="h-full flex flex-col items-center justify-center opacity-20 text-center py-4">
+                    <p className="text-[7px] font-black uppercase tracking-widest">Aucun RDV</p>
                   </div>
                 )}
               </div>
@@ -128,31 +132,31 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
     const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
 
     return (
-      <div className="bg-card border rounded-[40px] shadow-2xl overflow-hidden flex flex-col h-full animate-in zoom-in-95 duration-300">
-        {!isCompact && (
-          <div className="p-8 border-b bg-muted/10 flex items-center justify-between">
-            <div className="flex items-center gap-6">
-              <h2 className="text-4xl font-black tracking-tighter text-primary">
-                {format(currentDate, "MMMM", { locale: fr }).toUpperCase()}
-                <span className="ml-3 text-muted-foreground/40">{format(currentDate, "yyyy")}</span>
-              </h2>
-              <div className="flex bg-background border rounded-full p-1 shadow-sm">
-                <Button variant="ghost" size="icon" className="rounded-full" onClick={prevMonth}><ChevronLeft /></Button>
-                <Button variant="ghost" size="icon" className="rounded-full" onClick={nextMonth}><ChevronRight /></Button>
-              </div>
+      <div className="bg-card flex flex-col h-full animate-in zoom-in-95 duration-300">
+        <div className="p-6 border-b bg-muted/5 flex items-center justify-between">
+          <div className="flex items-center gap-6">
+            <h2 className="text-3xl font-black tracking-tighter text-primary uppercase">
+              {format(currentDate, "MMMM yyyy", { locale: fr })}
+            </h2>
+            <div className="flex bg-background border rounded-full p-1 shadow-sm">
+              <Button variant="ghost" size="icon" className="rounded-full h-8 w-8" onClick={prevMonth}><ChevronLeft className="w-4 h-4" /></Button>
+              <Button variant="ghost" size="icon" className="rounded-full h-8 w-8" onClick={nextMonth}><ChevronRight className="w-4 h-4" /></Button>
             </div>
           </div>
-        )}
+          <Button variant="outline" size="sm" onClick={() => setViewMode('3day')} className="rounded-full font-bold">
+            Retour vue 3 jours
+          </Button>
+        </div>
 
-        <div className="grid grid-cols-7 border-b bg-muted/5">
+        <div className="grid grid-cols-7 border-b bg-muted/10">
           {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map(d => (
-            <div key={d} className="py-4 text-center text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+            <div key={d} className="py-3 text-center text-[10px] font-black uppercase tracking-widest text-muted-foreground">
               {d}
             </div>
           ))}
         </div>
 
-        <div className="flex-1 grid grid-cols-7 grid-rows-6 min-h-[500px]">
+        <div className="flex-1 grid grid-cols-7 auto-rows-fr min-h-[500px]">
           {days.map((day, idx) => {
             const dayEvents = getEventsForDay(day);
             const isTday = isToday(day);
@@ -160,24 +164,28 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
 
             return (
               <div key={idx} className={cn(
-                "border-r border-b p-3 flex flex-col gap-2 transition-colors",
-                !isCurrentMonth && "bg-muted/20 opacity-40",
-                isTday && "bg-primary/[0.03]"
+                "border-r border-b p-2 flex flex-col gap-1.5 transition-colors min-h-[100px]",
+                !isCurrentMonth && "bg-muted/10 opacity-30",
+                isTday && "bg-primary/[0.04]"
               )}>
                 <div className="flex justify-between items-center">
                   <span className={cn(
-                    "text-xs font-black w-6 h-6 flex items-center justify-center rounded-full",
+                    "text-[10px] font-black w-5 h-5 flex items-center justify-center rounded-full",
                     isTday ? "bg-primary text-white" : "text-muted-foreground"
                   )}>
                     {format(day, "d")}
                   </span>
+                  {dayEvents.length > 0 && <span className="w-1 h-1 bg-primary rounded-full" />}
                 </div>
                 <div className="space-y-1 overflow-hidden">
                   {dayEvents.slice(0, 3).map(event => (
-                    <div key={event.id} className="text-[9px] font-bold p-1 bg-primary/10 border-l-2 border-primary rounded-sm truncate">
+                    <div key={event.id} className="text-[8px] font-bold p-1 bg-primary/5 border-l-2 border-primary rounded-sm truncate">
                       {event.titre}
                     </div>
                   ))}
+                  {dayEvents.length > 3 && (
+                    <p className="text-[7px] text-muted-foreground font-bold pl-1">+{dayEvents.length - 3} autres</p>
+                  )}
                 </div>
               </div>
             );
@@ -187,57 +195,18 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
     );
   };
 
-  if (isCompact) {
-    return isLoading ? (
-      <div className="h-full flex items-center justify-center opacity-30">
-        <Loader2 className="animate-spin" />
+  if (isLoading) {
+    return (
+      <div className="h-full w-full flex flex-col items-center justify-center gap-4 py-12">
+        <Loader2 className="w-8 h-8 animate-spin text-primary opacity-30" />
+        <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground animate-pulse">Chargement de l'agenda...</p>
       </div>
-    ) : render3DayView();
+    );
   }
 
   return (
-    <div className="p-8 space-y-8 max-w-7xl mx-auto h-full flex flex-col">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 text-primary/60">
-            <CalendarIcon className="w-4 h-4" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Planification Équipe</span>
-          </div>
-          <h1 className="text-4xl font-black tracking-tight text-primary">Agenda Grow&Go</h1>
-        </div>
-        
-        <div className="flex gap-4">
-          <div className="flex bg-muted p-1 rounded-full border shadow-inner">
-            <Button 
-              variant={viewMode === '3day' ? 'secondary' : 'ghost'} 
-              size="sm" 
-              className="rounded-full font-bold px-6"
-              onClick={() => setViewMode('3day')}
-            >
-              <ListFilter className="w-4 h-4 mr-2" /> 3 Jours
-            </Button>
-            <Button 
-              variant={viewMode === 'month' ? 'secondary' : 'ghost'} 
-              size="sm" 
-              className="rounded-full font-bold px-6"
-              onClick={() => setViewMode('month')}
-            >
-              <Maximize2 className="w-4 h-4 mr-2" /> Plein Écran
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      {isLoading ? (
-        <div className="flex-1 flex flex-col items-center justify-center gap-4 opacity-50">
-          <Loader2 className="w-12 h-12 animate-spin text-primary" />
-          <p className="font-bold tracking-widest text-xs uppercase animate-pulse">Chargement...</p>
-        </div>
-      ) : (
-        <div className="flex-1">
-          {viewMode === '3day' ? render3DayView() : renderMonthView()}
-        </div>
-      )}
+    <div className="h-full w-full bg-card overflow-hidden">
+      {viewMode === '3day' ? render3DayView() : renderMonthView()}
     </div>
   );
 }
