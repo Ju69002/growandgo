@@ -1,4 +1,3 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -19,6 +18,8 @@
     --muted-foreground: 157 20% 40%;
     --accent: 103 23% 53%;
     --accent-foreground: 157 44% 11%;
+    --destructive: 0 84.2% 60.2%; /* Rouge pour les actions de suppression */
+    --destructive-foreground: 0 0% 98%;
     --border: 157 20% 85%;
     --input: 157 20% 85%;
     --ring: 157 44% 21%;
@@ -26,7 +27,7 @@
     --sidebar-background: 157 44% 21%;
     --sidebar-foreground: 43 38% 95%;
     --sidebar-primary: 103 23% 53%;
-    --sidebar-primary-foreground: 157 44% 11%;
+    --sidebar-primary-foreground: 43 38% 95%;
     --sidebar-accent: 157 44% 30%;
     --sidebar-accent-foreground: 43 38% 95%;
     --sidebar-border: 157 44% 15%;

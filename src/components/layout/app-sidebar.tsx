@@ -89,26 +89,29 @@ export function AppSidebar() {
           <SidebarGroupLabel className="text-sidebar-foreground/50 font-bold uppercase text-[10px] tracking-widest px-4 mb-2">Principal</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton 
-                    asChild 
-                    tooltip={item.title} 
-                    isActive={isItemActive(item.url)}
-                    className={cn(
-                      "transition-all duration-200 px-4 h-11 rounded-xl mx-2 w-[calc(100%-1rem)]",
-                      isItemActive(item.url) 
-                        ? "bg-sidebar-primary text-sidebar-primary-foreground font-bold shadow-lg" 
-                        : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                    )}
-                  >
-                    <Link href={item.url}>
-                      <item.icon className={cn("w-5 h-5", isItemActive(item.url) ? "text-sidebar-primary-foreground" : "text-sidebar-foreground/60")} />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {mainItems.map((item) => {
+                const active = isItemActive(item.url);
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton 
+                      asChild 
+                      tooltip={item.title} 
+                      isActive={active}
+                      className={cn(
+                        "transition-all duration-200 px-4 h-11 rounded-xl mx-2 w-[calc(100%-1rem)] font-bold",
+                        active 
+                          ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-lg" 
+                          : "text-sidebar-foreground hover:bg-sidebar-accent"
+                      )}
+                    >
+                      <Link href={item.url}>
+                        <item.icon className={cn("w-5 h-5", active ? "text-sidebar-primary-foreground" : "text-sidebar-foreground")} />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -124,14 +127,14 @@ export function AppSidebar() {
                     tooltip="Gestion des Comptes" 
                     isActive={isItemActive('/accounts')}
                     className={cn(
-                      "transition-all duration-200 px-4 h-11 rounded-xl mx-2 w-[calc(100%-1rem)]",
+                      "transition-all duration-200 px-4 h-11 rounded-xl mx-2 w-[calc(100%-1rem)] font-bold",
                       isItemActive('/accounts') 
-                        ? "bg-sidebar-primary text-sidebar-primary-foreground font-bold shadow-lg" 
-                        : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                        ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-lg" 
+                        : "text-sidebar-foreground hover:bg-sidebar-accent"
                     )}
                   >
                     <Link href="/accounts">
-                      <UserCheck className={cn("w-5 h-5", isItemActive('/accounts') ? "text-sidebar-primary-foreground" : "text-sidebar-foreground/60")} />
+                      <UserCheck className={cn("w-5 h-5", isItemActive('/accounts') ? "text-sidebar-primary-foreground" : "text-sidebar-foreground")} />
                       <span>Comptes</span>
                     </Link>
                   </SidebarMenuButton>
@@ -145,26 +148,29 @@ export function AppSidebar() {
           <SidebarGroupLabel className="text-sidebar-foreground/50 font-bold uppercase text-[10px] tracking-widest px-4 mb-2">Configuration</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {configItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton 
-                    asChild 
-                    tooltip={item.title} 
-                    isActive={isItemActive(item.url)}
-                    className={cn(
-                      "transition-all duration-200 px-4 h-11 rounded-xl mx-2 w-[calc(100%-1rem)]",
-                      isItemActive(item.url) 
-                        ? "bg-sidebar-primary text-sidebar-primary-foreground font-bold shadow-lg" 
-                        : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                    )}
-                  >
-                    <Link href={item.url}>
-                      <item.icon className={cn("w-5 h-5", isItemActive(item.url) ? "text-sidebar-primary-foreground" : "text-sidebar-foreground/60")} />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {configItems.map((item) => {
+                const active = isItemActive(item.url);
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton 
+                      asChild 
+                      tooltip={item.title} 
+                      isActive={active}
+                      className={cn(
+                        "transition-all duration-200 px-4 h-11 rounded-xl mx-2 w-[calc(100%-1rem)] font-bold",
+                        active 
+                          ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-lg" 
+                          : "text-sidebar-foreground hover:bg-sidebar-accent"
+                      )}
+                    >
+                      <Link href={item.url}>
+                        <item.icon className={cn("w-5 h-5", active ? "text-sidebar-primary-foreground" : "text-sidebar-foreground")} />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -176,14 +182,14 @@ export function AppSidebar() {
               asChild 
               isActive={isItemActive('/settings')}
               className={cn(
-                "transition-all duration-200 px-4 h-11 rounded-xl mx-2 w-[calc(100%-1rem)]",
+                "transition-all duration-200 px-4 h-11 rounded-xl mx-2 w-[calc(100%-1rem)] font-bold",
                 isItemActive('/settings') 
-                  ? "bg-sidebar-primary text-sidebar-primary-foreground font-bold shadow-lg" 
-                  : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                  ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-lg" 
+                  : "text-sidebar-foreground hover:bg-sidebar-accent"
               )}
             >
               <Link href="/settings">
-                <Settings className={cn("w-5 h-5", isItemActive('/settings') ? "text-sidebar-primary-foreground" : "text-sidebar-foreground/60")} />
+                <Settings className={cn("w-5 h-5", isItemActive('/settings') ? "text-sidebar-primary-foreground" : "text-sidebar-foreground")} />
                 <span>Paramètres</span>
               </Link>
             </SidebarMenuButton>
