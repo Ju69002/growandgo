@@ -1,4 +1,3 @@
-
 'use client';
 
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
@@ -10,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 
 export default function GlobalDocumentsPage() {
-  const { user } = user();
+  const { user } = useUser();
   const db = useFirestore();
 
   const userProfileRef = useMemoFirebase(() => {

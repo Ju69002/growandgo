@@ -131,12 +131,11 @@ export default function LoginPage() {
           loginId: trimmedId
         });
 
-        toast({ title: "Compte créé !", description: "Vous pouvez maintenant vous connecter." });
+        toast({ title: "Compte créé !", description: "Vous pouvez maintenant vous connecter avec votre identifiant." });
         await signOut(auth);
         setIsSignUp(false);
         setPassword('');
       } else {
-        // Recherche de l'e-mail associé à l'ID
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('loginId', '==', trimmedId));
         const querySnapshot = await getDocs(q);
@@ -150,12 +149,18 @@ export default function LoginPage() {
         const userData = querySnapshot.docs[0].data();
         const userEmail = userData.email;
 
-        // Connexion avec l'e-mail trouvé
+        if (!userEmail) {
+          toast({ variant: "destructive", title: "Compte incomplet", description: "Aucun e-mail associé à cet ID. Veuillez recréer le compte." });
+          setIsLoading(false);
+          return;
+        }
+
         await signInWithEmailAndPassword(auth, userEmail, password);
         toast({ title: "Connexion réussie", description: "Chargement de votre studio..." });
         router.push('/');
       }
     } catch (error: any) {
+      console.error("Auth Error:", error);
       toast({ 
         variant: "destructive", 
         title: "Échec d'authentification", 
@@ -172,7 +177,7 @@ export default function LoginPage() {
         <CardHeader className="text-center space-y-4">
           <div className="relative w-24 h-24 mx-auto overflow-hidden rounded-2xl border bg-white shadow-xl">
             <Image 
-              src={logo?.imageUrl || ""} 
+              src={logo?.imageUrl || "https://picsum.photos/seed/growgo/100/100"} 
               alt="Logo" 
               fill 
               className="object-cover p-2" 
