@@ -18,7 +18,8 @@ import {
   CalendarDays,
   Info,
   X,
-  Users
+  Users,
+  User as UserIcon
 } from 'lucide-react';
 import { 
   useFirestore, 
@@ -31,8 +32,8 @@ import {
   addDocumentNonBlocking,
   updateDocumentNonBlocking
 } from '@/firebase';
-import { collection, query, doc } from 'firebase/firestore';
-import { CalendarEvent } from '@/lib/types';
+import { collection, query, doc, where } from 'firebase/firestore';
+import { CalendarEvent, User } from '@/lib/types';
 import { format, isSameDay, parseISO, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isToday, startOfWeek, endOfWeek, isValid, addMinutes, setHours, setMinutes, eachHourOfInterval, startOfDay, endOfDay, differenceInMinutes, setSeconds, setMilliseconds } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -120,6 +121,20 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
   }, [db, companyId]);
 
   const { data: events, isLoading } = useCollection<CalendarEvent>(eventsQuery);
+
+  // Récupérer les membres de l'équipe pour afficher les noms des créateurs
+  const teamQuery = useMemoFirebase(() => {
+    if (!db || !companyId) return null;
+    return query(collection(db, 'users'), where('companyId', '==', companyId));
+  }, [db, companyId]);
+
+  const { data: teamMembers } = useCollection<User>(teamQuery);
+
+  const getCreatorName = (userId: string) => {
+    if (!teamMembers) return "Utilisateur inconnu";
+    const creator = teamMembers.find(m => m.uid === userId);
+    return creator?.name || "Ancien collaborateur";
+  };
 
   const calculatedTimes = React.useMemo(() => {
     if (!formDate || !formHour || !formMinute || !selectedDuration) return null;
@@ -445,6 +460,12 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
                           <h4 className={cn("font-bold leading-tight line-clamp-2 text-foreground", isCompact ? "text-[9px]" : "text-xs")}>
                             {event.titre}
                           </h4>
+                          {!isCompact && (
+                            <div className="mt-auto flex items-center gap-1 opacity-40">
+                              <UserIcon className="w-2.5 h-2.5" />
+                              <span className="text-[8px] font-black uppercase truncate">{getCreatorName(event.userId)}</span>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -563,6 +584,16 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
           </div>
 
           <div className="p-8 space-y-5">
+            {editingEvent && (
+              <div className="flex items-center gap-2 mb-4 bg-muted/50 p-3 rounded-xl border">
+                <UserIcon className="w-4 h-4 text-primary/60" />
+                <div className="flex flex-col">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Créé par</span>
+                  <span className="text-sm font-bold text-primary">{getCreatorName(editingEvent.userId)}</span>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="titre" className="text-[10px] font-black uppercase tracking-wider text-muted-foreground ml-1">Objet du rendez-vous</Label>
               <Input 
@@ -731,9 +762,12 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
                                      <p className="text-[9px] font-black uppercase text-primary/40">
                                         {format(parseISO(event.debut), "HH:mm")} - {format(parseISO(event.fin), "HH:mm")}
                                      </p>
-                                     <Badge variant="outline" className="text-[7px] h-4 border-primary/10 font-black uppercase">
-                                        {event.source}
-                                     </Badge>
+                                     <div className="flex items-center gap-2">
+                                        <Badge variant="outline" className="text-[7px] h-4 border-primary/10 font-black uppercase">
+                                            {event.source}
+                                        </Badge>
+                                        <span className="text-[8px] font-black uppercase text-muted-foreground">{getCreatorName(event.userId)}</span>
+                                     </div>
                                   </div>
                                   <h4 className="text-sm font-bold text-foreground leading-tight">{event.titre}</h4>
                                </div>
@@ -769,4 +803,3 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
     </div>
   );
 }
-
