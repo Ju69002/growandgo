@@ -104,11 +104,11 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
       
       let errorMsg = error.message || "Une erreur est survenue lors de la synchronisation.";
       
-      // Aide au diagnostic spécifique
-      if (error.code === 'auth/operation-not-allowed') {
+      // Aide au diagnostic spécifique pour l'API non activée
+      if (errorMsg.includes('API has not been used') || errorMsg.includes('disabled')) {
+        errorMsg = `L'API ${service === 'google' ? 'Google Calendar' : 'Microsoft Graph'} n'est pas activée sur votre projet Google Cloud (Projet ID: 500181405818). Veuillez cliquer sur le lien dans la console pour l'activer.`;
+      } else if (error.code === 'auth/operation-not-allowed') {
         errorMsg = `Le fournisseur ${service} n'est pas activé dans votre console Firebase (Authentication > Sign-in method).`;
-      } else if (errorMsg.includes('API has not been used') || errorMsg.includes('not enabled')) {
-        errorMsg = `L'API ${service === 'google' ? 'Google Calendar' : 'Microsoft Graph'} doit être activée dans votre console Cloud.`;
       }
 
       toast({
