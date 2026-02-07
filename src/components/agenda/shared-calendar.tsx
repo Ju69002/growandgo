@@ -12,7 +12,9 @@ import {
   Chrome,
   UploadCloud,
   DownloadCloud,
-  Clock
+  Clock,
+  CheckCircle2,
+  CalendarDays
 } from 'lucide-react';
 import { 
   useFirestore, 
@@ -26,7 +28,7 @@ import {
 } from '@/firebase';
 import { collection, query, doc } from 'firebase/firestore';
 import { CalendarEvent } from '@/lib/types';
-import { format, isSameDay, parseISO, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isToday, startOfWeek, endOfWeek, isValid, addMinutes, setHours, setMinutes, startOfDay } from 'date-fns';
+import { format, isSameDay, parseISO, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isToday, startOfWeek, endOfWeek, isValid, addMinutes, setHours, setMinutes } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import {
@@ -50,6 +52,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { signInWithGoogleCalendar } from '@/firebase/non-blocking-login';
 import { getSyncTimeRange, fetchGoogleEvents, mapGoogleEvent, syncEventToFirestore, pushEventToGoogle } from '@/services/calendar-sync';
+import { Separator } from '@/components/ui/separator';
 
 interface SharedCalendarProps {
   companyId: string;
@@ -83,6 +86,18 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
   }, [db, companyId]);
 
   const { data: events, isLoading } = useCollection<CalendarEvent>(eventsQuery);
+
+  // Helper for calculated times summary
+  const calculatedTimes = React.useMemo(() => {
+    if (!formDate || !formHour || !formMinute || !selectedDuration) return null;
+    try {
+      const start = setMinutes(setHours(new Date(formDate), parseInt(formHour)), parseInt(formMinute));
+      const end = addMinutes(start, parseInt(selectedDuration));
+      return { start, end };
+    } catch (e) {
+      return null;
+    }
+  }, [formDate, formHour, formMinute, selectedDuration]);
 
   const getEventsForDay = (day: Date) => {
     if (!events) return [];
@@ -160,8 +175,8 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
     setEditingEvent(null);
     const targetDate = date || new Date();
     // Round to nearest 10 mins
-    const minutes = targetDate.getMinutes();
-    const roundedMinutes = Math.round(minutes / 10) * 10;
+    const minutesVal = targetDate.getMinutes();
+    const roundedMinutes = Math.round(minutesVal / 10) * 10;
     if (roundedMinutes >= 60) {
       targetDate.setHours(targetDate.getHours() + 1);
       targetDate.setMinutes(0);
@@ -241,8 +256,8 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
     setIsEventDialogOpen(false);
   };
 
-  const hours = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
-  const minutes = ['00', '10', '20', '30', '40', '50'];
+  const hoursList = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
+  const minutesList = ['00', '10', '20', '30', '40', '50'];
   const durations = [
     { label: '10 min', value: '10' },
     { label: '20 min', value: '20' },
@@ -355,56 +370,51 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
       <div className="flex-1 overflow-hidden">{viewMode === '3day' ? render3DayView() : renderMonthView()}</div>
       
       <Dialog open={isEventDialogOpen} onOpenChange={(open) => !open && setIsEventDialogOpen(false)}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <CalendarIcon className="w-5 h-5 text-primary" />
-              {editingEvent ? "Modifier" : "Nouvel événement"}
-            </DialogTitle>
-            <DialogDescription>Détails de votre rendez-vous Grow&Go. Les modifications sont enregistrées à la validation.</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-6 py-4">
+        <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none shadow-2xl">
+          <div className="p-6 bg-primary text-primary-foreground">
+            <DialogHeader>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 bg-white/20 rounded-lg">
+                  <CalendarDays className="w-6 h-6" />
+                </div>
+                <DialogTitle className="text-xl font-bold">
+                  {editingEvent ? "Modifier l'événement" : "Nouvel événement"}
+                </DialogTitle>
+              </div>
+              <DialogDescription className="text-primary-foreground/70">
+                Planifiez vos rendez-vous et signatures Grow&Go.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+
+          <div className="p-6 space-y-6 bg-card">
             <div className="grid gap-2">
-              <Label htmlFor="titre">Titre de l'événement</Label>
-              <Input id="titre" value={formTitre} onChange={(e) => setFormTitre(e.target.value)} placeholder="Réunion, Signature, Design review..." />
+              <Label htmlFor="titre" className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Objet</Label>
+              <Input 
+                id="titre" 
+                value={formTitre} 
+                onChange={(e) => setFormTitre(e.target.value)} 
+                placeholder="Ex: Signature de contrat client..." 
+                className="border-primary/20 focus:ring-primary font-medium"
+              />
             </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="date">Date</Label>
-              <Input id="date" type="date" value={formDate} onChange={(e) => setFormDate(e.target.value)} />
-            </div>
-            
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label>Heure (Roulette 10 min)</Label>
-                <div className="flex gap-2">
-                  <Select value={formHour} onValueChange={setFormHour}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Heure" />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-[200px]">
-                      {hours.map(h => (
-                        <SelectItem key={h} value={h}>{h} h</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Select value={formMinute} onValueChange={setFormMinute}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Min" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {minutes.map(m => (
-                        <SelectItem key={m} value={m}>{m}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <Label htmlFor="date" className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Date</Label>
+                <Input 
+                  id="date" 
+                  type="date" 
+                  value={formDate} 
+                  onChange={(e) => setFormDate(e.target.value)} 
+                  className="border-primary/20"
+                />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="duration">Durée</Label>
+                <Label className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Durée</Label>
                 <Select value={selectedDuration} onValueChange={setSelectedDuration}>
-                  <SelectTrigger id="duration">
-                    <SelectValue placeholder="Choisir une durée" />
+                  <SelectTrigger className="border-primary/20">
+                    <SelectValue placeholder="Choisir" />
                   </SelectTrigger>
                   <SelectContent>
                     {durations.map(d => (
@@ -416,21 +426,75 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
             </div>
             
             <div className="grid gap-2">
-              <Label htmlFor="description">Notes / Description (optionnel)</Label>
-              <Textarea id="description" value={formDescription} onChange={(e) => setFormDescription(e.target.value)} placeholder="Détails, liens de visio, ordre du jour..." className="min-h-[80px]" />
+              <Label className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Heure de début</Label>
+              <div className="flex gap-2">
+                <Select value={formHour} onValueChange={setFormHour}>
+                  <SelectTrigger className="w-full border-primary/20">
+                    <SelectValue placeholder="Heure" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[200px]">
+                    {hoursList.map(h => (
+                      <SelectItem key={h} value={h}>{h} h</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={formMinute} onValueChange={setFormMinute}>
+                  <SelectTrigger className="w-full border-primary/20">
+                    <SelectValue placeholder="Min" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {minutesList.map(m => (
+                      <SelectItem key={m} value={m}>{m}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {calculatedTimes && (
+              <div className="bg-muted/50 p-4 rounded-xl border border-dashed border-primary/30 space-y-2">
+                <p className="text-[10px] font-black uppercase tracking-widest text-primary/60">Résumé de l'horaire</p>
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <p className="text-xs font-medium text-muted-foreground">Début</p>
+                    <p className="text-sm font-bold text-foreground">{format(calculatedTimes.start, "d MMMM 'à' HH:mm", { locale: fr })}</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-primary/30" />
+                  <div className="space-y-0.5 text-right">
+                    <p className="text-xs font-medium text-muted-foreground">Fin</p>
+                    <p className="text-sm font-bold text-foreground">{format(calculatedTimes.end, "HH:mm", { locale: fr })}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            <div className="grid gap-2">
+              <Label htmlFor="description" className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Notes</Label>
+              <Textarea 
+                id="description" 
+                value={formDescription} 
+                onChange={(e) => setFormDescription(e.target.value)} 
+                placeholder="Détails optionnels..." 
+                className="min-h-[60px] border-primary/20 resize-none" 
+              />
             </div>
           </div>
-          <DialogFooter className="flex justify-between items-center sm:justify-between w-full">
-            {editingEvent && (
-              <Button variant="destructive" size="sm" onClick={handleDeleteEvent} className="gap-2">
+
+          <div className="p-6 bg-muted/20 border-t flex items-center justify-between">
+            {editingEvent ? (
+              <Button variant="ghost" size="sm" onClick={handleDeleteEvent} className="text-destructive hover:bg-destructive/10 font-bold gap-2">
                 <Trash2 className="w-4 h-4" /> Supprimer
               </Button>
-            )}
-            <div className="flex gap-2 ml-auto">
-              <Button variant="outline" onClick={() => setIsEventDialogOpen(false)}>Annuler</Button>
-              <Button onClick={handleSaveEvent} className="bg-primary">Enregistrer</Button>
+            ) : <div />}
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={() => setIsEventDialogOpen(false)} className="rounded-full font-bold px-6">
+                Annuler
+              </Button>
+              <Button onClick={handleSaveEvent} className="bg-primary hover:bg-primary/90 rounded-full font-bold px-8 shadow-lg">
+                Enregistrer
+              </Button>
             </div>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
