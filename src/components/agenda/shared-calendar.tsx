@@ -14,7 +14,8 @@ import {
   DownloadCloud,
   Clock,
   CheckCircle2,
-  CalendarDays
+  CalendarDays,
+  Info
 } from 'lucide-react';
 import { 
   useFirestore, 
@@ -52,7 +53,6 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { signInWithGoogleCalendar } from '@/firebase/non-blocking-login';
 import { getSyncTimeRange, fetchGoogleEvents, mapGoogleEvent, syncEventToFirestore, pushEventToGoogle } from '@/services/calendar-sync';
-import { Separator } from '@/components/ui/separator';
 
 interface SharedCalendarProps {
   companyId: string;
@@ -91,7 +91,8 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
   const calculatedTimes = React.useMemo(() => {
     if (!formDate || !formHour || !formMinute || !selectedDuration) return null;
     try {
-      const start = setMinutes(setHours(new Date(formDate), parseInt(formHour)), parseInt(formMinute));
+      const [year, month, day] = formDate.split('-').map(Number);
+      const start = new Date(year, month - 1, day, parseInt(formHour), parseInt(formMinute));
       const end = addMinutes(start, parseInt(selectedDuration));
       return { start, end };
     } catch (e) {
@@ -204,7 +205,6 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
     setFormMinute(format(startDate, 'mm'));
     setFormDescription(event.description || '');
     
-    // Calculate duration
     const diff = (endDate.getTime() - startDate.getTime()) / (1000 * 60);
     setSelectedDuration(diff.toString());
     
@@ -218,7 +218,8 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
       return;
     }
 
-    const startDate = setMinutes(setHours(new Date(formDate), parseInt(formHour)), parseInt(formMinute));
+    const [year, month, day] = formDate.split('-').map(Number);
+    const startDate = new Date(year, month - 1, day, parseInt(formHour), parseInt(formMinute));
     const endDate = addMinutes(startDate, parseInt(selectedDuration));
 
     const eventData: Partial<CalendarEvent> = {
@@ -243,7 +244,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
         ...eventData,
         id_externe: Math.random().toString(36).substring(7)
       });
-      toast({ title: "Événement créé localement" });
+      toast({ title: "Événement créé" });
     }
     setIsEventDialogOpen(false);
   };
@@ -259,14 +260,12 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
   const hoursList = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
   const minutesList = ['00', '10', '20', '30', '40', '50'];
   const durations = [
-    { label: '10 min', value: '10' },
-    { label: '20 min', value: '20' },
+    { label: '15 min', value: '15' },
     { label: '30 min', value: '30' },
     { label: '45 min', value: '45' },
     { label: '1 heure', value: '60' },
     { label: '1h 30min', value: '90' },
     { label: '2 heures', value: '120' },
-    { label: '3 heures', value: '180' },
   ];
 
   const render3DayView = () => {
@@ -382,26 +381,26 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
                 </DialogTitle>
               </div>
               <DialogDescription className="text-primary-foreground/70">
-                Planifiez vos rendez-vous et signatures Grow&Go.
+                Planifiez vos rendez-vous Grow&Go.
               </DialogDescription>
             </DialogHeader>
           </div>
 
           <div className="p-6 space-y-6 bg-card">
             <div className="grid gap-2">
-              <Label htmlFor="titre" className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Objet</Label>
+              <Label htmlFor="titre" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Objet de l'événement</Label>
               <Input 
                 id="titre" 
                 value={formTitre} 
                 onChange={(e) => setFormTitre(e.target.value)} 
-                placeholder="Ex: Signature de contrat client..." 
+                placeholder="Ex: Signature de contrat..." 
                 className="border-primary/20 focus:ring-primary font-medium"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="date" className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Date</Label>
+                <Label htmlFor="date" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Date</Label>
                 <Input 
                   id="date" 
                   type="date" 
@@ -411,7 +410,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
                 />
               </div>
               <div className="grid gap-2">
-                <Label className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Durée</Label>
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Durée prévue</Label>
                 <Select value={selectedDuration} onValueChange={setSelectedDuration}>
                   <SelectTrigger className="border-primary/20">
                     <SelectValue placeholder="Choisir" />
@@ -426,7 +425,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
             </div>
             
             <div className="grid gap-2">
-              <Label className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Heure de début</Label>
+              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Heure de début</Label>
               <div className="flex gap-2">
                 <Select value={formHour} onValueChange={setFormHour}>
                   <SelectTrigger className="w-full border-primary/20">
@@ -452,16 +451,19 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
             </div>
 
             {calculatedTimes && (
-              <div className="bg-muted/50 p-4 rounded-xl border border-dashed border-primary/30 space-y-2">
-                <p className="text-[10px] font-black uppercase tracking-widest text-primary/60">Résumé de l'horaire</p>
+              <div className="bg-muted/30 p-4 rounded-xl border border-dashed border-primary/20 space-y-2 animate-in fade-in slide-in-from-top-2">
+                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-primary/60">
+                  <Clock className="w-3 h-3" />
+                  Résumé de l'horaire
+                </div>
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <p className="text-xs font-medium text-muted-foreground">Début</p>
+                    <p className="text-[10px] font-medium text-muted-foreground uppercase">Début</p>
                     <p className="text-sm font-bold text-foreground">{format(calculatedTimes.start, "d MMMM 'à' HH:mm", { locale: fr })}</p>
                   </div>
                   <ChevronRight className="w-4 h-4 text-primary/30" />
                   <div className="space-y-0.5 text-right">
-                    <p className="text-xs font-medium text-muted-foreground">Fin</p>
+                    <p className="text-[10px] font-medium text-muted-foreground uppercase">Fin</p>
                     <p className="text-sm font-bold text-foreground">{format(calculatedTimes.end, "HH:mm", { locale: fr })}</p>
                   </div>
                 </div>
@@ -469,7 +471,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
             )}
             
             <div className="grid gap-2">
-              <Label htmlFor="description" className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Notes</Label>
+              <Label htmlFor="description" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Notes</Label>
               <Textarea 
                 id="description" 
                 value={formDescription} 
@@ -480,9 +482,9 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
             </div>
           </div>
 
-          <div className="p-6 bg-muted/20 border-t flex items-center justify-between">
+          <div className="p-6 bg-muted/10 border-t flex items-center justify-between">
             {editingEvent ? (
-              <Button variant="ghost" size="sm" onClick={handleDeleteEvent} className="text-destructive hover:bg-destructive/10 font-bold gap-2">
+              <Button variant="ghost" size="sm" onClick={handleDeleteEvent} className="text-destructive hover:bg-destructive/10 font-bold gap-2 rounded-full">
                 <Trash2 className="w-4 h-4" /> Supprimer
               </Button>
             ) : <div />}
