@@ -16,7 +16,8 @@ import {
   CheckCircle2, 
   AlertCircle,
   Clock,
-  CalendarDays
+  CalendarDays,
+  User as UserIcon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -64,7 +65,6 @@ export default function Home() {
   const { data: profile, isLoading: isProfileLoading } = useDoc<User>(userProfileRef);
   const companyId = profile?.companyId;
 
-  // Documents query
   const documentsQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
     return query(
@@ -76,7 +76,6 @@ export default function Home() {
 
   const { data: documents } = useCollection<BusinessDocument>(documentsQuery);
 
-  // Meetings for the week
   const meetingsQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
     return query(collection(db, 'companies', companyId, 'events'), limit(20));
@@ -84,29 +83,22 @@ export default function Home() {
 
   const { data: meetings } = useCollection<CalendarEvent>(meetingsQuery);
 
-  // Process combined tasks for the week
   const weeklyTasks = useMemo(() => {
     if (!documents && !meetings) return [];
-
     const today = startOfToday();
     const endOfWeekDate = addDays(today, 7);
     const interval = { start: today, end: endOfWeekDate };
-
     const tasks: any[] = [];
 
     documents?.forEach(doc => {
       const extractedDate = doc.extractedData?.date || doc.extractedData?.expiryDate || doc.extractedData?.deliveryDate;
       let taskDate = today;
-      
       if (extractedDate) {
         try {
           const parsed = parseISO(extractedDate);
-          if (isValid(parsed)) {
-            taskDate = parsed;
-          }
+          if (isValid(parsed)) taskDate = parsed;
         } catch (e) { }
       }
-
       if (taskDate <= endOfWeekDate) {
         tasks.push({
           id: doc.id,
@@ -137,7 +129,6 @@ export default function Home() {
         }
       } catch (e) { }
     });
-
     return tasks.sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [documents, meetings]);
 
@@ -162,9 +153,15 @@ export default function Home() {
         <header>
           <div className="flex items-center gap-3">
             <h1 className="text-3xl font-bold tracking-tight text-primary">Tableau de bord</h1>
-            {profile.role === 'super_admin' && <Badge variant="destructive" className="font-black uppercase text-[10px]">Super Admin</Badge>}
+            <Badge className={cn(
+              "font-black uppercase text-[10px] h-5 px-2",
+              profile.role === 'super_admin' ? "bg-rose-950 text-white" : 
+              profile.role === 'admin' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+            )}>
+              {profile.role === 'super_admin' ? 'Super Admin' : profile.role === 'admin' ? 'Patron' : 'Employé'}
+            </Badge>
           </div>
-          <p className="text-muted-foreground mt-1">
+          <p className="text-muted-foreground mt-1 flex items-center gap-2">
             Bienvenue {profile.name}. Planning hebdomadaire et suivi des dossiers.
           </p>
         </header>

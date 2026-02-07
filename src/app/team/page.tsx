@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Mail, ShieldCheck, User as UserIcon, Building2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export default function TeamPage() {
   const { user } = useUser();
@@ -22,7 +23,6 @@ export default function TeamPage() {
   const { data: profile } = useDoc<User>(userProfileRef);
   const companyId = profile?.companyId;
 
-  // Filtre important : On ne récupère que les membres de la MÊME entreprise
   const teamQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
     return query(collection(db, 'users'), where('companyId', '==', companyId));
@@ -38,10 +38,10 @@ export default function TeamPage() {
             <h1 className="text-4xl font-black tracking-tighter text-primary uppercase">Mon Équipe</h1>
             <p className="text-muted-foreground font-medium flex items-center gap-2">
               <Building2 className="w-4 h-4" />
-              Collaborateurs de {companyId === 'growandgo-hq' ? 'Grow&Go HQ' : companyId}
+              Collaborateurs de {companyId}
             </p>
           </div>
-          <Badge className="bg-primary/10 text-primary font-bold border-primary/20">
+          <Badge className="bg-primary/10 text-primary font-bold border-primary/20 h-7 px-3">
             {teamMembers?.length || 0} MEMBRES
           </Badge>
         </div>
@@ -63,11 +63,14 @@ export default function TeamPage() {
                         {member.name?.substring(0, 2) || "GG"}
                       </AvatarFallback>
                     </Avatar>
-                    <div>
+                    <div className="flex flex-col gap-1">
                       <CardTitle className="text-xl font-bold">{member.name}</CardTitle>
                       <Badge 
-                        variant={member.role === 'admin' || member.role === 'super_admin' ? "default" : "secondary"}
-                        className="mt-1 font-black uppercase text-[10px]"
+                        className={cn(
+                          "w-fit font-black uppercase text-[10px] h-5 px-2",
+                          member.role === 'super_admin' ? "bg-rose-950 text-white" :
+                          member.role === 'admin' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                        )}
                       >
                         {member.role === 'super_admin' ? 'Super Admin' : member.role === 'admin' ? 'Patron' : 'Employé'}
                       </Badge>
