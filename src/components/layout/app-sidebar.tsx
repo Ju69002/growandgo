@@ -80,7 +80,7 @@ export function AppSidebar() {
             />
           </div>
           <div className="flex flex-col group-data-[collapsible=icon]:hidden">
-            <span className="text-lg leading-tight tracking-tight">Grow&Go</span>
+            <span className="text-lg leading-tight tracking-tight text-white">Grow&Go</span>
             <span className="text-[10px] uppercase tracking-widest opacity-70 font-medium text-white">Design Studio</span>
           </div>
         </div>
@@ -107,7 +107,7 @@ export function AppSidebar() {
                     >
                       <Link href={item.url}>
                         <item.icon className={cn("w-5 h-5", active ? "text-primary" : "text-white")} />
-                        <span>{item.title}</span>
+                        <span className={cn(active ? "text-primary" : "text-white")}>{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -136,7 +136,7 @@ export function AppSidebar() {
                   >
                     <Link href="/accounts">
                       <UserCheck className={cn("w-5 h-5", isItemActive('/accounts') ? "text-primary" : "text-white")} />
-                      <span>Comptes</span>
+                      <span className={cn(isItemActive('/accounts') ? "text-primary" : "text-white")}>Comptes</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -166,7 +166,7 @@ export function AppSidebar() {
                     >
                       <Link href={item.url}>
                         <item.icon className={cn("w-5 h-5", active ? "text-primary" : "text-white")} />
-                        <span>{item.title}</span>
+                        <span className={cn(active ? "text-primary" : "text-white")}>{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -191,7 +191,7 @@ export function AppSidebar() {
             >
               <Link href="/settings">
                 <Settings className={cn("w-5 h-5", isItemActive('/settings') ? "text-primary" : "text-white")} />
-                <span>Paramètres</span>
+                <span className={cn(isItemActive('/settings') ? "text-primary" : "text-white")}>Paramètres</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
