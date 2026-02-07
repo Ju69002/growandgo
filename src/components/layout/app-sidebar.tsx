@@ -89,7 +89,7 @@ export function AppSidebar() {
           </div>
           <div className="flex flex-col group-data-[collapsible=icon]:hidden max-w-[160px]">
             <span className="text-lg leading-tight tracking-tight text-white truncate">
-              {company?.name || "Grow&Go"}
+              {company?.name || companyId || "Grow&Go"}
             </span>
             <span className="text-[10px] uppercase tracking-widest opacity-70 font-medium text-white truncate">
               {isSuperAdmin ? "Administration" : "Espace Studio"}
