@@ -110,7 +110,7 @@ export default function LoginPage() {
               return;
             }
           } else {
-            // Document profil manquant (ne devrait pas arriver)
+            // Document profil manquant
             await signOut(auth);
             toast({ 
               variant: "destructive", 
@@ -124,14 +124,12 @@ export default function LoginPage() {
           toast({ title: "Connexion réussie", description: "Chargement de votre espace..." });
           router.push('/');
         } catch (authError: any) {
-          console.error("Auth error:", authError.code);
-          // Gestion simplifiée des erreurs pour l'utilisateur
-          if (authError.code === 'auth/user-not-found' || authError.code === 'auth/invalid-email' || authError.code === 'auth/invalid-credential') {
-            // Note: Firebase renvoie souvent invalid-credential pour ne pas révéler si l'email existe
+          // Si l'utilisateur n'est pas trouvé dans Auth
+          if (authError.code === 'auth/user-not-found' || authError.code === 'auth/invalid-email') {
             toast({ 
               variant: "destructive", 
               title: "Échec", 
-              description: "Identifiant ou mot de passe incorrect." 
+              description: "Identifiant non reconnu." 
             });
           } else {
             toast({ 
@@ -143,7 +141,6 @@ export default function LoginPage() {
         }
       }
     } catch (error: any) {
-      console.error("Global Auth Error:", error);
       toast({ 
         variant: "destructive", 
         title: "Échec", 
