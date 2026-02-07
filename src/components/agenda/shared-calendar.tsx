@@ -5,7 +5,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Mail, Calendar as CalendarIcon, Plus, Users, Chrome, Layout, Loader2, Link2, LogIn } from 'lucide-react';
+import { Mail, Calendar as CalendarIcon, Plus, Users, Chrome, Layout, Loader2, Link2, LogIn, AlertTriangle } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser, useAuth } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
 import { CalendarEvent } from '@/lib/types';
@@ -103,8 +103,14 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
       console.error("Auth/Sync Error:", error);
       
       let errorMsg = error.message || "Une erreur est survenue.";
+      
+      // Cas spécifique de l'erreur d'activation dans la console Firebase
       if (error.code === 'auth/operation-not-allowed') {
-        errorMsg = `Le fournisseur ${service} n'est pas activé dans votre console Firebase. Allez dans Authentication > Sign-in method.`;
+        errorMsg = `Le fournisseur ${service} n'est pas activé dans votre console Firebase (Authentication > Sign-in method).`;
+      } 
+      // Cas de l'API Google non activée
+      else if (errorMsg.includes('Google API Error') || errorMsg.includes('API has not been used')) {
+        errorMsg = `L'API ${service === 'google' ? 'Google Calendar' : 'Microsoft Graph'} doit être activée dans votre console Cloud.`;
       }
 
       toast({

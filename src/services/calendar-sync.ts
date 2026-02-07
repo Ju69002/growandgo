@@ -34,6 +34,7 @@ export function mapGoogleEvent(googleEvent: any, companyId: string, userId: stri
  * Mappe un événement Microsoft Graph (Outlook) vers le schéma interne
  */
 export function mapOutlookEvent(outlookEvent: any, companyId: string, userId: string): Partial<CalendarEvent> {
+  // Sécurisation du mapping des participants Outlook
   const attendees = (outlookEvent.attendees || [])
     .filter((a: any) => a?.emailAddress?.address)
     .map((a: any) => a.emailAddress.address);
@@ -63,7 +64,13 @@ export async function fetchGoogleEvents(token: string, timeMin: string, timeMax:
       headers: { Authorization: `Bearer ${token}` }
     }
   );
-  if (!response.ok) throw new Error('Failed to fetch Google events');
+  
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    const message = errorData.error?.message || response.statusText;
+    throw new Error(`Google API Error (${response.status}): ${message}`);
+  }
+  
   const data = await response.json();
   return data.items || [];
 }
@@ -78,7 +85,13 @@ export async function fetchOutlookEvents(token: string, timeMin: string) {
       headers: { Authorization: `Bearer ${token}` }
     }
   );
-  if (!response.ok) throw new Error('Failed to fetch Outlook events');
+  
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    const message = errorData.error?.message || response.statusText;
+    throw new Error(`Outlook API Error (${response.status}): ${message}`);
+  }
+  
   const data = await response.json();
   return data.value || [];
 }
