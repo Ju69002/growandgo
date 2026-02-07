@@ -44,32 +44,50 @@ export default function LoginPage() {
     if (!trimmedId) return;
 
     setIsLoading(true);
-    // L'email Firebase est insensible à la casse, on s'en sert de support technique
+    // L'email est utilisé comme support technique (Firebase Auth)
     const email = `${trimmedId.toLowerCase()}@growandgo.ai`;
 
     try {
       if (isSignUp) {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        const newUser = userCredential.user;
-        
-        // Seul l'identifiant exact "JSecchi" (avec S majuscule) devient Super Admin
-        const isSuperAdmin = trimmedId === 'JSecchi';
-        
-        const userRef = doc(db, 'users', newUser.uid);
-        setDocumentNonBlocking(userRef, {
-          uid: newUser.uid,
-          companyId: isSuperAdmin ? 'growandgo-hq' : 'default-company',
-          role: isSuperAdmin ? 'super_admin' : 'employee',
-          adminMode: isSuperAdmin,
-          isCategoryModifier: isSuperAdmin,
-          name: name || trimmedId,
-          email: email,
-          loginId: trimmedId // On stocke la casse EXACTE choisie à l'inscription
-        }, { merge: true });
+        // Tentative de création de compte
+        try {
+          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+          const newUser = userCredential.user;
+          
+          // Seul l'identifiant exact "JSecchi" devient Super Admin
+          const isSuperAdmin = trimmedId === 'JSecchi';
+          
+          const userRef = doc(db, 'users', newUser.uid);
+          setDocumentNonBlocking(userRef, {
+            uid: newUser.uid,
+            companyId: isSuperAdmin ? 'growandgo-hq' : 'default-company',
+            role: isSuperAdmin ? 'super_admin' : 'employee',
+            adminMode: isSuperAdmin,
+            isCategoryModifier: isSuperAdmin,
+            name: name || trimmedId,
+            email: email,
+            loginId: trimmedId // On stocke la casse EXACTE choisie à l'inscription
+          }, { merge: true });
 
-        toast({ title: "Compte créé !", description: "Bienvenue dans l'univers Grow&Go." });
+          toast({ title: "Compte créé !", description: "Vous pouvez maintenant vous connecter." });
+          
+          // Une fois inscrit, on déconnecte et on renvoie vers le formulaire de connexion
+          await signOut(auth);
+          setIsSignUp(false);
+          setPassword('');
+        } catch (authError: any) {
+          if (authError.code === 'auth/email-already-in-use') {
+            toast({ 
+              variant: "destructive", 
+              title: "Erreur d'inscription", 
+              description: "Un compte avec cet identifiant existe déjà dans la base." 
+            });
+          } else {
+            throw authError;
+          }
+        }
       } else {
-        // Tentative de connexion via Firebase Auth
+        // Tentative de connexion
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         const loggedUser = userCredential.user;
 
@@ -79,17 +97,22 @@ export default function LoginPage() {
         
         if (userSnap.exists()) {
           const userData = userSnap.data();
-          // Si l'identifiant entré ne correspond pas EXACTEMENT au loginId stocké (ex: Jsecchi != JSecchi)
+          // Comparaison stricte (Case Sensitive)
           if (userData.loginId !== trimmedId) {
-            await signOut(auth); // On déconnecte immédiatement
-            throw new Error('invalid-case'); // On déclenche l'erreur générique
+            await signOut(auth);
+            throw new Error('invalid-case');
           }
+        } else {
+          // Si le document n'existe pas encore (cas rare), on déconnecte par sécurité
+          await signOut(auth);
+          throw new Error('no-profile');
         }
         
         toast({ title: "Connexion réussie", description: `Ravi de vous revoir.` });
+        router.push('/');
       }
-      router.push('/');
     } catch (error: any) {
+      console.error("Auth Error:", error);
       toast({ 
         variant: "destructive", 
         title: "Échec", 
