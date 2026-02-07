@@ -5,7 +5,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Calendar as CalendarIcon, Plus, Users, Chrome, Link2, Loader2, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Calendar as CalendarIcon, Plus, Users, Chrome, Link2, Loader2, RefreshCw, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser, useAuth } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
 import { CalendarEvent } from '@/lib/types';
@@ -15,16 +15,16 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { 
   getSyncTimeRange, 
+  fetchGoogleEvents,
   mapGoogleEvent, 
-  syncEventToFirestore,
-  fetchGoogleEvents
+  syncEventToFirestore
 } from '@/services/calendar-sync';
 import { signInWithGoogleCalendar } from '@/firebase/non-blocking-login';
 
 export function SharedCalendar({ companyId }: { companyId: string }) {
   const [date, setDate] = React.useState<Date | undefined>(new Date());
   const [isSyncing, setIsSyncing] = React.useState(false);
-  const [isConnected, setIsConnected] = React.useState(false);
+  const [syncStatus, setSyncStatus] = React.useState<'idle' | 'authenticating' | 'fetching' | 'saving' | 'success' | 'error'>('idle');
   const db = useFirestore();
   const auth = useAuth();
   const { user } = useUser();
@@ -40,7 +40,6 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
   const selectedDateEvents = React.useMemo(() => {
     if (!events || !date) return [];
     return events.filter(event => {
-      // Utilisation de parseISO et isSameDay pour gérer correctement les fuseaux horaires
       try {
         const eventDate = parseISO(event.debut);
         return isSameDay(eventDate, date);
@@ -50,24 +49,42 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
     }).sort((a, b) => new Date(a.debut).getTime() - new Date(b.debut).getTime());
   }, [events, date]);
 
-  const handleConnect = async () => {
-    if (!db || !companyId || !user || !auth) return;
+  const handleSync = async () => {
+    if (!db || !companyId || !user || !auth) {
+      toast({ variant: "destructive", title: "Erreur", description: "Services non disponibles." });
+      return;
+    }
     
     setIsSyncing(true);
+    setSyncStatus('authenticating');
+    
     try {
-      toast({
-        title: "Synchronisation Google...",
-        description: "Vérification de vos événements récents...",
-      });
-
+      // 1. Authentification
+      toast({ title: "Connexion Google...", description: "Veuillez valider la fenêtre de connexion." });
       const result = await signInWithGoogleCalendar(auth);
       const token = result.token;
       
-      if (!token) throw new Error("Impossible de récupérer le jeton d'accès Google.");
+      if (!token) {
+        throw new Error("Aucun jeton d'accès reçu de Google. Vérifiez vos permissions.");
+      }
 
+      // 2. Récupération
+      setSyncStatus('fetching');
+      toast({ title: "Connexion réussie", description: "Récupération de vos événements..." });
+      
       const { timeMin, timeMax } = getSyncTimeRange();
       const externalEvents = await fetchGoogleEvents(token, timeMin, timeMax);
 
+      if (externalEvents.length === 0) {
+        toast({ title: "Aucun événement", description: "Google n'a renvoyé aucun événement pour cette période." });
+        setSyncStatus('success');
+        return;
+      }
+
+      // 3. Sauvegarde
+      setSyncStatus('saving');
+      toast({ title: "Synchronisation...", description: `Enregistrement de ${externalEvents.length} événements...` });
+      
       let importedCount = 0;
       for (const extEvent of externalEvents) {
         const mapped = mapGoogleEvent(extEvent, companyId, user.uid);
@@ -75,25 +92,25 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
         importedCount++;
       }
 
-      setIsConnected(true);
+      setSyncStatus('success');
       toast({
-        title: "Mise à jour réussie !",
-        description: `${importedCount} événements synchronisés depuis Google.`,
+        title: "Terminé !",
+        description: `${importedCount} événements synchronisés.`,
       });
+      
+      setTimeout(() => setSyncStatus('idle'), 3000);
     } catch (error: any) {
-      console.error("Google Sync Error:", error);
+      console.error("Sync Error:", error);
+      setSyncStatus('error');
       
-      let errorMsg = error.message || "Une erreur est survenue.";
-      
-      if (errorMsg.includes('auth/operation-not-allowed')) {
-        errorMsg = "Le fournisseur Google n'est pas activé dans votre console Firebase.";
-      } else if (errorMsg.includes('API has not been used')) {
-        errorMsg = "L'API Google Calendar n'est pas activée sur votre projet Google Cloud.";
+      let errorMsg = error.message || "Une erreur inconnue est survenue.";
+      if (errorMsg.includes('403')) {
+        errorMsg = "L'API Google Calendar n'est pas activée pour ce projet. Vérifiez la console Google Cloud.";
       }
 
       toast({
         variant: "destructive",
-        title: "Erreur de synchronisation",
+        title: "Échec de synchronisation",
         description: errorMsg,
       });
     } finally {
@@ -101,12 +118,14 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
     }
   };
 
+  const isConnected = syncStatus === 'success' || (events && events.length > 0);
+
   return (
     <div className="flex flex-col lg:flex-row h-full">
       <div className="w-full lg:w-80 border-r bg-muted/10 p-6 space-y-6 flex flex-col">
         <div className="space-y-4">
           <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-            <Link2 className="w-4 h-4" /> Services Connectés
+            <Link2 className="w-4 h-4" /> Service Google
           </h3>
           
           <div className="grid gap-3">
@@ -116,12 +135,24 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
                 "w-full justify-start h-12 gap-3 transition-all font-semibold", 
                 isConnected && "border-emerald-500 text-emerald-600 bg-emerald-50/50"
               )}
-              onClick={handleConnect}
+              onClick={handleSync}
               disabled={isSyncing}
             >
-              {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Chrome className="w-5 h-5" />}
-              {isConnected ? "Google Connecté" : "Connecter Google"}
+              {isSyncing ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : isConnected ? (
+                <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+              ) : (
+                <Chrome className="w-5 h-5" />
+              )}
+              {isSyncing ? "Sync en cours..." : isConnected ? "Google Connecté" : "Connecter Google"}
             </Button>
+            
+            {isSyncing && (
+              <p className="text-[10px] text-muted-foreground animate-pulse text-center">
+                Étape : {syncStatus === 'authenticating' ? 'Authentification' : syncStatus === 'fetching' ? 'Lecture API' : 'Enregistrement'}
+              </p>
+            )}
           </div>
         </div>
 
@@ -142,10 +173,10 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
             <h2 className="text-3xl font-black tracking-tight text-primary">
               {date ? format(date, "EEEE d MMMM", { locale: fr }) : "Planning"}
             </h2>
-            <p className="text-muted-foreground font-medium">Votre agenda Google synchronisé en temps réel.</p>
+            <p className="text-muted-foreground font-medium">Vos événements Google synchronisés.</p>
           </div>
           <div className="flex gap-3">
-             <Button variant="outline" size="lg" className="rounded-full gap-2 border-primary/20 hover:bg-primary/5" onClick={handleConnect} disabled={isSyncing}>
+             <Button variant="outline" size="lg" className="rounded-full gap-2 border-primary/20 hover:bg-primary/5" onClick={handleSync} disabled={isSyncing}>
                 <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
                 Mettre à jour
              </Button>
@@ -159,7 +190,7 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
           {isLoading ? (
             <div className="flex flex-col items-center justify-center p-20 gap-4">
               <Loader2 className="w-12 h-12 animate-spin text-primary opacity-50" />
-              <p className="text-muted-foreground font-medium animate-pulse">Lecture de Firestore...</p>
+              <p className="text-muted-foreground font-medium animate-pulse">Chargement de l'agenda...</p>
             </div>
           ) : selectedDateEvents.length > 0 ? (
             selectedDateEvents.map((event) => (
@@ -203,12 +234,12 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
               <div className="bg-muted p-8 rounded-full mb-8 shadow-inner">
                 <CalendarIcon className="w-16 h-16 text-muted-foreground opacity-30" />
               </div>
-              <h3 className="text-2xl font-black mb-3 text-center">Aucun événement ce jour</h3>
+              <h3 className="text-2xl font-black mb-3 text-center">Aucun événement trouvé</h3>
               <p className="text-muted-foreground text-center max-w-md font-medium">
-                Si vous venez de créer un événement dans Google, cliquez sur "Mettre à jour" pour le voir apparaître.
+                Cliquez sur "Mettre à jour" pour lancer la synchronisation avec votre compte Google.
               </p>
               <div className="mt-8 flex gap-4">
-                 <Button variant="outline" className="rounded-full h-12 px-8" onClick={handleConnect}>
+                 <Button variant="outline" className="rounded-full h-12 px-8" onClick={handleSync}>
                     {isConnected ? "Forcer la synchronisation" : "Connecter Google Calendar"}
                  </Button>
               </div>
