@@ -44,7 +44,7 @@ export default function LoginPage() {
     if (!trimmedId) return;
 
     setIsLoading(true);
-    // On utilise l'id en minuscule pour l'email Firebase Auth (insensible à la casse au niveau technique)
+    // L'email Firebase Auth est toujours en minuscule pour éviter les doublons techniques
     const email = `${trimmedId.toLowerCase()}@growandgo.ai`;
 
     try {
@@ -68,9 +68,8 @@ export default function LoginPage() {
             loginId: trimmedId // Stockage de la casse originale pour vérification stricte
           });
 
-          toast({ title: "Compte créé !", description: "Veuillez maintenant vous connecter." });
+          toast({ title: "Compte créé !", description: "Redirection vers la connexion..." });
           
-          // Redirection vers l'onglet login
           await signOut(auth);
           setIsSignUp(false);
           setPassword('');
@@ -90,18 +89,19 @@ export default function LoginPage() {
           const userCredential = await signInWithEmailAndPassword(auth, email, password);
           const loggedUser = userCredential.user;
 
-          // Vérification du profil dans Firestore
           const userRef = doc(db, 'users', loggedUser.uid);
           const userSnap = await getDoc(userRef);
           
           if (userSnap.exists()) {
             const userData = userSnap.data();
-            // Vérification stricte de la casse
+            // Vérification STRICTE de la casse de l'identifiant
             if (userData.loginId === trimmedId) {
-              toast({ title: "Connexion réussie", description: "Chargement de votre espace..." });
+              const t = toast({ title: "Connexion réussie", description: "Chargement de votre espace..." });
+              // Faire disparaître le toast de succès après 3 secondes
+              setTimeout(() => t.dismiss(), 3000);
               router.push('/');
             } else {
-              // Casse incorrecte (ex: Jsecchi au lieu de JSecchi)
+              // Mauvaise casse (ex: Jsecchi au lieu de JSecchi)
               await signOut(auth);
               toast({ 
                 variant: "destructive", 
@@ -110,7 +110,6 @@ export default function LoginPage() {
               });
             }
           } else {
-            // Utilisateur Auth existe mais pas le document Firestore
             await signOut(auth);
             toast({ 
               variant: "destructive", 
@@ -119,7 +118,6 @@ export default function LoginPage() {
             });
           }
         } catch (authError: any) {
-          // Erreur de mot de passe ou email non trouvé dans Auth
           toast({ 
             variant: "destructive", 
             title: "Échec", 
@@ -131,7 +129,7 @@ export default function LoginPage() {
       toast({ 
         variant: "destructive", 
         title: "Échec", 
-        description: "Une erreur est survenue lors de l'accès à votre compte." 
+        description: "Une erreur est survenue lors de l'accès au compte." 
       });
     } finally {
       setIsLoading(false);
