@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -100,12 +101,12 @@ export function AppSidebar() {
                       className={cn(
                         "transition-all duration-200 px-4 h-11 rounded-xl mx-2 w-[calc(100%-1rem)] font-bold",
                         active 
-                          ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-lg" 
+                          ? "bg-white text-primary shadow-lg" 
                           : "text-sidebar-foreground hover:bg-sidebar-accent"
                       )}
                     >
                       <Link href={item.url}>
-                        <item.icon className={cn("w-5 h-5", active ? "text-sidebar-primary-foreground" : "text-sidebar-foreground")} />
+                        <item.icon className={cn("w-5 h-5", active ? "text-primary" : "text-sidebar-foreground")} />
                         <span>{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
@@ -129,12 +130,12 @@ export function AppSidebar() {
                     className={cn(
                       "transition-all duration-200 px-4 h-11 rounded-xl mx-2 w-[calc(100%-1rem)] font-bold",
                       isItemActive('/accounts') 
-                        ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-lg" 
+                        ? "bg-white text-primary shadow-lg" 
                         : "text-sidebar-foreground hover:bg-sidebar-accent"
                     )}
                   >
                     <Link href="/accounts">
-                      <UserCheck className={cn("w-5 h-5", isItemActive('/accounts') ? "text-sidebar-primary-foreground" : "text-sidebar-foreground")} />
+                      <UserCheck className={cn("w-5 h-5", isItemActive('/accounts') ? "text-primary" : "text-sidebar-foreground")} />
                       <span>Comptes</span>
                     </Link>
                   </SidebarMenuButton>
@@ -159,12 +160,12 @@ export function AppSidebar() {
                       className={cn(
                         "transition-all duration-200 px-4 h-11 rounded-xl mx-2 w-[calc(100%-1rem)] font-bold",
                         active 
-                          ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-lg" 
+                          ? "bg-white text-primary shadow-lg" 
                           : "text-sidebar-foreground hover:bg-sidebar-accent"
                       )}
                     >
                       <Link href={item.url}>
-                        <item.icon className={cn("w-5 h-5", active ? "text-sidebar-primary-foreground" : "text-sidebar-foreground")} />
+                        <item.icon className={cn("w-5 h-5", active ? "text-primary" : "text-sidebar-foreground")} />
                         <span>{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
@@ -184,12 +185,12 @@ export function AppSidebar() {
               className={cn(
                 "transition-all duration-200 px-4 h-11 rounded-xl mx-2 w-[calc(100%-1rem)] font-bold",
                 isItemActive('/settings') 
-                  ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-lg" 
+                  ? "bg-white text-primary shadow-lg" 
                   : "text-sidebar-foreground hover:bg-sidebar-accent"
               )}
             >
               <Link href="/settings">
-                <Settings className={cn("w-5 h-5", isItemActive('/settings') ? "text-sidebar-primary-foreground" : "text-sidebar-foreground")} />
+                <Settings className={cn("w-5 h-5", isItemActive('/settings') ? "text-primary" : "text-sidebar-foreground")} />
                 <span>Paramètres</span>
               </Link>
             </SidebarMenuButton>

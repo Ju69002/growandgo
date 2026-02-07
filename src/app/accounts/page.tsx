@@ -33,7 +33,8 @@ import {
   UserCog, 
   Loader2,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  RefreshCcw
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -85,9 +86,14 @@ export default function AccountsPage() {
 
   const handleDeleteUser = (userId: string) => {
     if (!db) return;
+    // Supprime l'entrée utilisateur de la base de données. 
+    // L'utilisateur devra se réinscrire pour recréer un profil.
     const userRef = doc(db, 'users', userId);
     deleteDocumentNonBlocking(userRef);
-    toast({ title: "Utilisateur supprimé", description: "Le compte a été retiré de la base de données." });
+    toast({ 
+      title: "Utilisateur supprimé", 
+      description: "Le profil a été retiré de la base de données. L'accès est révoqué." 
+    });
   };
 
   if (!isSuperAdmin && myProfile) {
@@ -181,34 +187,38 @@ export default function AccountsPage() {
                             <Button 
                               variant="outline" 
                               size="sm" 
-                              className="rounded-full font-bold text-[10px] uppercase h-9 px-4 gap-2 hover:bg-primary hover:text-primary-foreground"
+                              className="rounded-full font-bold text-[10px] uppercase h-9 px-4 gap-2 hover:bg-primary hover:text-primary-foreground border-primary/20"
                               onClick={() => handleRoleChange(u.uid, u.role)}
                             >
-                              <RefreshCw className="w-3 h-3" />
+                              <RefreshCcw className="w-3 h-3" />
                               Passer en {u.role === 'admin' ? 'Employé' : 'Patron'}
                             </Button>
 
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive hover:bg-destructive/10 rounded-full">
-                                  <Trash2 className="w-4 h-4" />
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="h-9 w-9 text-rose-600 hover:bg-rose-50 hover:text-rose-700 rounded-full transition-colors"
+                                >
+                                  <Trash2 className="w-5 h-5 stroke-[2.5]" />
                                 </Button>
                               </AlertDialogTrigger>
-                              <AlertDialogContent className="rounded-3xl border-none shadow-2xl">
+                              <AlertDialogContent className="rounded-[2rem] border-none shadow-2xl">
                                 <AlertDialogHeader>
                                   <AlertDialogTitle className="text-2xl font-black uppercase flex items-center gap-2">
-                                    <AlertTriangle className="text-destructive w-6 h-6" />
+                                    <AlertTriangle className="text-rose-600 w-6 h-6" />
                                     Supprimer le compte ?
                                   </AlertDialogTitle>
                                   <AlertDialogDescription className="text-base">
-                                    Cette action retirera <strong>{u.name}</strong> de votre studio Grow&Go. Cette action est irréversible.
+                                    Cette action retirera <strong>{u.name}</strong> de la base de données. L'utilisateur devra <strong>se réinscrire</strong> s'il souhaite revenir dans le studio.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel className="rounded-full font-bold">Annuler</AlertDialogCancel>
+                                <AlertDialogFooter className="mt-6 gap-3">
+                                  <AlertDialogCancel className="rounded-full font-bold h-11 px-8">Annuler</AlertDialogCancel>
                                   <AlertDialogAction 
                                     onClick={() => handleDeleteUser(u.uid)}
-                                    className="bg-destructive hover:bg-destructive/90 rounded-full font-bold"
+                                    className="bg-rose-600 hover:bg-rose-700 text-white rounded-full font-bold h-11 px-8"
                                   >
                                     Confirmer la suppression
                                   </AlertDialogAction>
@@ -233,34 +243,11 @@ export default function AccountsPage() {
           <div className="space-y-1">
             <p className="font-bold text-amber-900 uppercase text-xs tracking-widest">Note de Sécurité</p>
             <p className="text-amber-800 text-sm">
-              Conformément aux normes Firebase, les mots de passe sont hachés et non lisibles. 
-              Utilisez l'<strong>ID de connexion</strong> ci-dessus pour identifier les comptes de vos collaborateurs.
+              La suppression d'un utilisateur est immédiate. Ses documents et données restent archivés, mais son accès est révoqué jusqu'à une nouvelle inscription.
             </p>
           </div>
         </div>
       </div>
     </DashboardLayout>
-  );
-}
-
-function RefreshCw(props: any) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
-      <path d="M21 3v5h-5" />
-      <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
-      <path d="M3 21v-5h5" />
-    </svg>
   );
 }
