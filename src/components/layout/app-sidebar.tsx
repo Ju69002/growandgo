@@ -23,6 +23,7 @@ import {
   Building2,
   ShieldCheck,
   Briefcase,
+  KeyRound,
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -38,7 +39,7 @@ const configItems = [
   { title: 'Entreprise', icon: Building2, url: '#' },
   { title: 'Modules', icon: Briefcase, url: '#' },
   { title: 'Abonnement', icon: CreditCard, url: '#' },
-  { title: 'Sécurité', icon: ShieldCheck, url: '#' },
+  { title: 'Sécurité & Sync', icon: KeyRound, url: '/settings/security' },
 ];
 
 export function AppSidebar() {
