@@ -24,26 +24,40 @@ import {
   ShieldCheck,
   Briefcase,
   KeyRound,
+  UserCheck,
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-
-const mainItems = [
-  { title: 'Dashboard', icon: LayoutDashboard, url: '/' },
-  { title: 'Documents', icon: FileText, url: '#' },
-  { title: 'Équipe', icon: Users, url: '#' },
-];
-
-const configItems = [
-  { title: 'Entreprise', icon: Building2, url: '#' },
-  { title: 'Modules', icon: Briefcase, url: '#' },
-  { title: 'Abonnement', icon: CreditCard, url: '#' },
-  { title: 'Sécurité & Sync', icon: KeyRound, url: '/settings/security' },
-];
+import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { doc } from 'firebase/firestore';
+import { User } from '@/lib/types';
 
 export function AppSidebar() {
+  const { user } = useUser();
+  const db = useFirestore();
   const logo = PlaceHolderImages.find(img => img.id === 'app-logo');
+
+  const userRef = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return doc(db, 'users', user.uid);
+  }, [db, user]);
+
+  const { data: profile } = useDoc<User>(userRef);
+  const isSuperAdmin = profile?.role === 'super_admin';
+
+  const mainItems = [
+    { title: 'Dashboard', icon: LayoutDashboard, url: '/' },
+    { title: 'Documents', icon: FileText, url: '#' },
+    { title: 'Équipe', icon: Users, url: '#' },
+  ];
+
+  const configItems = [
+    { title: 'Entreprise', icon: Building2, url: '#' },
+    { title: 'Modules', icon: Briefcase, url: '#' },
+    { title: 'Abonnement', icon: CreditCard, url: '#' },
+    { title: 'Sécurité & Sync', icon: KeyRound, url: '/settings/security' },
+  ];
 
   return (
     <Sidebar collapsible="icon">
@@ -82,6 +96,24 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {isSuperAdmin && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-sidebar-foreground/50">Administration</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild tooltip="Comptes" className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground text-emerald-400 font-bold">
+                    <Link href="/accounts">
+                      <UserCheck className="w-5 h-5" />
+                      <span>Comptes</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         <SidebarGroup>
           <SidebarGroupLabel className="text-sidebar-foreground/50">Configuration</SidebarGroupLabel>

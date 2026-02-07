@@ -1,12 +1,10 @@
 
 'use client';
 
-import { Search, Bell, UserCircle, ShieldCheck, Clock, CheckCircle2, AlertCircle, LogOut } from 'lucide-react';
+import { Search, Bell, UserCircle, LogOut, Clock, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { SidebarTrigger } from '@/components/ui/sidebar';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useFirestore, useUser, useDoc, useMemoFirebase, updateDocumentNonBlocking, useCollection, useAuth } from '@/firebase';
+import { useFirestore, useUser, useDoc, useMemoFirebase, useCollection, useAuth } from '@/firebase';
 import { doc, collection, query, where, limit } from 'firebase/firestore';
 import { User, BusinessDocument, DocumentStatus } from '@/lib/types';
 import Link from 'next/link';
@@ -61,8 +59,6 @@ export function Header() {
     }
   };
 
-  const isPatron = profile?.role === 'admin' || profile?.role === 'super_admin';
-
   return (
     <header className="h-16 border-b bg-card px-4 flex items-center justify-between sticky top-0 z-50 shadow-sm">
       <div className="flex items-center gap-4 flex-1">
@@ -77,22 +73,6 @@ export function Header() {
         </div>
       </div>
       <div className="flex items-center gap-6">
-        {isPatron && (
-          <div className="hidden lg:flex items-center gap-2 px-3 py-1 bg-primary/5 rounded-full border border-primary/10">
-            <ShieldCheck className="w-4 h-4 text-primary" />
-            <Label htmlFor="patron-mode" className="text-[10px] font-black uppercase cursor-pointer tracking-wider">Mode Patron</Label>
-            <Switch 
-              id="patron-mode" 
-              checked={profile?.adminMode || false}
-              onCheckedChange={(checked) => {
-                if (userRef) {
-                  updateDocumentNonBlocking(userRef, { adminMode: checked });
-                }
-              }}
-            />
-          </div>
-        )}
-        
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="relative h-9 w-9">
