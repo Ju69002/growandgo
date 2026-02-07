@@ -95,6 +95,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
   
   const [draggedEventId, setDraggedEventId] = React.useState<string | null>(null);
   const [dragOffset, setDragOffset] = React.useState(0);
+  const [dragXOffset, setDragXOffset] = React.useState(0);
   const isDraggingRef = React.useRef(false);
 
   const [openSelect, setOpenSelect] = React.useState<'duration' | 'hour' | 'minute' | null>(null);
@@ -122,7 +123,6 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
 
   const { data: events, isLoading } = useCollection<CalendarEvent>(eventsQuery);
 
-  // Récupérer les membres de l'équipe pour afficher les noms des créateurs
   const teamQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
     return query(collection(db, 'users'), where('companyId', '==', companyId));
@@ -171,16 +171,23 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
     if (e.button !== 0) return;
     
     const startY = e.clientY;
+    const startX = e.clientX;
     const snapPixels = (10 / 60) * hourHeight;
+    const columnElement = e.currentTarget.parentElement;
+    const colWidth = columnElement?.clientWidth || 0;
+    
     isDraggingRef.current = false;
 
     const onMouseMove = (moveEvent: MouseEvent) => {
       const deltaY = moveEvent.clientY - startY;
-      if (Math.abs(deltaY) > 5) {
+      const deltaX = moveEvent.clientX - startX;
+      
+      if (Math.abs(deltaY) > 5 || Math.abs(deltaX) > 10) {
         isDraggingRef.current = true;
         setDraggedEventId(event.id);
-        const snappedDelta = Math.round(deltaY / snapPixels) * snapPixels;
-        setDragOffset(snappedDelta);
+        const snappedDeltaY = Math.round(deltaY / snapPixels) * snapPixels;
+        setDragOffset(snappedDeltaY);
+        setDragXOffset(deltaX);
       }
     };
 
@@ -190,14 +197,21 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
 
       if (isDraggingRef.current) {
         const deltaY = upEvent.clientY - startY;
-        const snappedDelta = Math.round(deltaY / snapPixels) * snapPixels;
-        const minutesDelta = (snappedDelta / hourHeight) * 60;
+        const deltaX = upEvent.clientX - startX;
+        
+        const snappedDeltaY = Math.round(deltaY / snapPixels) * snapPixels;
+        const minutesDelta = (snappedDeltaY / hourHeight) * 60;
+        const daysDelta = Math.round(deltaX / (colWidth + 8)); // 8 is the grid gap-2
 
-        if (minutesDelta !== 0 && db && companyId) {
+        if ((minutesDelta !== 0 || daysDelta !== 0) && db && companyId) {
           const oldStart = parseISO(event.debut);
           const oldEnd = parseISO(event.fin);
           
           let newStart = roundToNearest10(addMinutes(oldStart, minutesDelta));
+          if (daysDelta !== 0) {
+            newStart = addDays(newStart, daysDelta);
+          }
+          
           const duration = differenceInMinutes(oldEnd, oldStart);
           const newEnd = addMinutes(newStart, duration);
 
@@ -207,7 +221,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
             fin: newEnd.toISOString(),
             derniere_maj: new Date().toISOString()
           });
-          toast({ title: "Horaire mis à jour" });
+          toast({ title: "Agenda mis à jour" });
         }
       } else {
         openEditEvent(event);
@@ -215,6 +229,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
 
       setDraggedEventId(null);
       setDragOffset(0);
+      setDragXOffset(0);
       isDraggingRef.current = false;
     };
 
@@ -234,7 +249,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
         const mapped = mapGoogleEvent(extEvent, companyId, user.uid);
         await syncEventToFirestore(db, mapped);
       }
-      toast({ title: "Importation terminée !", description: `${externalEvents.length} événements synchronisés pour toute l'équipe.` });
+      toast({ title: "Importation terminée !", description: `${externalEvents.length} événements synchronisés.` });
     } catch (error: any) {
       toast({ variant: "destructive", title: "Échec d'importation", description: error.message });
     } finally {
@@ -264,7 +279,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
           count++;
         }
       }
-      toast({ title: "Exportation réussie !", description: `${count} événements ajoutés à votre Google Calendar personnel.` });
+      toast({ title: "Exportation réussie !", description: `${count} événements ajoutés à Google Calendar.` });
     } catch (error: any) {
       toast({ variant: "destructive", title: "Échec d'exportation", description: error.message });
     } finally {
@@ -447,6 +462,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
                           )}
                           style={{ 
                             top: `${topPos + (isCurrentDragged ? dragOffset : 0)}px`, 
+                            left: `${isCurrentDragged ? dragXOffset : 0}px`,
                             height: `${eventHeight}px`, 
                             minHeight: '20px' 
                           }}
