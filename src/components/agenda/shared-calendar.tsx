@@ -11,7 +11,8 @@ import {
   Trash2,
   Chrome,
   UploadCloud,
-  DownloadCloud
+  DownloadCloud,
+  Clock
 } from 'lucide-react';
 import { 
   useFirestore, 
@@ -25,7 +26,7 @@ import {
 } from '@/firebase';
 import { collection, query, doc } from 'firebase/firestore';
 import { CalendarEvent } from '@/lib/types';
-import { format, isSameDay, parseISO, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isToday, startOfWeek, endOfWeek, isValid, addMinutes } from 'date-fns';
+import { format, isSameDay, parseISO, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isToday, startOfWeek, endOfWeek, isValid, addMinutes, setHours, setMinutes, startOfDay } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import {
@@ -65,8 +66,9 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
   
   // Form State
   const [formTitre, setFormTitre] = React.useState('');
-  const [formDebut, setFormDebut] = React.useState('');
-  const [formFin, setFormFin] = React.useState('');
+  const [formDate, setFormDate] = React.useState(format(new Date(), 'yyyy-MM-dd'));
+  const [formHour, setFormHour] = React.useState('09');
+  const [formMinute, setFormMinute] = React.useState('00');
   const [formDescription, setFormDescription] = React.useState('');
   const [selectedDuration, setSelectedDuration] = React.useState('30');
 
@@ -157,18 +159,20 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
   const openAddEvent = (date?: Date) => {
     setEditingEvent(null);
     const targetDate = date || new Date();
-    // Round to nearest 15 mins
+    // Round to nearest 10 mins
     const minutes = targetDate.getMinutes();
-    const roundedMinutes = Math.round(minutes / 15) * 15;
-    targetDate.setMinutes(roundedMinutes);
-    targetDate.setSeconds(0);
-    
-    const startStr = format(targetDate, "yyyy-MM-dd'T'HH:mm");
-    const endStr = format(addMinutes(targetDate, 30), "yyyy-MM-dd'T'HH:mm");
+    const roundedMinutes = Math.round(minutes / 10) * 10;
+    if (roundedMinutes >= 60) {
+      targetDate.setHours(targetDate.getHours() + 1);
+      targetDate.setMinutes(0);
+    } else {
+      targetDate.setMinutes(roundedMinutes);
+    }
     
     setFormTitre('');
-    setFormDebut(startStr);
-    setFormFin(endStr);
+    setFormDate(format(targetDate, 'yyyy-MM-dd'));
+    setFormHour(format(targetDate, 'HH'));
+    setFormMinute(format(targetDate, 'mm'));
     setFormDescription('');
     setSelectedDuration('30');
     setIsEventDialogOpen(true);
@@ -176,51 +180,38 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
 
   const openEditEvent = (event: CalendarEvent) => {
     setEditingEvent(event);
+    const startDate = parseISO(event.debut);
+    const endDate = parseISO(event.fin);
+    
     setFormTitre(event.titre);
-    setFormDebut(event.debut.slice(0, 16));
-    setFormFin(event.fin.slice(0, 16));
+    setFormDate(format(startDate, 'yyyy-MM-dd'));
+    setFormHour(format(startDate, 'HH'));
+    setFormMinute(format(startDate, 'mm'));
     setFormDescription(event.description || '');
     
-    // Calculate duration for the select
-    const start = parseISO(event.debut);
-    const end = parseISO(event.fin);
-    const diff = (end.getTime() - start.getTime()) / (1000 * 60);
+    // Calculate duration
+    const diff = (endDate.getTime() - startDate.getTime()) / (1000 * 60);
     setSelectedDuration(diff.toString());
     
     setIsEventDialogOpen(true);
   };
 
-  const handleDurationChange = (duration: string) => {
-    setSelectedDuration(duration);
-    if (formDebut && duration !== 'custom') {
-      const startDate = new Date(formDebut);
-      const endDate = addMinutes(startDate, parseInt(duration));
-      setFormFin(format(endDate, "yyyy-MM-dd'T'HH:mm"));
-    }
-  };
-
-  const handleDebutChange = (newDebut: string) => {
-    setFormDebut(newDebut);
-    if (selectedDuration !== 'custom') {
-      const startDate = new Date(newDebut);
-      const endDate = addMinutes(startDate, parseInt(selectedDuration));
-      setFormFin(format(endDate, "yyyy-MM-dd'T'HH:mm"));
-    }
-  };
-
   const handleSaveEvent = () => {
     if (!db || !companyId || !user) return;
-    if (!formTitre || !formDebut || !formFin) {
-      toast({ variant: "destructive", title: "Champs manquants", description: "Veuillez remplir le titre et les dates." });
+    if (!formTitre || !formDate || !formHour || !formMinute) {
+      toast({ variant: "destructive", title: "Champs manquants", description: "Veuillez remplir le titre et l'horaire." });
       return;
     }
+
+    const startDate = setMinutes(setHours(new Date(formDate), parseInt(formHour)), parseInt(formMinute));
+    const endDate = addMinutes(startDate, parseInt(selectedDuration));
 
     const eventData: Partial<CalendarEvent> = {
       companyId,
       userId: user.uid,
       titre: formTitre,
-      debut: new Date(formDebut).toISOString(),
-      fin: new Date(formFin).toISOString(),
+      debut: startDate.toISOString(),
+      fin: endDate.toISOString(),
       description: formDescription,
       source: editingEvent?.source || 'local',
       type: 'event',
@@ -249,6 +240,19 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
     toast({ title: "Événement supprimé" });
     setIsEventDialogOpen(false);
   };
+
+  const hours = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
+  const minutes = ['00', '10', '20', '30', '40', '50'];
+  const durations = [
+    { label: '10 min', value: '10' },
+    { label: '20 min', value: '20' },
+    { label: '30 min', value: '30' },
+    { label: '45 min', value: '45' },
+    { label: '1 heure', value: '60' },
+    { label: '1h 30min', value: '90' },
+    { label: '2 heures', value: '120' },
+    { label: '3 heures', value: '180' },
+  ];
 
   const render3DayView = () => {
     const days = [currentDate, addDays(currentDate, 1), addDays(currentDate, 2)];
@@ -364,46 +368,50 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
               <Label htmlFor="titre">Titre de l'événement</Label>
               <Input id="titre" value={formTitre} onChange={(e) => setFormTitre(e.target.value)} placeholder="Réunion, Signature, Design review..." />
             </div>
-            
-            <div className="grid gap-2">
-              <Label htmlFor="duration">Durée prévue</Label>
-              <Select value={selectedDuration} onValueChange={handleDurationChange}>
-                <SelectTrigger id="duration">
-                  <SelectValue placeholder="Choisir une durée" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="15">15 minutes</SelectItem>
-                  <SelectItem value="30">30 minutes</SelectItem>
-                  <SelectItem value="45">45 minutes</SelectItem>
-                  <SelectItem value="60">1 heure</SelectItem>
-                  <SelectItem value="90">1h 30min</SelectItem>
-                  <SelectItem value="120">2 heures</SelectItem>
-                  <SelectItem value="custom">Personnalisée</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
 
+            <div className="grid gap-2">
+              <Label htmlFor="date">Date</Label>
+              <Input id="date" type="date" value={formDate} onChange={(e) => setFormDate(e.target.value)} />
+            </div>
+            
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="debut">Début</Label>
-                <Input 
-                  id="debut" 
-                  type="datetime-local" 
-                  step="900" 
-                  value={formDebut} 
-                  onChange={(e) => handleDebutChange(e.target.value)} 
-                />
+                <Label>Heure (Roulette 10 min)</Label>
+                <div className="flex gap-2">
+                  <Select value={formHour} onValueChange={setFormHour}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Heure" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[200px]">
+                      {hours.map(h => (
+                        <SelectItem key={h} value={h}>{h} h</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={formMinute} onValueChange={setFormMinute}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Min" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {minutes.map(m => (
+                        <SelectItem key={m} value={m}>{m}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="fin">Fin</Label>
-                <Input 
-                  id="fin" 
-                  type="datetime-local" 
-                  step="900" 
-                  value={formFin} 
-                  onChange={(e) => setFormFin(e.target.value)}
-                  disabled={selectedDuration !== 'custom'}
-                />
+                <Label htmlFor="duration">Durée</Label>
+                <Select value={selectedDuration} onValueChange={setSelectedDuration}>
+                  <SelectTrigger id="duration">
+                    <SelectValue placeholder="Choisir une durée" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {durations.map(d => (
+                      <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             
