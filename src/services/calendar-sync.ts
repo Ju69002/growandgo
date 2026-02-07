@@ -2,14 +2,12 @@
 
 /**
  * @fileOverview Service de synchronisation des calendriers.
- * Gère le mapping et les appels réels aux API Google/Outlook.
+ * Gère le mapping et les appels réels aux API Google Calendar.
  */
 
 import { CalendarEvent } from '@/lib/types';
 import { Firestore, doc, getDoc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase';
-
-export type ExternalSource = 'google' | 'outlook';
 
 /**
  * Mappe un événement Google Calendar vers le schéma interne
@@ -27,30 +25,6 @@ export function mapGoogleEvent(googleEvent: any, companyId: string, userId: stri
     source: 'google',
     type: 'meeting',
     derniere_maj: googleEvent.updated || new Date().toISOString()
-  };
-}
-
-/**
- * Mappe un événement Microsoft Graph (Outlook) vers le schéma interne
- */
-export function mapOutlookEvent(outlookEvent: any, companyId: string, userId: string): Partial<CalendarEvent> {
-  // Sécurisation du mapping des participants Outlook
-  const attendees = (outlookEvent.attendees || [])
-    .filter((a: any) => a?.emailAddress?.address)
-    .map((a: any) => a.emailAddress.address);
-
-  return {
-    id_externe: outlookEvent.id || '',
-    companyId,
-    userId,
-    titre: outlookEvent.subject || 'Sans titre',
-    description: outlookEvent.bodyPreview || '',
-    debut: outlookEvent.start?.dateTime || new Date().toISOString(),
-    fin: outlookEvent.end?.dateTime || new Date().toISOString(),
-    attendees: attendees,
-    source: 'outlook',
-    type: 'meeting',
-    derniere_maj: outlookEvent.lastModifiedDateTime || new Date().toISOString()
   };
 }
 
@@ -73,27 +47,6 @@ export async function fetchGoogleEvents(token: string, timeMin: string, timeMax:
   
   const data = await response.json();
   return data.items || [];
-}
-
-/**
- * Appelle l'API Microsoft Graph pour récupérer les événements Outlook
- */
-export async function fetchOutlookEvents(token: string, timeMin: string) {
-  const response = await fetch(
-    `https://graph.microsoft.com/v1.0/me/calendar/events?$filter=start/dateTime ge '${timeMin}'&$select=id,subject,bodyPreview,start,end,attendees,lastModifiedDateTime`,
-    {
-      headers: { Authorization: `Bearer ${token}` }
-    }
-  );
-  
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    const message = errorData.error?.message || response.statusText;
-    throw new Error(`Outlook API Error (${response.status}): ${message}`);
-  }
-  
-  const data = await response.json();
-  return data.value || [];
 }
 
 /**
@@ -132,7 +85,6 @@ export async function syncEventToFirestore(
  */
 export function getSyncTimeRange() {
   const now = new Date();
-  // On récupère 30 jours dans le passé et 365 jours dans le futur
   const timeMin = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
   const timeMax = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString();
   return { timeMin, timeMax };

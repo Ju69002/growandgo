@@ -5,7 +5,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Mail, Calendar as CalendarIcon, Plus, Users, Chrome, Layout, Loader2, Link2, LogIn, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Mail, Calendar as CalendarIcon, Plus, Users, Chrome, Layout, Loader2, Link2, LogIn, RefreshCw } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser, useAuth } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
 import { CalendarEvent } from '@/lib/types';
@@ -16,17 +16,15 @@ import { cn } from '@/lib/utils';
 import { 
   getSyncTimeRange, 
   mapGoogleEvent, 
-  mapOutlookEvent, 
   syncEventToFirestore,
-  fetchGoogleEvents,
-  fetchOutlookEvents
+  fetchGoogleEvents
 } from '@/services/calendar-sync';
-import { signInWithGoogleCalendar, signInWithOutlookCalendar } from '@/firebase/non-blocking-login';
+import { signInWithGoogleCalendar } from '@/firebase/non-blocking-login';
 
 export function SharedCalendar({ companyId }: { companyId: string }) {
   const [date, setDate] = React.useState<Date | undefined>(new Date());
   const [isSyncing, setIsSyncing] = React.useState(false);
-  const [connectedServices, setConnectedServices] = React.useState<string[]>([]);
+  const [isConnected, setIsConnected] = React.useState(false);
   const db = useFirestore();
   const auth = useAuth();
   const { user } = useUser();
@@ -51,35 +49,23 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
     }).sort((a, b) => new Date(a.debut).getTime() - new Date(b.debut).getTime());
   }, [events, date]);
 
-  const handleConnect = async (service: 'google' | 'outlook') => {
+  const handleConnect = async () => {
     if (!db || !companyId || !user || !auth) return;
     
     setIsSyncing(true);
     try {
       toast({
-        title: "Connexion en cours...",
-        description: `Ouverture de la fenêtre ${service === 'google' ? 'Google' : 'Microsoft'}...`,
+        title: "Connexion Google en cours...",
+        description: "Ouverture de la fenêtre Google...",
       });
 
-      let token: string | undefined;
-      let externalEvents: any[] = [];
+      const result = await signInWithGoogleCalendar(auth);
+      const token = result.token;
+      
+      if (!token) throw new Error("Impossible de récupérer le jeton d'accès Google.");
+
       const { timeMin, timeMax } = getSyncTimeRange();
-
-      if (service === 'google') {
-        const result = await signInWithGoogleCalendar(auth);
-        token = result.token;
-        if (token) {
-          externalEvents = await fetchGoogleEvents(token, timeMin, timeMax);
-        }
-      } else {
-        const result = await signInWithOutlookCalendar(auth);
-        token = result.token;
-        if (token) {
-          externalEvents = await fetchOutlookEvents(token, timeMin);
-        }
-      }
-
-      if (!token) throw new Error("Impossible de récupérer le jeton d'accès. Vérifiez vos identifiants.");
+      const externalEvents = await fetchGoogleEvents(token, timeMin, timeMax);
 
       toast({
         title: "Synchronisation...",
@@ -87,33 +73,27 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
       });
 
       for (const extEvent of externalEvents) {
-        const mapped = service === 'google' 
-          ? mapGoogleEvent(extEvent, companyId, user.uid)
-          : mapOutlookEvent(extEvent, companyId, user.uid);
-        
+        const mapped = mapGoogleEvent(extEvent, companyId, user.uid);
         await syncEventToFirestore(db, mapped);
       }
 
-      setConnectedServices(prev => [...new Set([...prev, service])]);
+      setIsConnected(true);
       toast({
         title: "Synchronisation terminée !",
-        description: `Votre agenda Grow&Go est à jour avec ${service}.`,
+        description: "Votre agenda Grow&Go est à jour avec Google Calendar.",
       });
     } catch (error: any) {
-      console.error("Auth/Sync Error:", error);
+      console.error("Google Sync Error:", error);
       
       let errorMsg = error.message || "Une erreur est survenue lors de la synchronisation.";
       
-      // Aide au diagnostic spécifique pour l'API non activée
       if (errorMsg.includes('API has not been used') || errorMsg.includes('disabled')) {
-        errorMsg = `L'API ${service === 'google' ? 'Google Calendar' : 'Microsoft Graph'} n'est pas activée sur votre projet Google Cloud (Projet ID: 500181405818). Veuillez cliquer sur le lien dans la console pour l'activer.`;
-      } else if (error.code === 'auth/operation-not-allowed') {
-        errorMsg = `Le fournisseur ${service} n'est pas activé dans votre console Firebase (Authentication > Sign-in method).`;
+        errorMsg = "L'API Google Calendar n'est pas activée sur votre projet Google Cloud (Projet ID: 500181405818). Veuillez l'activer pour autoriser la synchronisation.";
       }
 
       toast({
         variant: "destructive",
-        title: "Erreur de connexion",
+        title: "Erreur Google Calendar",
         description: errorMsg,
       });
     } finally {
@@ -123,7 +103,6 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
 
   return (
     <div className="flex flex-col lg:flex-row h-full">
-      {/* Sidebar de l'agenda */}
       <div className="w-full lg:w-80 border-r bg-muted/10 p-6 space-y-6 flex flex-col">
         <div className="space-y-4">
           <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
@@ -132,29 +111,16 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
           
           <div className="grid gap-3">
             <Button 
-              variant={connectedServices.includes('google') ? "outline" : "default"} 
+              variant={isConnected ? "outline" : "default"} 
               className={cn(
                 "w-full justify-start h-12 gap-3 transition-all font-semibold", 
-                connectedServices.includes('google') && "border-emerald-500 text-emerald-600 bg-emerald-50/50"
+                isConnected && "border-emerald-500 text-emerald-600 bg-emerald-50/50"
               )}
-              onClick={() => handleConnect('google')}
+              onClick={handleConnect}
               disabled={isSyncing}
             >
               {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Chrome className="w-5 h-5" />}
-              {connectedServices.includes('google') ? "Google Sync Actif" : "Connecter Google"}
-            </Button>
-
-            <Button 
-              variant={connectedServices.includes('outlook') ? "outline" : "default"}
-              className={cn(
-                "w-full justify-start h-12 gap-3 transition-all font-semibold", 
-                connectedServices.includes('outlook') && "border-blue-500 text-blue-600 bg-blue-50/50"
-              )}
-              onClick={() => handleConnect('outlook')}
-              disabled={isSyncing}
-            >
-              {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Layout className="w-5 h-5" />}
-              {connectedServices.includes('outlook') ? "Outlook Sync Actif" : "Connecter Outlook"}
+              {isConnected ? "Google Sync Actif" : "Connecter Google"}
             </Button>
           </div>
         </div>
@@ -170,7 +136,6 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
         </div>
       </div>
 
-      {/* Vue principale de l'agenda */}
       <div className="flex-1 p-8 space-y-8 overflow-y-auto bg-background/50">
         <div className="flex items-center justify-between bg-card p-6 rounded-3xl border shadow-sm">
           <div className="space-y-1">
@@ -180,8 +145,8 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
             <p className="text-muted-foreground font-medium">Calendrier partagé de l'équipe Grow&Go.</p>
           </div>
           <div className="flex gap-3">
-             {connectedServices.length > 0 && (
-               <Button variant="outline" size="lg" className="rounded-full gap-2" onClick={() => handleConnect(connectedServices[0] as any)}>
+             {isConnected && (
+               <Button variant="outline" size="lg" className="rounded-full gap-2" onClick={handleConnect}>
                   <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
                   Mettre à jour
                </Button>
@@ -196,16 +161,13 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
           {isLoading ? (
             <div className="flex flex-col items-center justify-center p-20 gap-4">
               <Loader2 className="w-12 h-12 animate-spin text-primary opacity-50" />
-              <p className="text-muted-foreground font-medium animate-pulse">Synchronisation avec vos serveurs...</p>
+              <p className="text-muted-foreground font-medium animate-pulse">Chargement de l'agenda...</p>
             </div>
           ) : selectedDateEvents.length > 0 ? (
             selectedDateEvents.map((event) => (
               <Card key={event.id} className="group hover:shadow-xl transition-all border-none overflow-hidden bg-card shadow-sm">
                 <CardContent className="p-0 flex">
-                  <div className={cn(
-                    "w-2 bg-primary",
-                    event.source === 'google' ? "bg-emerald-500" : "bg-blue-500"
-                  )} />
+                  <div className="w-2 bg-emerald-500" />
                   <div className="p-6 flex-1 flex items-start justify-between gap-6">
                     <div className="flex gap-8">
                       <div className="w-24 text-center border-r pr-8 flex flex-col justify-center">
@@ -216,10 +178,7 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
                       </div>
                       <div className="space-y-3">
                         <div className="flex items-center gap-2">
-                          <Badge variant="secondary" className={cn(
-                            "px-2 py-0 text-[10px] font-black uppercase rounded-md border",
-                            event.source === 'google' ? "bg-emerald-50 text-emerald-700 border-emerald-100" : "bg-blue-50 text-blue-700 border-blue-100"
-                          )}>
+                          <Badge variant="secondary" className="px-2 py-0 text-[10px] font-black uppercase rounded-md border bg-emerald-50 text-emerald-700 border-emerald-100">
                             {event.source}
                           </Badge>
                           <h4 className="text-2xl font-bold tracking-tight">{event.titre}</h4>
@@ -237,9 +196,6 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
                         </div>
                       </div>
                     </div>
-                    <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
-                      <Layout className="w-4 h-4" />
-                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -251,11 +207,10 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
               </div>
               <h3 className="text-2xl font-black mb-3">Votre agenda est prêt</h3>
               <p className="text-muted-foreground text-center max-w-md font-medium">
-                Connectez vos comptes Google ou Outlook dans la barre latérale pour importer automatiquement vos rendez-vous dans l'écosystème Grow&Go.
+                Connectez votre compte Google Calendar dans la barre latérale pour importer automatiquement vos rendez-vous dans l'écosystème Grow&Go.
               </p>
-              <div className="mt-8 flex gap-4">
-                 <Button variant="outline" className="rounded-full h-12 px-6" onClick={() => handleConnect('google')}>Connecter Google</Button>
-                 <Button variant="outline" className="rounded-full h-12 px-6" onClick={() => handleConnect('outlook')}>Connecter Outlook</Button>
+              <div className="mt-8">
+                 <Button variant="outline" className="rounded-full h-12 px-8" onClick={handleConnect}>Connecter Google Calendar</Button>
               </div>
             </div>
           )}

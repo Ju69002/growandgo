@@ -1,4 +1,3 @@
-
 export type UserRole = 'super_admin' | 'admin' | 'employee';
 export type DocumentStatus = 'pending_analysis' | 'waiting_verification' | 'waiting_validation' | 'archived';
 export type CategoryType = 'standard' | 'custom';
@@ -26,7 +25,6 @@ export interface User {
   email: string;
   calendarTokens?: {
     google_refresh_token?: string;
-    outlook_refresh_token?: string;
   };
 }
 
@@ -40,7 +38,7 @@ export interface CalendarEvent {
   debut: string; 
   fin: string; 
   attendees: string[]; 
-  source: 'local' | 'google' | 'outlook';
+  source: 'local' | 'google';
   type: 'meeting' | 'task' | 'event';
   derniere_maj: string;
 }
