@@ -10,7 +10,7 @@ import { useAuth, useFirestore, setDocumentNonBlocking, useUser } from '@/fireba
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Lock, UserCircle, UserPlus } from 'lucide-react';
+import { Loader2, Lock, UserCircle, UserPlus, Eye, EyeOff } from 'lucide-react';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 
@@ -20,6 +20,7 @@ export default function LoginPage() {
   const [name, setName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   
   const router = useRouter();
   const auth = useAuth();
@@ -157,13 +158,27 @@ export default function LoginPage() {
                 <Lock className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
                 <Input 
                   id="pass" 
-                  type="password" 
+                  type={showPassword ? "text" : "password"}
                   placeholder="••••••••••••" 
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-medium"
+                  className="pl-11 pr-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-medium"
                   required
                 />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-2 top-2 h-8 w-8 p-0 hover:bg-transparent"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-muted-foreground" />
+                  )}
+                  <span className="sr-only">{showPassword ? "Masquer" : "Afficher"} le mot de passe</span>
+                </Button>
               </div>
             </div>
 
