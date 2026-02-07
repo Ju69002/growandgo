@@ -7,9 +7,9 @@ service cloud.firestore {
      * BUSINESS PILOT SECURITY RULES
      * 
      * Roles:
-     * - super_admin (JSecchi): Can manage everything and access the Accounts tab.
-     * - admin (Patron): Can manage visibility and modify/create categories for their company.
-     * - employee: Read-only access to visible categories.
+     * - super_admin: Accès total à tout.
+     * - admin (Patron): Gère uniquement les données de SA société.
+     * - employee: Lecture seule des dossiers visibles de SA société.
      */
 
     function isSignedIn() {
@@ -36,14 +36,10 @@ service cloud.firestore {
       return isSignedIn() && data != null && data.companyId == companyId && data.role == 'employee';
     }
 
-    function canModifyCategories(companyId) {
-      let data = getUserData();
-      return isSuperAdmin() || isPatron(companyId);
-    }
-
     match /users/{userId} {
-      allow get: if isSignedIn() && (request.auth.uid == userId || isSuperAdmin());
-      allow list: if isSuperAdmin();
+      // Un utilisateur voit son profil. Super Admin voit tout. Patron voit son équipe.
+      allow get: if isSignedIn() && (request.auth.uid == userId || isSuperAdmin() || (getUserData() != null && getUserData().companyId == resource.data.companyId));
+      allow list: if isSuperAdmin() || (isSignedIn() && getUserData() != null); 
       allow create: if isSignedIn();
       allow update: if isSuperAdmin() || (request.auth.uid == userId && request.resource.data.role == resource.data.role);
       allow delete: if isSuperAdmin();
@@ -56,16 +52,13 @@ service cloud.firestore {
     }
 
     match /companies/{companyId}/categories/{categoryId} {
-      allow list: if isSignedIn() && (isSuperAdmin() || (getUserData() != null && getUserData().companyId == companyId));
-      allow get: if isSignedIn() && (isSuperAdmin() || (getUserData() != null && getUserData().companyId == companyId));
-      allow create: if canModifyCategories(companyId);
-      allow update: if canModifyCategories(companyId);
-      allow delete: if canModifyCategories(companyId);
+      allow read: if isSignedIn() && (isSuperAdmin() || (getUserData() != null && getUserData().companyId == companyId));
+      allow write: if isSuperAdmin() || isPatron(companyId);
     }
 
     match /companies/{companyId}/documents/{documentId} {
       allow read: if isSignedIn() && (isSuperAdmin() || (getUserData() != null && getUserData().companyId == companyId));
-      allow write: if isSignedIn() && (isSuperAdmin() || (getUserData() != null && getUserData().companyId == companyId));
+      allow write: if isSignedIn() && (isSuperAdmin() || isPatron(companyId));
     }
 
     match /companies/{companyId}/events/{eventId} {
