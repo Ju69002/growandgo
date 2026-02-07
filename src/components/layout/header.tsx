@@ -123,13 +123,24 @@ export function Header() {
               <UserCircle className="h-6 w-6" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48 shadow-2xl">
-            <DropdownMenuLabel className="font-bold">{profile?.name || 'Mon Compte'}</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>Profil</DropdownMenuItem>
-            <DropdownMenuItem>Paramètres</DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive font-bold flex items-center gap-2" onClick={handleLogout}>
+          <DropdownMenuContent align="end" className="w-56 shadow-2xl border-none rounded-2xl p-2">
+            <DropdownMenuLabel className="px-4 py-3 flex flex-col">
+              <span className="font-bold text-base truncate">{profile?.name || 'Mon Compte'}</span>
+              <span className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">{profile?.role}</span>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator className="bg-muted/50" />
+            <DropdownMenuItem asChild className="rounded-xl cursor-pointer">
+              <Link href="/settings" className="flex items-center gap-2 py-2">
+                <UserCircle className="w-4 h-4" /> Profil & Studio
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild className="rounded-xl cursor-pointer">
+              <Link href="/settings" className="flex items-center gap-2 py-2">
+                <ShieldCheck className="w-4 h-4" /> Sécurité
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="bg-muted/50" />
+            <DropdownMenuItem className="text-destructive font-bold flex items-center gap-2 rounded-xl py-2 cursor-pointer hover:bg-destructive/10" onClick={handleLogout}>
               <LogOut className="w-4 h-4" />
               Déconnexion
             </DropdownMenuItem>
