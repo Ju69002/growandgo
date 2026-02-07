@@ -52,7 +52,7 @@ export function Header() {
   const unreadCount = notifications?.length || 0;
 
   return (
-    <header className="h-16 border-b bg-card px-4 flex items-center justify-between sticky top-0 z-10">
+    <header className="h-16 border-b bg-card px-4 flex items-center justify-between sticky top-0 z-40">
       <div className="flex items-center gap-4 flex-1">
         <SidebarTrigger />
         <div className="relative w-full max-w-md hidden md:block">
@@ -69,7 +69,7 @@ export function Header() {
           <div className="hidden lg:flex items-center gap-2 px-3 py-1 bg-primary/5 rounded-full border border-primary/10">
             <ShieldCheck className="w-4 h-4 text-primary" />
             <Label htmlFor="admin-mode" className="text-xs font-medium cursor-pointer">Mode Architecte</Label>
-            <Switch 
+            < Switch 
               id="admin-mode" 
               checked={profile?.adminMode || false}
               onCheckedChange={(checked) => {

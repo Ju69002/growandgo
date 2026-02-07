@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -353,7 +354,6 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
 
     return (
       <div className={cn("flex flex-col h-full bg-card overflow-hidden", !isCompact && "p-8")}>
-        {/* Barre d'action compacte */}
         <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/5 mb-2">
            <div className="flex gap-1">
              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setCurrentDate(addDays(currentDate, -1))}><ChevronLeft className="w-3 h-3" /></Button>
@@ -426,9 +426,9 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
                           key={event.id} 
                           onMouseDown={(e) => handleMouseDown(e, event)}
                           className={cn(
-                            "absolute left-0 right-0 mx-1 z-20 rounded-lg border-l-4 shadow-md hover:ring-2 hover:ring-primary/20 transition-all cursor-pointer p-1.5 overflow-hidden flex flex-col select-none",
+                            "absolute left-0 right-0 mx-1 z-10 rounded-lg border-l-4 shadow-md hover:ring-2 hover:ring-primary/20 transition-all cursor-pointer p-1.5 overflow-hidden flex flex-col select-none",
                             event.source === 'google' ? "bg-white border-primary" : "bg-amber-50 border-amber-500",
-                            isCurrentDragged && "z-50 opacity-90 scale-[1.02] shadow-2xl ring-2 ring-primary border-dashed"
+                            isCurrentDragged && "z-30 opacity-90 scale-[1.02] shadow-2xl ring-2 ring-primary border-dashed"
                           )}
                           style={{ 
                             top: `${topPos + (isCurrentDragged ? dragOffset : 0)}px`, 
