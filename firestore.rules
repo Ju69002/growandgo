@@ -50,7 +50,8 @@ service cloud.firestore {
     }
 
     match /companies/{companyId} {
-      allow get: if isSignedIn() && (isSuperAdmin() || (getUserData() != null && getUserData().companyId == companyId));
+      // Permission de lecture pour le thème et l'identification de l'entreprise
+      allow get: if isSignedIn(); 
       allow list: if isSuperAdmin();
       allow write: if isSuperAdmin();
     }

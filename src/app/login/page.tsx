@@ -32,9 +32,33 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (!isUserLoading && user) {
-      router.push('/');
+      // On ne redirige que si on n'est pas en train de faire une inscription (pour éviter le flash)
+      if (!isSignUp) {
+        router.push('/');
+      }
     }
-  }, [user, isUserLoading, router]);
+  }, [user, isUserLoading, router, isSignUp]);
+
+  const ensureCompanyExists = async (companyId: string, companyName: string) => {
+    if (!db) return;
+    const companyRef = doc(db, 'companies', companyId);
+    const companySnap = await getDoc(companyRef);
+    if (!companySnap.exists()) {
+      await setDoc(companyRef, {
+        id: companyId,
+        name: companyName,
+        subscriptionStatus: 'active',
+        primaryColor: '157 44% 21%',
+        backgroundColor: '43 38% 96%',
+        foregroundColor: '157 44% 11%',
+        modulesConfig: {
+          showRh: true,
+          showFinance: true,
+          customLabels: {}
+        }
+      });
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,37 +68,39 @@ export default function LoginPage() {
     if (!trimmedId) return;
 
     setIsLoading(true);
-    // L'email technique reste insensible à la casse pour Firebase Auth
     const email = `${trimmedId.toLowerCase()}@growandgo.ai`;
 
     try {
       if (isSignUp) {
         try {
-          // Tenter de créer le compte
           const userCredential = await createUserWithEmailAndPassword(auth, email, password);
           const newUser = userCredential.user;
           
-          const isSuperAdmin = trimmedId === 'JSecchi';
+          const isTargetSuperAdmin = trimmedId === 'JSecchi';
+          const companyId = isTargetSuperAdmin ? 'growandgo-hq' : 'default-company';
+          const companyName = isTargetSuperAdmin ? 'Grow&Go HQ' : 'Default Company';
+
+          // S'assurer que l'entreprise existe
+          await ensureCompanyExists(companyId, companyName);
           
           const userRef = doc(db, 'users', newUser.uid);
           await setDoc(userRef, {
             uid: newUser.uid,
-            companyId: isSuperAdmin ? 'growandgo-hq' : 'default-company',
-            role: isSuperAdmin ? 'super_admin' : 'employee',
-            adminMode: isSuperAdmin,
-            isCategoryModifier: isSuperAdmin,
+            companyId: companyId,
+            role: isTargetSuperAdmin ? 'super_admin' : 'employee',
+            adminMode: isTargetSuperAdmin,
+            isCategoryModifier: isTargetSuperAdmin,
             name: name || trimmedId,
             email: email,
-            loginId: trimmedId // On stocke la casse exacte choisie
+            loginId: trimmedId
           });
 
           toast({ title: "Compte créé !", description: "Veuillez maintenant vous connecter." });
           
-          // Déconnexion forcée pour obliger à passer par l'écran de login
           await signOut(auth);
           setIsSignUp(false);
           setPassword('');
-          setId(trimmedId); // Garder l'id pour faciliter le login
+          setId(trimmedId);
         } catch (authError: any) {
           if (authError.code === 'auth/email-already-in-use') {
             toast({ 
@@ -92,38 +118,41 @@ export default function LoginPage() {
         }
       } else {
         try {
-          // Tentative d'authentification
           const userCredential = await signInWithEmailAndPassword(auth, email, password);
           const loggedUser = userCredential.user;
 
           const userRef = doc(db, 'users', loggedUser.uid);
-          const userSnap = await getDoc(userRef);
+          let userSnap = await getDoc(userRef);
           
+          // Réparation automatique si le profil Firestore est manquant
+          if (!userSnap.exists()) {
+            const isTargetSuperAdmin = trimmedId === 'JSecchi';
+            const companyId = isTargetSuperAdmin ? 'growandgo-hq' : 'default-company';
+            await ensureCompanyExists(companyId, isTargetSuperAdmin ? 'Grow&Go HQ' : 'Default Company');
+            
+            await setDoc(userRef, {
+              uid: loggedUser.uid,
+              companyId: companyId,
+              role: isTargetSuperAdmin ? 'super_admin' : 'employee',
+              adminMode: isTargetSuperAdmin,
+              isCategoryModifier: isTargetSuperAdmin,
+              name: trimmedId,
+              email: email,
+              loginId: trimmedId
+            });
+            userSnap = await getDoc(userRef);
+          }
+
           if (userSnap.exists()) {
             const userData = userSnap.data();
-            
-            // LOGIQUE DE RÉPARATION ET VÉRIFICATION STRICTE
-            const isTargetId = trimmedId === 'JSecchi';
             const storedId = userData.loginId;
 
-            // Si c'est JSecchi et que le mot de passe est bon, on répare le profil s'il y a un souci de casse
-            if (isTargetId && (!storedId || storedId.toLowerCase() === 'jsecchi')) {
-              if (storedId !== 'JSecchi') {
-                await updateDoc(userRef, { loginId: 'JSecchi', role: 'super_admin' });
-              }
-              const t = toast({ title: "Connexion réussie", description: "Accès Super Admin validé." });
-              setTimeout(() => t.dismiss(), 3000);
-              router.push('/');
-              return;
-            }
-
-            // Vérification standard pour les autres
+            // Vérification stricte de la casse
             if (storedId === trimmedId) {
               const t = toast({ title: "Connexion réussie", description: "Chargement de votre espace..." });
               setTimeout(() => t.dismiss(), 3000);
               router.push('/');
             } else {
-              // Casse incorrecte (ex: Jsecchi au lieu de JSecchi)
               await signOut(auth);
               toast({ 
                 variant: "destructive", 
@@ -132,7 +161,6 @@ export default function LoginPage() {
               });
             }
           } else {
-            // Pas de profil Firestore trouvé
             await signOut(auth);
             toast({ 
               variant: "destructive", 
@@ -152,7 +180,7 @@ export default function LoginPage() {
       toast({ 
         variant: "destructive", 
         title: "Échec", 
-        description: "Une erreur est survenue lors de l'accès." 
+        description: "Une erreur est survenue." 
       });
     } finally {
       setIsLoading(false);
