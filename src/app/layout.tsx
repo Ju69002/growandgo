@@ -1,10 +1,10 @@
-
 'use client';
 
 import { FirebaseClientProvider } from '@/firebase';
 import { useFirestore, useDoc, useUser, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { User, Company } from '@/lib/types';
+import { Toaster } from '@/components/ui/toaster';
 import './globals.css';
 
 /**
@@ -88,6 +88,7 @@ export default function RootLayout({
           <ThemeInjector>
             {children}
           </ThemeInjector>
+          <Toaster />
         </FirebaseClientProvider>
       </body>
     </html>

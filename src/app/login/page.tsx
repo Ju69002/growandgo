@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -41,34 +40,30 @@ export default function LoginPage() {
     if (!auth || !db) return;
 
     setIsLoading(true);
-    const email = `${id.toLowerCase()}@growandgo.ai`;
+    const email = `${id.toLowerCase().trim()}@growandgo.ai`;
 
     try {
       if (isSignUp) {
-        // Logique d'inscription
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const newUser = userCredential.user;
         
-        // Création du profil par défaut
         const userRef = doc(db, 'users', newUser.uid);
         setDocumentNonBlocking(userRef, {
           uid: newUser.uid,
-          companyId: id.toLowerCase() === 'jsecchi' ? 'growandgo-hq' : 'default-company',
-          role: id.toLowerCase() === 'jsecchi' ? 'super_admin' : 'employee',
-          adminMode: id.toLowerCase() === 'jsecchi',
-          isCategoryModifier: id.toLowerCase() === 'jsecchi',
+          companyId: id.toLowerCase().trim() === 'jsecchi' ? 'growandgo-hq' : 'default-company',
+          role: id.toLowerCase().trim() === 'jsecchi' ? 'super_admin' : 'employee',
+          adminMode: id.toLowerCase().trim() === 'jsecchi',
+          isCategoryModifier: id.toLowerCase().trim() === 'jsecchi',
           name: name || id,
           email: email
         }, { merge: true });
 
         toast({ title: "Compte créé !", description: "Bienvenue dans l'univers Grow&Go." });
       } else {
-        // Logique de connexion
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         const loggedUser = userCredential.user;
 
-        // Initialisation spécifique pour JSecchi si nécessaire
-        if (id.toLowerCase() === 'jsecchi') {
+        if (id.toLowerCase().trim() === 'jsecchi') {
           const userRef = doc(db, 'users', loggedUser.uid);
           const userSnap = await getDoc(userRef);
           if (!userSnap.exists()) {
@@ -87,14 +82,13 @@ export default function LoginPage() {
       }
       router.push('/');
     } catch (error: any) {
-      // On évite console.error ici pour ne pas déclencher l'overlay NextJS en mode dev
       let message = "Une erreur est survenue.";
       
-      // Gestion précise des erreurs d'authentification pour l'utilisateur
       if (
         error.code === 'auth/wrong-password' || 
         error.code === 'auth/invalid-credential' || 
-        error.code === 'auth/user-not-found'
+        error.code === 'auth/user-not-found' ||
+        error.code === 'auth/invalid-email'
       ) {
         message = "Identifiant ou mot de passe incorrect.";
       } else if (error.code === 'auth/email-already-in-use') {
@@ -145,7 +139,7 @@ export default function LoginPage() {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     className="pl-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-medium"
-                    required
+                    required={isSignUp}
                   />
                 </div>
               </div>
@@ -195,7 +189,10 @@ export default function LoginPage() {
                 type="button"
                 variant="ghost"
                 className="w-full text-xs font-bold uppercase tracking-widest text-[#1E4D3B]/60 hover:bg-[#1E4D3B]/5 rounded-xl"
-                onClick={() => setIsSignUp(!isSignUp)}
+                onClick={() => {
+                  setIsSignUp(!isSignUp);
+                  toast({ title: isSignUp ? "Mode Connexion" : "Mode Inscription" });
+                }}
               >
                 {isSignUp ? "Déjà un compte ? Se connecter" : "Pas encore de compte ? S'inscrire"}
               </Button>
