@@ -114,7 +114,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
 
   const startHour = 8;
   const endHour = 20;
-  const hourHeight = isCompact ? 45 : 55;
+  const hourHeight = isCompact ? 40 : 55;
 
   const eventsQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
@@ -353,7 +353,28 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
 
     return (
       <div className={cn("flex flex-col h-full bg-card overflow-hidden", !isCompact && "p-8")}>
-        <div className="flex mb-2 flex-shrink-0">
+        {/* Barre d'action compacte */}
+        <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/5 mb-2">
+           <div className="flex gap-1">
+             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setCurrentDate(addDays(currentDate, -1))}><ChevronLeft className="w-3 h-3" /></Button>
+             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setCurrentDate(addDays(currentDate, 1))}><ChevronRight className="w-3 h-3" /></Button>
+           </div>
+           <div className="flex gap-2">
+              <Button variant="ghost" size="sm" className="h-6 text-[9px] font-black uppercase px-2 gap-1" onClick={handleImportFromGoogle} disabled={isSyncing !== 'idle'}>
+                {isSyncing === 'importing' ? <Loader2 className="w-3 h-3 animate-spin" /> : <DownloadCloud className="w-3 h-3" />}
+                Import
+              </Button>
+              <Button variant="ghost" size="sm" className="h-6 text-[9px] font-black uppercase px-2 gap-1 text-primary" onClick={handleExportToGoogle} disabled={isSyncing !== 'idle'}>
+                {isSyncing === 'exporting' ? <Loader2 className="w-3 h-3 animate-spin" /> : <UploadCloud className="w-3 h-3" />}
+                Export
+              </Button>
+              <Button size="sm" className="h-6 text-[9px] font-black uppercase px-2 bg-primary" onClick={() => openAddEvent()}>
+                <Plus className="w-3 h-3" />
+              </Button>
+           </div>
+        </div>
+
+        <div className="flex mb-1 flex-shrink-0">
           <div className={cn("flex-shrink-0", isCompact ? "w-10" : "w-16")} />
           <div className="flex-1 grid grid-cols-3 gap-2">
             {days.map((day, idx) => (
@@ -412,13 +433,13 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
                           style={{ 
                             top: `${topPos + (isCurrentDragged ? dragOffset : 0)}px`, 
                             height: `${eventHeight}px`, 
-                            minHeight: '24px' 
+                            minHeight: '20px' 
                           }}
                         >
                           <p className={cn("font-black text-primary/80 shrink-0", isCompact ? "text-[8px]" : "text-[10px]")}>
                             {format(isCurrentDragged ? addMinutes(start, (dragOffset/hourHeight)*60) : start, "HH:mm")}
                           </p>
-                          <h4 className={cn("font-bold leading-tight line-clamp-2 text-foreground", isCompact ? "text-[10px]" : "text-sm")}>
+                          <h4 className={cn("font-bold leading-tight line-clamp-2 text-foreground", isCompact ? "text-[9px]" : "text-sm")}>
                             {event.titre}
                           </h4>
                         </div>
