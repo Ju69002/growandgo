@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -43,7 +44,7 @@ export default function LoginPage() {
     if (!trimmedId) return;
 
     setIsLoading(true);
-    // L'email est utilisé comme identifiant technique unique (insensible à la casse dans Firebase Auth)
+    // L'email Firebase est insensible à la casse, on s'en sert de support technique
     const email = `${trimmedId.toLowerCase()}@growandgo.ai`;
 
     try {
@@ -51,10 +52,10 @@ export default function LoginPage() {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const newUser = userCredential.user;
         
-        // JSecchi est le seul Super Admin
+        // Seul l'identifiant exact "JSecchi" (avec S majuscule) devient Super Admin
         const isSuperAdmin = trimmedId === 'JSecchi';
-        const userRef = doc(db, 'users', newUser.uid);
         
+        const userRef = doc(db, 'users', newUser.uid);
         setDocumentNonBlocking(userRef, {
           uid: newUser.uid,
           companyId: isSuperAdmin ? 'growandgo-hq' : 'default-company',
@@ -63,32 +64,32 @@ export default function LoginPage() {
           isCategoryModifier: isSuperAdmin,
           name: name || trimmedId,
           email: email,
-          loginId: trimmedId // Stockage de l'ID avec sa casse exacte
+          loginId: trimmedId // On stocke la casse EXACTE choisie à l'inscription
         }, { merge: true });
 
         toast({ title: "Compte créé !", description: "Bienvenue dans l'univers Grow&Go." });
       } else {
+        // Tentative de connexion via Firebase Auth
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         const loggedUser = userCredential.user;
 
-        // Vérification STRICTE de la casse de l'identifiant
+        // VERIFICATION STRICTE de la casse de l'identifiant via Firestore
         const userRef = doc(db, 'users', loggedUser.uid);
         const userSnap = await getDoc(userRef);
         
         if (userSnap.exists()) {
           const userData = userSnap.data();
-          // Si le loginId stocké en base ne correspond pas exactement à la saisie, on déconnecte
+          // Si l'identifiant entré ne correspond pas EXACTEMENT au loginId stocké (ex: Jsecchi != JSecchi)
           if (userData.loginId !== trimmedId) {
-            await signOut(auth);
-            throw new Error('invalid-case');
+            await signOut(auth); // On déconnecte immédiatement
+            throw new Error('invalid-case'); // On déclenche l'erreur générique
           }
         }
-
+        
         toast({ title: "Connexion réussie", description: `Ravi de vous revoir.` });
       }
       router.push('/');
     } catch (error: any) {
-      // Message d'erreur générique systématique
       toast({ 
         variant: "destructive", 
         title: "Échec", 
@@ -138,7 +139,7 @@ export default function LoginPage() {
             )}
             
             <div className="space-y-2">
-              <Label htmlFor="id" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Identifiant</Label>
+              <Label htmlFor="id" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Identifiant (Respectez la casse)</Label>
               <div className="relative">
                 <UserCircle className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
                 <Input 
