@@ -1,7 +1,6 @@
-
 'use client';
 
-import { Search, Bell, UserCircle, LogOut, Clock, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Search, Bell, UserCircle, LogOut, Clock, AlertCircle, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { SidebarTrigger } from '@/components/ui/sidebar';
