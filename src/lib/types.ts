@@ -1,3 +1,4 @@
+
 export type UserRole = 'super_admin' | 'admin' | 'employee';
 export type DocumentStatus = 'pending_analysis' | 'waiting_verification' | 'waiting_validation' | 'archived';
 export type CategoryType = 'standard' | 'custom';
@@ -26,6 +27,27 @@ export interface User {
   calendarTokens?: {
     google_refresh_token?: string;
   };
+}
+
+export interface BusinessDocument {
+  id: string;
+  name: string;
+  categoryId: string;
+  subCategory?: string;
+  projectColumn: 'technical' | 'administrative' | 'budget';
+  status: DocumentStatus;
+  extractedData?: {
+    date?: string;
+    montant?: string;
+    emetteur?: string;
+    reference?: string;
+    siren?: string;
+    expiryDate?: string;
+    deliveryDate?: string;
+  };
+  fileUrl: string;
+  createdAt: string;
+  companyId: string;
 }
 
 export interface CalendarEvent {
