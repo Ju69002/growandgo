@@ -14,14 +14,42 @@ import {
   Maximize2, 
   Minimize2,
   ListFilter,
-  Chrome
+  Chrome,
+  Plus,
+  RefreshCw,
+  Trash2,
+  Clock,
+  X
 } from 'lucide-react';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query } from 'firebase/firestore';
-import { CalendarEvent } from '@/lib/types';
-import { format, isSameDay, parseISO, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isToday, startOfWeek, endOfWeek, isValid } from 'date-fns';
+import { 
+  useFirestore, 
+  useCollection, 
+  useMemoFirebase, 
+  useUser, 
+  useAuth,
+  setDocumentNonBlocking,
+  deleteDocumentNonBlocking,
+  addDocumentNonBlocking
+} from '@/firebase';
+import { collection, query, doc } from 'firebase/firestore';
+import { CalendarEvent, User } from '@/lib/types';
+import { format, isSameDay, parseISO, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isToday, startOfWeek, endOfWeek, isValid, setHours, setMinutes } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from '@/hooks/use-toast';
+import { signInWithGoogleCalendar } from '@/firebase/non-blocking-login';
+import { getSyncTimeRange, fetchGoogleEvents, mapGoogleEvent, syncEventToFirestore } from '@/services/calendar-sync';
 
 interface SharedCalendarProps {
   companyId: string;
@@ -32,7 +60,20 @@ interface SharedCalendarProps {
 export function SharedCalendar({ companyId, isCompact = false, defaultView = '3day' }: SharedCalendarProps) {
   const [viewMode, setViewMode] = React.useState<'3day' | 'month'>(isCompact ? '3day' : defaultView);
   const [currentDate, setCurrentDate] = React.useState(new Date());
+  const [isSyncing, setIsSyncing] = React.useState(false);
+  const [isEventDialogOpen, setIsEventDialogOpen] = React.useState(false);
+  const [editingEvent, setEditingEvent] = React.useState<CalendarEvent | null>(null);
+  
+  // Form State
+  const [formTitre, setFormTitre] = React.useState('');
+  const [formDebut, setFormDebut] = React.useState('');
+  const [formFin, setFormFin] = React.useState('');
+  const [formDescription, setFormDescription] = React.useState('');
+
+  const { user } = useUser();
+  const auth = useAuth();
   const db = useFirestore();
+  const { toast } = useToast();
 
   const eventsQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
@@ -63,6 +104,99 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
   const nextMonth = () => setCurrentDate(addDays(endOfMonth(currentDate), 1));
   const prevMonth = () => setCurrentDate(addDays(startOfMonth(currentDate), -1));
 
+  const handleManualSync = async () => {
+    if (!db || !companyId || !user || !auth) {
+      toast({ variant: "destructive", title: "Erreur", description: "Services non disponibles." });
+      return;
+    }
+    
+    setIsSyncing(true);
+    try {
+      toast({ title: "Synchronisation...", description: "Connexion à Google Calendar en cours." });
+      const result = await signInWithGoogleCalendar(auth);
+      if (!result.token) throw new Error("Accès refusé.");
+
+      const { timeMin, timeMax } = getSyncTimeRange();
+      const externalEvents = await fetchGoogleEvents(result.token, timeMin, timeMax);
+
+      for (const extEvent of externalEvents) {
+        const mapped = mapGoogleEvent(extEvent, companyId, user.uid);
+        await syncEventToFirestore(db, mapped);
+      }
+
+      toast({ title: "Synchronisation terminée !", description: `${externalEvents.length} événements mis à jour.` });
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Échec de synchronisation", description: error.message });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const openAddEvent = (date?: Date) => {
+    setEditingEvent(null);
+    const targetDate = date || new Date();
+    // Format YYYY-MM-DDThh:mm
+    const dateStr = format(targetDate, "yyyy-MM-dd'T'HH:mm");
+    const endStr = format(addDays(targetDate, 0), "yyyy-MM-dd'T'HH:mm"); // Default 1h later simplified
+    
+    setFormTitre('');
+    setFormDebut(dateStr);
+    setFormFin(endStr);
+    setFormDescription('');
+    setIsEventDialogOpen(true);
+  };
+
+  const openEditEvent = (event: CalendarEvent) => {
+    setEditingEvent(event);
+    setFormTitre(event.titre);
+    setFormDebut(event.debut.slice(0, 16));
+    setFormFin(event.fin.slice(0, 16));
+    setFormDescription(event.description || '');
+    setIsEventDialogOpen(true);
+  };
+
+  const handleSaveEvent = () => {
+    if (!db || !companyId || !user) return;
+    if (!formTitre || !formDebut || !formFin) {
+      toast({ variant: "destructive", title: "Champs manquants", description: "Veuillez remplir le titre et les dates." });
+      return;
+    }
+
+    const eventData: Partial<CalendarEvent> = {
+      companyId,
+      userId: user.uid,
+      titre: formTitre,
+      debut: new Date(formDebut).toISOString(),
+      fin: new Date(formFin).toISOString(),
+      description: formDescription,
+      source: editingEvent?.source || 'local',
+      type: 'event',
+      derniere_maj: new Date().toISOString(),
+    };
+
+    if (editingEvent) {
+      const eventRef = doc(db, 'companies', companyId, 'events', editingEvent.id);
+      setDocumentNonBlocking(eventRef, eventData, { merge: true });
+      toast({ title: "Événement mis à jour" });
+    } else {
+      const eventsRef = collection(db, 'companies', companyId, 'events');
+      addDocumentNonBlocking(eventsRef, {
+        ...eventData,
+        id_externe: Math.random().toString(36).substring(7)
+      });
+      toast({ title: "Événement créé" });
+    }
+    setIsEventDialogOpen(false);
+  };
+
+  const handleDeleteEvent = () => {
+    if (!db || !companyId || !editingEvent) return;
+    const eventRef = doc(db, 'companies', companyId, 'events', editingEvent.id);
+    deleteDocumentNonBlocking(eventRef);
+    toast({ title: "Événement supprimé" });
+    setIsEventDialogOpen(false);
+  };
+
   // --- RENDU VUE 3 JOURS ---
   const render3DayView = () => {
     const days = [currentDate, addDays(currentDate, 1), addDays(currentDate, 2)];
@@ -83,9 +217,16 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
               isCompact ? "p-2 border-none" : "p-6"
             )}>
               <div className={cn("flex flex-col border-b pb-1 mb-1", isCompact && "items-center text-center")}>
-                <p className="text-[8px] font-black uppercase tracking-wider text-primary/60">
-                  {isTday ? "Auj." : format(day, "EEE", { locale: fr })}
-                </p>
+                <div className="flex justify-between items-center">
+                  <p className="text-[8px] font-black uppercase tracking-wider text-primary/60">
+                    {isTday ? "Auj." : format(day, "EEE", { locale: fr })}
+                  </p>
+                  {!isCompact && (
+                    <Button variant="ghost" size="icon" className="h-6 w-6 text-primary/40 hover:text-primary" onClick={() => openAddEvent(day)}>
+                      <Plus className="w-3 h-3" />
+                    </Button>
+                  )}
+                </div>
                 <h3 className={cn("font-black text-primary", isCompact ? "text-xs" : "text-xl")}>
                   {format(day, "d MMM", { locale: fr })}
                 </h3>
@@ -94,10 +235,14 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
               <div className="flex-1 space-y-1.5 overflow-y-auto pr-0.5 custom-scrollbar">
                 {dayEvents.length > 0 ? (
                   dayEvents.slice(0, isCompact ? 3 : 10).map(event => (
-                    <div key={event.id} className={cn(
-                      "bg-white rounded-lg border-l-4 border-primary shadow-sm hover:border-l-primary/50 transition-colors",
-                      isCompact ? "p-1.5" : "p-3"
-                    )}>
+                    <div 
+                      key={event.id} 
+                      onClick={() => !isCompact && openEditEvent(event)}
+                      className={cn(
+                        "bg-white rounded-lg border-l-4 border-primary shadow-sm hover:border-l-primary/50 transition-colors cursor-pointer",
+                        isCompact ? "p-1.5" : "p-3"
+                      )}
+                    >
                       <div className="flex items-center justify-between mb-0.5">
                         <p className="text-[7px] font-black text-primary/70">
                           {event.debut ? format(parseISO(event.debut), "HH:mm") : "--:--"}
@@ -143,9 +288,29 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
               <Button variant="ghost" size="icon" className="rounded-full h-8 w-8" onClick={nextMonth}><ChevronRight className="w-4 h-4" /></Button>
             </div>
           </div>
-          <Button variant="outline" size="sm" onClick={() => setViewMode('3day')} className="rounded-full font-bold">
-            Retour vue 3 jours
-          </Button>
+          <div className="flex gap-3">
+             <Button 
+                variant="outline" 
+                size="sm" 
+                className="rounded-full font-bold gap-2"
+                onClick={handleManualSync}
+                disabled={isSyncing}
+              >
+                {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                Synchroniser avec Google
+              </Button>
+              <Button 
+                size="sm" 
+                className="rounded-full font-bold gap-2 bg-primary"
+                onClick={() => openAddEvent()}
+              >
+                <Plus className="w-4 h-4" />
+                Ajouter un événement
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setViewMode('3day')} className="rounded-full font-bold">
+                Retour vue 3 jours
+              </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-7 border-b bg-muted/10">
@@ -163,28 +328,38 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
             const isCurrentMonth = isSameDay(startOfMonth(day), startOfMonth(currentDate));
 
             return (
-              <div key={idx} className={cn(
-                "border-r border-b p-2 flex flex-col gap-1.5 transition-colors min-h-[100px]",
-                !isCurrentMonth && "bg-muted/10 opacity-30",
-                isTday && "bg-primary/[0.04]"
-              )}>
+              <div 
+                key={idx} 
+                className={cn(
+                  "border-r border-b p-2 flex flex-col gap-1.5 transition-colors min-h-[100px] group",
+                  !isCurrentMonth && "bg-muted/10 opacity-30",
+                  isTday && "bg-primary/[0.04]"
+                )}
+              >
                 <div className="flex justify-between items-center">
-                  <span className={cn(
-                    "text-[10px] font-black w-5 h-5 flex items-center justify-center rounded-full",
-                    isTday ? "bg-primary text-white" : "text-muted-foreground"
-                  )}>
+                  <span 
+                    className={cn(
+                      "text-[10px] font-black w-5 h-5 flex items-center justify-center rounded-full cursor-pointer hover:bg-primary/10",
+                      isTday ? "bg-primary text-white" : "text-muted-foreground"
+                    )}
+                    onClick={() => openAddEvent(day)}
+                  >
                     {format(day, "d")}
                   </span>
                   {dayEvents.length > 0 && <span className="w-1 h-1 bg-primary rounded-full" />}
                 </div>
                 <div className="space-y-1 overflow-hidden">
-                  {dayEvents.slice(0, 3).map(event => (
-                    <div key={event.id} className="text-[8px] font-bold p-1 bg-primary/5 border-l-2 border-primary rounded-sm truncate">
+                  {dayEvents.slice(0, 4).map(event => (
+                    <div 
+                      key={event.id} 
+                      onClick={() => openEditEvent(event)}
+                      className="text-[8px] font-bold p-1 bg-primary/5 border-l-2 border-primary rounded-sm truncate cursor-pointer hover:bg-primary/10 transition-colors"
+                    >
                       {event.titre}
                     </div>
                   ))}
-                  {dayEvents.length > 3 && (
-                    <p className="text-[7px] text-muted-foreground font-bold pl-1">+{dayEvents.length - 3} autres</p>
+                  {dayEvents.length > 4 && (
+                    <p className="text-[7px] text-muted-foreground font-bold pl-1">+{dayEvents.length - 4} autres</p>
                   )}
                 </div>
               </div>
@@ -205,8 +380,76 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
   }
 
   return (
-    <div className="h-full w-full bg-card overflow-hidden">
-      {viewMode === '3day' ? render3DayView() : renderMonthView()}
+    <div className="h-full w-full bg-card overflow-hidden flex flex-col">
+      <div className="flex-1 overflow-hidden">
+        {viewMode === '3day' ? render3DayView() : renderMonthView()}
+      </div>
+
+      <Dialog open={isEventDialogOpen} onOpenChange={setIsEventDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarIcon className="w-5 h-5 text-primary" />
+              {editingEvent ? "Modifier l'événement" : "Nouvel événement"}
+            </DialogTitle>
+            <DialogDescription>
+              Planifiez vos rendez-vous Grow&Go.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="titre">Titre</Label>
+              <Input 
+                id="titre" 
+                value={formTitre} 
+                onChange={(e) => setFormTitre(e.target.value)} 
+                placeholder="Réunion client, Signature..." 
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="debut">Début</Label>
+                <Input 
+                  id="debut" 
+                  type="datetime-local" 
+                  value={formDebut} 
+                  onChange={(e) => setFormDebut(e.target.value)} 
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="fin">Fin</Label>
+                <Input 
+                  id="fin" 
+                  type="datetime-local" 
+                  value={formFin} 
+                  onChange={(e) => setFormFin(e.target.value)} 
+                />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="description">Description (optionnel)</Label>
+              <Textarea 
+                id="description" 
+                value={formDescription} 
+                onChange={(e) => setFormDescription(e.target.value)} 
+                placeholder="Détails de l'événement..."
+                className="min-h-[100px]"
+              />
+            </div>
+          </div>
+          <DialogFooter className="flex justify-between items-center sm:justify-between w-full">
+            {editingEvent && (
+              <Button variant="destructive" size="sm" onClick={handleDeleteEvent} className="gap-2">
+                <Trash2 className="w-4 h-4" /> Supprimer
+              </Button>
+            )}
+            <div className="flex gap-2 ml-auto">
+              <Button variant="outline" onClick={() => setIsEventDialogOpen(false)}>Annuler</Button>
+              <Button onClick={handleSaveEvent} className="bg-primary">Enregistrer</Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
