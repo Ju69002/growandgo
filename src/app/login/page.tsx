@@ -39,31 +39,19 @@ export default function LoginPage() {
     if (!auth || !db) return;
 
     const trimmedId = id.trim();
-    
-    // Vérification de la casse stricte pour JSecchi
-    if (trimmedId.toLowerCase() === 'jsecchi' && trimmedId !== 'JSecchi') {
-      toast({ 
-        variant: "destructive", 
-        title: "Identifiant incorrect", 
-        description: "L'identifiant est sensible à la casse." 
-      });
-      return;
-    }
+    if (!trimmedId) return;
 
     setIsLoading(true);
+    // On normalise l'email en minuscules pour que la connexion soit insensible à la casse de l'ID
     const email = `${trimmedId.toLowerCase()}@growandgo.ai`;
 
     try {
       if (isSignUp) {
-        // Interdire la création d'un JSecchi avec la mauvaise casse
-        if (trimmedId.toLowerCase() === 'jsecchi' && trimmedId !== 'JSecchi') {
-          throw new Error('ID_RESERVED');
-        }
-
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const newUser = userCredential.user;
         
-        const isSuperAdmin = trimmedId === 'JSecchi';
+        // JSecchi est reconnu peu importe la casse (jsecchi, JSECCHI, etc.)
+        const isSuperAdmin = trimmedId.toLowerCase() === 'jsecchi';
         const userRef = doc(db, 'users', newUser.uid);
         
         setDocumentNonBlocking(userRef, {
@@ -74,7 +62,7 @@ export default function LoginPage() {
           isCategoryModifier: isSuperAdmin,
           name: name || trimmedId,
           email: email,
-          loginId: trimmedId // On stocke l'ID exact pour référence
+          loginId: trimmedId.toLowerCase()
         }, { merge: true });
 
         toast({ title: "Compte créé !", description: "Bienvenue dans l'univers Grow&Go." });
@@ -86,9 +74,7 @@ export default function LoginPage() {
     } catch (error: any) {
       let message = "Identifiant ou mot de passe incorrect.";
       
-      if (error.message === 'ID_RESERVED') {
-        message = "Cet identifiant est réservé avec sa casse exacte (JSecchi).";
-      } else if (error.code === 'auth/email-already-in-use') {
+      if (error.code === 'auth/email-already-in-use') {
         message = "Cet identifiant est déjà utilisé.";
       } else if (error.code === 'auth/weak-password') {
         message = "Le mot de passe doit contenir au moins 6 caractères.";
@@ -143,7 +129,7 @@ export default function LoginPage() {
             )}
             
             <div className="space-y-2">
-              <Label htmlFor="id" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Identifiant (Sensible à la casse)</Label>
+              <Label htmlFor="id" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Identifiant</Label>
               <div className="relative">
                 <UserCircle className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
                 <Input 
