@@ -268,7 +268,7 @@ export default function AccountsPage() {
                                     <AlertDialogCancel className="rounded-full font-bold h-11 px-8 border-primary/20">Annuler</AlertDialogCancel>
                                     <AlertDialogAction 
                                       onClick={() => handleDeleteUser(u.uid)}
-                                      className="bg-rose-900 hover:bg-rose-950 text-white rounded-full font-bold h-11 px-8 border-none"
+                                      className="bg-rose-950 hover:bg-rose-950 text-white rounded-full font-bold h-11 px-8 border-none"
                                     >
                                       Confirmer
                                     </AlertDialogAction>
@@ -301,7 +301,7 @@ export default function AccountsPage() {
               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Nom de l'entreprise</Label>
               <Input 
                 value={editingUser?.companyId || ''} 
-                onChange={(e) => setEditingUser(prev => prev ? { ...prev, companyId: e.target.value.toLowerCase().replace(/\s+/g, '-') } : null)}
+                onChange={(e) => setEditingUser(prev => prev ? { ...prev, companyId: e.target.value } : null)}
                 placeholder="Ex: Studio Dubois..."
                 className="rounded-xl border-primary/10 h-12 font-bold"
               />
