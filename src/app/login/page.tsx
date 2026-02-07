@@ -44,14 +44,17 @@ export default function LoginPage() {
     if (!trimmedId) return;
 
     setIsLoading(true);
+    // On utilise l'id en minuscule pour l'email Firebase Auth pour plus de stabilité technique
     const email = `${trimmedId.toLowerCase()}@growandgo.ai`;
 
     try {
       if (isSignUp) {
+        // Tentative d'inscription
         try {
           const userCredential = await createUserWithEmailAndPassword(auth, email, password);
           const newUser = userCredential.user;
           
+          // Seul l'identifiant exact "JSecchi" a les droits de super_admin
           const isSuperAdmin = trimmedId === 'JSecchi';
           
           const userRef = doc(db, 'users', newUser.uid);
@@ -63,11 +66,12 @@ export default function LoginPage() {
             isCategoryModifier: isSuperAdmin,
             name: name || trimmedId,
             email: email,
-            loginId: trimmedId 
+            loginId: trimmedId // On stocke l'ID avec sa casse originale
           });
 
           toast({ title: "Compte créé !", description: "Veuillez maintenant vous connecter." });
           
+          // On déconnecte pour forcer l'utilisateur à passer par l'écran de login
           await signOut(auth);
           setIsSignUp(false);
           setPassword('');
@@ -75,7 +79,7 @@ export default function LoginPage() {
           if (authError.code === 'auth/email-already-in-use') {
             toast({ 
               variant: "destructive", 
-              title: "Compte existant", 
+              title: "Échec", 
               description: "Un compte avec cet identifiant existe déjà dans la base." 
             });
           } else {
@@ -83,19 +87,20 @@ export default function LoginPage() {
           }
         }
       } else {
+        // Tentative de connexion
         try {
           const userCredential = await signInWithEmailAndPassword(auth, email, password);
           const loggedUser = userCredential.user;
 
+          // Une fois authentifié par Firebase, on vérifie la casse dans Firestore
           const userRef = doc(db, 'users', loggedUser.uid);
           const userSnap = await getDoc(userRef);
           
           if (userSnap.exists()) {
             const userData = userSnap.data();
-            // Vérification stricte de la casse demandée par l'utilisateur
+            // Vérification stricte de la casse de l'ID
             if (userData.loginId !== trimmedId) {
               await signOut(auth);
-              // Message générique pour erreur de casse (souhait de l'utilisateur)
               toast({ 
                 variant: "destructive", 
                 title: "Échec", 
@@ -105,7 +110,7 @@ export default function LoginPage() {
               return;
             }
           } else {
-            // Document non trouvé dans la base Firestore
+            // Document profil manquant (ne devrait pas arriver)
             await signOut(auth);
             toast({ 
               variant: "destructive", 
@@ -119,12 +124,14 @@ export default function LoginPage() {
           toast({ title: "Connexion réussie", description: "Chargement de votre espace..." });
           router.push('/');
         } catch (authError: any) {
-          // Gestion des erreurs Firebase Auth (mot de passe faux, etc.)
-          if (authError.code === 'auth/user-not-found' || authError.code === 'auth/invalid-email') {
+          console.error("Auth error:", authError.code);
+          // Gestion simplifiée des erreurs pour l'utilisateur
+          if (authError.code === 'auth/user-not-found' || authError.code === 'auth/invalid-email' || authError.code === 'auth/invalid-credential') {
+            // Note: Firebase renvoie souvent invalid-credential pour ne pas révéler si l'email existe
             toast({ 
               variant: "destructive", 
               title: "Échec", 
-              description: "Identifiant non reconnu." 
+              description: "Identifiant ou mot de passe incorrect." 
             });
           } else {
             toast({ 
@@ -136,11 +143,11 @@ export default function LoginPage() {
         }
       }
     } catch (error: any) {
-      console.error("Auth Error:", error);
+      console.error("Global Auth Error:", error);
       toast({ 
         variant: "destructive", 
         title: "Échec", 
-        description: "Une erreur est survenue." 
+        description: "Une erreur est survenue lors de l'accès à votre compte." 
       });
     } finally {
       setIsLoading(false);
