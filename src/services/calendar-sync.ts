@@ -115,6 +115,7 @@ export async function syncEventToFirestore(
       const existingDate = new Date(existingEvent.derniere_maj || 0).getTime();
       const newDate = new Date(eventData.derniere_maj!).getTime();
 
+      // On ne met à jour que si l'événement externe a été modifié plus récemment
       if (newDate > existingDate) {
         setDocumentNonBlocking(eventRef, eventData, { merge: true });
       }
@@ -131,6 +132,7 @@ export async function syncEventToFirestore(
  */
 export function getSyncTimeRange() {
   const now = new Date();
+  // On récupère 30 jours dans le passé et 365 jours dans le futur
   const timeMin = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
   const timeMax = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString();
   return { timeMin, timeMax };

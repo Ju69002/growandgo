@@ -5,7 +5,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Mail, Calendar as CalendarIcon, Plus, Users, Chrome, Layout, Loader2, Link2, LogIn, AlertTriangle } from 'lucide-react';
+import { Mail, Calendar as CalendarIcon, Plus, Users, Chrome, Layout, Loader2, Link2, LogIn, AlertTriangle, RefreshCw } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser, useAuth } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
 import { CalendarEvent } from '@/lib/types';
@@ -48,7 +48,7 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
         eventDate.getMonth() === date.getMonth() &&
         eventDate.getFullYear() === date.getFullYear()
       );
-    });
+    }).sort((a, b) => new Date(a.debut).getTime() - new Date(b.debut).getTime());
   }, [events, date]);
 
   const handleConnect = async (service: 'google' | 'outlook') => {
@@ -79,7 +79,7 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
         }
       }
 
-      if (!token) throw new Error("Impossible de récupérer le jeton d'accès.");
+      if (!token) throw new Error("Impossible de récupérer le jeton d'accès. Vérifiez vos identifiants.");
 
       toast({
         title: "Synchronisation...",
@@ -102,14 +102,12 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
     } catch (error: any) {
       console.error("Auth/Sync Error:", error);
       
-      let errorMsg = error.message || "Une erreur est survenue.";
+      let errorMsg = error.message || "Une erreur est survenue lors de la synchronisation.";
       
-      // Cas spécifique de l'erreur d'activation dans la console Firebase
+      // Aide au diagnostic spécifique
       if (error.code === 'auth/operation-not-allowed') {
         errorMsg = `Le fournisseur ${service} n'est pas activé dans votre console Firebase (Authentication > Sign-in method).`;
-      } 
-      // Cas de l'API Google non activée
-      else if (errorMsg.includes('Google API Error') || errorMsg.includes('API has not been used')) {
+      } else if (errorMsg.includes('API has not been used') || errorMsg.includes('not enabled')) {
         errorMsg = `L'API ${service === 'google' ? 'Google Calendar' : 'Microsoft Graph'} doit être activée dans votre console Cloud.`;
       }
 
@@ -125,16 +123,20 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
 
   return (
     <div className="flex flex-col lg:flex-row h-full">
-      <div className="w-full lg:w-80 border-r bg-muted/10 p-6 space-y-6">
+      {/* Sidebar de l'agenda */}
+      <div className="w-full lg:w-80 border-r bg-muted/10 p-6 space-y-6 flex flex-col">
         <div className="space-y-4">
-          <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+          <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
             <Link2 className="w-4 h-4" /> Comptes Connectés
           </h3>
           
           <div className="grid gap-3">
             <Button 
               variant={connectedServices.includes('google') ? "outline" : "default"} 
-              className={cn("w-full justify-start h-12 gap-3 transition-all", connectedServices.includes('google') && "border-emerald-500 text-emerald-600 bg-emerald-50/50")}
+              className={cn(
+                "w-full justify-start h-12 gap-3 transition-all font-semibold", 
+                connectedServices.includes('google') && "border-emerald-500 text-emerald-600 bg-emerald-50/50"
+              )}
               onClick={() => handleConnect('google')}
               disabled={isSyncing}
             >
@@ -144,7 +146,10 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
 
             <Button 
               variant={connectedServices.includes('outlook') ? "outline" : "default"}
-              className={cn("w-full justify-start h-12 gap-3 transition-all", connectedServices.includes('outlook') && "border-blue-500 text-blue-600 bg-blue-50/50")}
+              className={cn(
+                "w-full justify-start h-12 gap-3 transition-all font-semibold", 
+                connectedServices.includes('outlook') && "border-blue-500 text-blue-600 bg-blue-50/50"
+              )}
               onClick={() => handleConnect('outlook')}
               disabled={isSyncing}
             >
@@ -154,84 +159,104 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
           </div>
         </div>
 
-        <div className="pt-6 border-t">
+        <div className="pt-6 border-t flex-1">
           <Calendar
             mode="single"
             selected={date}
             onSelect={setDate}
-            className="rounded-xl border bg-card shadow-sm"
+            className="rounded-2xl border bg-card shadow-lg p-3"
             locale={fr}
           />
         </div>
       </div>
 
-      <div className="flex-1 p-8 space-y-8 overflow-y-auto">
-        <div className="flex items-center justify-between">
+      {/* Vue principale de l'agenda */}
+      <div className="flex-1 p-8 space-y-8 overflow-y-auto bg-background/50">
+        <div className="flex items-center justify-between bg-card p-6 rounded-3xl border shadow-sm">
           <div className="space-y-1">
-            <h2 className="text-3xl font-extrabold tracking-tight">
+            <h2 className="text-3xl font-black tracking-tight text-primary">
               {date ? format(date, "EEEE d MMMM", { locale: fr }) : "Planning"}
             </h2>
-            <p className="text-muted-foreground">Calendrier partagé de l'équipe Grow&Go.</p>
+            <p className="text-muted-foreground font-medium">Calendrier partagé de l'équipe Grow&Go.</p>
           </div>
-          <Button size="lg" className="bg-primary shadow-xl hover:scale-105 transition-transform">
-            <Plus className="w-5 h-5 mr-2" /> Nouvel événement
-          </Button>
+          <div className="flex gap-3">
+             {connectedServices.length > 0 && (
+               <Button variant="outline" size="lg" className="rounded-full gap-2" onClick={() => handleConnect(connectedServices[0] as any)}>
+                  <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
+                  Mettre à jour
+               </Button>
+             )}
+            <Button size="lg" className="bg-primary shadow-xl hover:scale-105 transition-all rounded-full px-8">
+              <Plus className="w-5 h-5 mr-2" /> Nouvel événement
+            </Button>
+          </div>
         </div>
 
         <div className="grid gap-6">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center p-20 gap-4">
-              <Loader2 className="w-10 h-10 animate-spin text-primary" />
-              <p className="text-muted-foreground animate-pulse">Récupération des données en temps réel...</p>
+              <Loader2 className="w-12 h-12 animate-spin text-primary opacity-50" />
+              <p className="text-muted-foreground font-medium animate-pulse">Synchronisation avec vos serveurs...</p>
             </div>
           ) : selectedDateEvents.length > 0 ? (
             selectedDateEvents.map((event) => (
-              <Card key={event.id} className="group hover:shadow-lg transition-all border-l-4 border-l-primary overflow-hidden bg-card">
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="flex gap-6">
-                      <div className="w-20 text-center border-r pr-6">
-                        <span className="text-2xl font-black block text-primary">
+              <Card key={event.id} className="group hover:shadow-xl transition-all border-none overflow-hidden bg-card shadow-sm">
+                <CardContent className="p-0 flex">
+                  <div className={cn(
+                    "w-2 bg-primary",
+                    event.source === 'google' ? "bg-emerald-500" : "bg-blue-500"
+                  )} />
+                  <div className="p-6 flex-1 flex items-start justify-between gap-6">
+                    <div className="flex gap-8">
+                      <div className="w-24 text-center border-r pr-8 flex flex-col justify-center">
+                        <span className="text-3xl font-black block text-primary leading-none">
                           {format(new Date(event.debut), "HH:mm")}
                         </span>
-                        <span className="text-[10px] uppercase font-bold text-muted-foreground">Début</span>
+                        <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mt-2">Début</span>
                       </div>
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         <div className="flex items-center gap-2">
                           <Badge variant="secondary" className={cn(
-                            "px-2 py-0 text-[10px] font-bold uppercase",
-                            event.source === 'google' ? "bg-emerald-100 text-emerald-700" : "bg-blue-100 text-blue-700"
+                            "px-2 py-0 text-[10px] font-black uppercase rounded-md border",
+                            event.source === 'google' ? "bg-emerald-50 text-emerald-700 border-emerald-100" : "bg-blue-50 text-blue-700 border-blue-100"
                           )}>
                             {event.source}
                           </Badge>
-                          <h4 className="text-xl font-bold">{event.titre}</h4>
+                          <h4 className="text-2xl font-bold tracking-tight">{event.titre}</h4>
                         </div>
-                        {event.description && <p className="text-sm text-muted-foreground max-w-2xl">{event.description}</p>}
-                        <div className="flex items-center gap-4 pt-2">
-                          <div className="flex items-center text-xs font-semibold text-muted-foreground">
-                            <Users className="w-4 h-4 mr-1.5" />
+                        {event.description && <p className="text-sm text-muted-foreground max-w-2xl line-clamp-2">{event.description}</p>}
+                        <div className="flex items-center gap-6 pt-3">
+                          <div className="flex items-center text-xs font-bold text-muted-foreground/80">
+                            <Users className="w-4 h-4 mr-2 text-primary/40" />
                             {event.attendees?.length || 0} participants
                           </div>
-                          <div className="flex items-center text-xs font-semibold text-muted-foreground">
-                            <CalendarIcon className="w-4 h-4 mr-1.5" />
+                          <div className="flex items-center text-xs font-bold text-muted-foreground/80">
+                            <CalendarIcon className="w-4 h-4 mr-2 text-primary/40" />
                             Fin à {format(new Date(event.fin), "HH:mm")}
                           </div>
                         </div>
                       </div>
                     </div>
+                    <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
+                      <Layout className="w-4 h-4" />
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
             ))
           ) : (
-            <div className="flex flex-col items-center justify-center p-24 border-2 border-dashed rounded-3xl bg-muted/5">
-              <div className="bg-muted p-6 rounded-full mb-6">
-                <LogIn className="w-12 h-12 text-muted-foreground opacity-40" />
+            <div className="flex flex-col items-center justify-center p-32 border-4 border-dashed rounded-[40px] bg-muted/5">
+              <div className="bg-muted p-8 rounded-full mb-8 shadow-inner">
+                <LogIn className="w-16 h-16 text-muted-foreground opacity-30" />
               </div>
-              <h3 className="text-xl font-bold mb-2">Connectez vos calendriers</h3>
-              <p className="text-muted-foreground text-center max-w-xs">
-                Cliquez sur les boutons à gauche pour synchroniser vos comptes Google ou Outlook et voir vos rendez-vous ici.
+              <h3 className="text-2xl font-black mb-3">Votre agenda est prêt</h3>
+              <p className="text-muted-foreground text-center max-w-md font-medium">
+                Connectez vos comptes Google ou Outlook dans la barre latérale pour importer automatiquement vos rendez-vous dans l'écosystème Grow&Go.
               </p>
+              <div className="mt-8 flex gap-4">
+                 <Button variant="outline" className="rounded-full h-12 px-6" onClick={() => handleConnect('google')}>Connecter Google</Button>
+                 <Button variant="outline" className="rounded-full h-12 px-6" onClick={() => handleConnect('outlook')}>Connecter Outlook</Button>
+              </div>
             </div>
           )}
         </div>
