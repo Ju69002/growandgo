@@ -74,10 +74,8 @@ export default function AccountsPage() {
 
   const { data: myProfile, isLoading: isProfileLoading } = useDoc<User>(userProfileRef);
   
-  // On ne considère Super Admin que si le profil est chargé ET que le rôle correspond
   const isSuperAdmin = !isProfileLoading && myProfile?.role === 'super_admin';
 
-  // On attend d'être certain d'être Super Admin pour lancer les requêtes sensibles
   const usersQuery = useMemoFirebase(() => {
     if (!db || !isSuperAdmin) return null;
     return query(collection(db, 'users'));
@@ -212,7 +210,10 @@ export default function AccountsPage() {
                         <TableCell>
                           <div className="flex items-center gap-2 group">
                             <Building2 className="w-3.5 h-3.5 text-muted-foreground" />
-                            <span className="text-sm font-semibold">{companyDisplayName}</span>
+                            <div className="flex flex-col">
+                              <span className="text-sm font-semibold">{companyDisplayName}</span>
+                              <span className="text-[8px] text-muted-foreground opacity-50 uppercase tracking-tighter">ID: {u.companyId}</span>
+                            </div>
                             {u.role !== 'super_admin' && (
                               <Button 
                                 variant="ghost" 
@@ -312,7 +313,7 @@ export default function AccountsPage() {
           </DialogHeader>
           <div className="py-4 space-y-4">
             <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Nom de l'entreprise</Label>
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Nom ou ID de l'entreprise</Label>
               <Input 
                 value={editingUser?.companyId || ''} 
                 onChange={(e) => setEditingUser(prev => prev ? { ...prev, companyId: e.target.value } : null)}

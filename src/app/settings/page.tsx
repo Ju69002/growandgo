@@ -35,6 +35,7 @@ export default function SettingsPage() {
   const { toast } = useToast();
 
   const [userName, setUserName] = useState('');
+  const [userEmail, setUserEmail] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
@@ -55,6 +56,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (profile?.name) setUserName(profile.name);
+    if (profile?.email) setUserEmail(profile.email);
     if (company?.name) setCompanyName(company.name);
   }, [profile, company]);
 
@@ -62,9 +64,12 @@ export default function SettingsPage() {
     if (!db || !user || !companyId) return;
     setIsSaving(true);
 
-    // Mise à jour du profil utilisateur
+    // Mise à jour du profil utilisateur (Nom et Email de récupération)
     const userDocRef = doc(db, 'users', user.uid);
-    updateDocumentNonBlocking(userDocRef, { name: userName });
+    updateDocumentNonBlocking(userDocRef, { 
+      name: userName,
+      email: userEmail 
+    });
 
     // Mise à jour de l'entreprise si le rôle le permet
     const isPatronOrSuper = profile?.role === 'admin' || profile?.role === 'super_admin';
@@ -152,12 +157,20 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              <div className="space-y-2 opacity-60">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">E-mail de récupération</Label>
-                <div className="flex items-center gap-2 h-12 px-4 bg-muted rounded-xl text-sm font-bold border border-black/5">
-                  <Mail className="w-4 h-4" />
-                  {profile?.email}
+              <div className="space-y-2">
+                <Label htmlFor="uemail" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">E-mail de récupération</Label>
+                <div className="relative">
+                  <Mail className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
+                  <Input 
+                    id="uemail"
+                    type="email"
+                    value={userEmail}
+                    onChange={(e) => setUserEmail(e.target.value)}
+                    placeholder="Ex: jean.dupont@gmail.com"
+                    className="rounded-xl border-primary/10 h-12 pl-11 font-bold"
+                  />
                 </div>
+                <p className="text-[9px] text-muted-foreground ml-1">Cet e-mail est utilisé pour réinitialiser votre mot de passe en cas d'oubli.</p>
               </div>
             </CardContent>
           </Card>
