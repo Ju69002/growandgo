@@ -271,73 +271,92 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
 
   const render3DayView = () => {
     const days = [currentDate, addDays(currentDate, 1), addDays(currentDate, 2)];
-    // On définit la plage 06:00 - 20:00
     const startHour = 6;
     const endHour = 20;
+    const hourHeight = isCompact ? 50 : 60; // Hauteur par heure
+    const totalHeight = (endHour - startHour + 1) * hourHeight;
+    const hours = Array.from({ length: endHour - startHour + 1 }, (_, i) => startHour + i);
 
     return (
-      <div className={cn("grid h-full bg-card", isCompact ? "grid-cols-3 gap-1 p-2" : "grid-cols-1 md:grid-cols-3 p-8 min-h-[600px] gap-6")}>
-        {days.map((day, idx) => {
-          const dayEvents = getEventsForDay(day);
-          const isTday = isToday(day);
-          return (
-            <div key={idx} className={cn("flex flex-col gap-2 rounded-2xl border transition-all overflow-hidden relative", isTday ? "bg-primary/[0.03] border-primary/20" : "bg-card shadow-sm border-muted/60")}>
-              <div className={cn("flex flex-col border-b bg-muted/5 px-4 py-2", isCompact && "px-2 py-1 items-center text-center")}>
-                <div className="flex justify-between items-center w-full">
-                  <p className="text-[9px] font-black uppercase tracking-wider text-primary/60">{isTday ? "Auj." : format(day, "EEE", { locale: fr })}</p>
-                  {!isCompact && <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openAddEvent(day)}><Plus className="w-3 h-3" /></Button>}
-                </div>
-                <h3 className={cn("font-black text-primary leading-none", isCompact ? "text-xs" : "text-lg")}>{format(day, "d MMM", { locale: fr })}</h3>
+      <div className={cn("flex flex-col h-full bg-card overflow-hidden", !isCompact && "p-8")}>
+        {/* Header avec les dates */}
+        <div className="flex mb-2 flex-shrink-0">
+          <div className={cn("flex-shrink-0", isCompact ? "w-10" : "w-16")} />
+          <div className="flex-1 grid grid-cols-3 gap-2">
+            {days.map((day, idx) => (
+              <div key={idx} className="text-center">
+                <p className="text-[10px] font-black uppercase tracking-wider text-primary/60">{isToday(day) ? "Auj." : format(day, "EEE", { locale: fr })}</p>
+                <h3 className={cn("font-black text-primary leading-none", isCompact ? "text-xs" : "text-base")}>{format(day, "d MMM", { locale: fr })}</h3>
               </div>
-              
-              <div className="flex-1 relative min-h-[250px] overflow-y-auto overflow-x-hidden custom-scrollbar">
-                {/* Ligne temporelle visuelle 06h - 20h */}
-                <div className="absolute inset-0 pointer-events-none opacity-[0.05]">
-                  {Array.from({ length: endHour - startHour + 1 }).map((_, i) => (
-                    <div key={i} className="border-b h-[40px] flex items-center px-2">
-                      <span className="text-[7px] font-bold">{(startHour + i).toString().padStart(2, '0')}:00</span>
-                    </div>
-                  ))}
-                </div>
+            ))}
+          </div>
+        </div>
 
-                <div className="relative z-10 p-2 space-y-1">
-                  {dayEvents.length > 0 ? dayEvents.map(event => {
-                    const start = parseISO(event.debut);
-                    const duration = differenceInMinutes(parseISO(event.fin), start);
-                    return (
-                      <div 
-                        key={event.id} 
-                        onClick={() => openEditEvent(event)} 
-                        className={cn(
-                          "bg-white rounded-lg border-l-4 border-primary shadow-sm hover:ring-2 hover:ring-primary/20 transition-all cursor-pointer p-2",
-                          isCompact ? "p-1.5" : "p-3"
-                        )}
-                      >
-                        <div className="flex items-center justify-between mb-0.5">
-                          <p className="text-[8px] font-black text-primary/80">
-                            {event.debut ? format(parseISO(event.debut), "HH:mm") : "--:--"}
-                          </p>
-                          {event.source === 'google' && <Chrome className="w-2.5 h-2.5 text-primary opacity-30" />}
-                        </div>
-                        <h4 className={cn("font-bold leading-tight line-clamp-2 text-foreground", isCompact ? "text-[9px]" : "text-sm")}>
-                          {event.titre}
-                        </h4>
-                        {!isCompact && duration > 0 && (
-                          <p className="text-[8px] text-muted-foreground mt-1 font-medium">{duration} min</p>
-                        )}
-                      </div>
-                    );
-                  }) : (
-                    <div className="h-full min-h-[200px] flex flex-col items-center justify-center opacity-20 text-center">
-                      <CalendarDays className="w-8 h-8 mb-2" />
-                      <p className="text-[8px] font-black uppercase tracking-widest">Libre</p>
-                    </div>
-                  )}
+        {/* Grille horaire et événements */}
+        <div className="relative flex-1 overflow-hidden">
+          <div className="flex relative h-full" style={{ height: `${totalHeight}px` }}>
+            {/* Colonne des heures à gauche */}
+            <div className={cn("flex-shrink-0 flex flex-col border-r bg-muted/5", isCompact ? "w-10" : "w-16")}>
+              {hours.map((h) => (
+                <div key={h} className="relative flex items-start justify-center border-b last:border-0" style={{ height: `${hourHeight}px` }}>
+                  <span className={cn("font-black text-muted-foreground/40 mt-1", isCompact ? "text-[8px]" : "text-[10px]")}>{h}:00</span>
                 </div>
-              </div>
+              ))}
             </div>
-          );
-        })}
+
+            {/* Colonnes des jours */}
+            <div className="flex-1 grid grid-cols-3 gap-2 relative bg-muted/[0.02]">
+              {days.map((day, idx) => {
+                const dayEvents = getEventsForDay(day);
+                const isTday = isToday(day);
+                
+                return (
+                  <div key={idx} className={cn("relative h-full border-r last:border-r-0", isTday && "bg-primary/[0.03]")}>
+                    {/* Lignes de fond */}
+                    {hours.map((h) => (
+                      <div key={h} className="border-b last:border-0 w-full" style={{ height: `${hourHeight}px` }} />
+                    ))}
+
+                    {/* Événements positionnés */}
+                    {dayEvents.map(event => {
+                      const start = parseISO(event.debut);
+                      const end = parseISO(event.fin);
+                      const eventStartHour = start.getHours();
+                      const eventStartMin = start.getMinutes();
+                      const duration = differenceInMinutes(end, start);
+
+                      // Ne pas afficher si hors plage 6h-20h
+                      if (eventStartHour < startHour && (eventStartHour + duration/60) <= startHour) return null;
+                      if (eventStartHour > endHour) return null;
+
+                      const topPos = Math.max(0, (eventStartHour - startHour) * hourHeight + (eventStartMin / 60 * hourHeight));
+                      const eventHeight = Math.min(totalHeight - topPos, (duration / 60) * hourHeight);
+
+                      return (
+                        <div 
+                          key={event.id} 
+                          onClick={() => openEditEvent(event)} 
+                          className={cn(
+                            "absolute left-0 right-0 mx-1 z-20 rounded-lg border-l-4 shadow-md hover:ring-2 hover:ring-primary/20 transition-all cursor-pointer p-1.5 overflow-hidden flex flex-col",
+                            event.source === 'google' ? "bg-white border-primary" : "bg-amber-50 border-amber-500"
+                          )}
+                          style={{ top: `${topPos}px`, height: `${eventHeight}px`, minHeight: '24px' }}
+                        >
+                          <p className={cn("font-black text-primary/80 shrink-0", isCompact ? "text-[8px]" : "text-[10px]")}>
+                            {format(start, "HH:mm")}
+                          </p>
+                          <h4 className={cn("font-bold leading-tight line-clamp-2 text-foreground", isCompact ? "text-[10px]" : "text-sm")}>
+                            {event.titre}
+                          </h4>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       </div>
     );
   };
