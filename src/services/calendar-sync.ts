@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * @fileOverview Service de synchronisation des calendriers Google.
+ * @fileOverview Service de synchronisation bidirectionnelle des calendriers Google.
  */
 
 import { CalendarEvent } from '@/lib/types';
@@ -10,7 +10,6 @@ import { setDocumentNonBlocking } from '@/firebase';
 
 /**
  * Appelle l'API Google pour récupérer les événements.
- * Utilise les paramètres timeMin et timeMax pour limiter la recherche.
  */
 export async function fetchGoogleEvents(token: string, timeMin: string, timeMax: string) {
   try {
@@ -23,12 +22,10 @@ export async function fetchGoogleEvents(token: string, timeMin: string, timeMax:
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       const message = errorData.error?.message || response.statusText;
-      console.error("Google API Detail Error:", errorData);
       throw new Error(`Erreur API Google (${response.status}): ${message}`);
     }
     
     const data = await response.json();
-    console.log("Events fetched from Google:", data.items?.length || 0);
     return data.items || [];
   } catch (error) {
     console.error("fetchGoogleEvents failed:", error);
@@ -37,10 +34,44 @@ export async function fetchGoogleEvents(token: string, timeMin: string, timeMax:
 }
 
 /**
+ * Envoie un événement local vers Google Calendar.
+ */
+export async function pushEventToGoogle(token: string, event: CalendarEvent) {
+  try {
+    const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events`;
+    
+    const googleEvent = {
+      summary: event.titre,
+      description: event.description || '',
+      start: { dateTime: event.debut },
+      end: { dateTime: event.fin },
+    };
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(googleEvent)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`Erreur export Google: ${errorData.error?.message || response.statusText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("pushEventToGoogle failed:", error);
+    throw error;
+  }
+}
+
+/**
  * Mappe un événement Google Calendar vers le schéma Grow&Go.
  */
 export function mapGoogleEvent(googleEvent: any, companyId: string, userId: string): Partial<CalendarEvent> {
-  // Gestion des événements toute la journée vs horaires précis
   const start = googleEvent.start?.dateTime || googleEvent.start?.date || new Date().toISOString();
   const end = googleEvent.end?.dateTime || googleEvent.end?.date || new Date().toISOString();
 
@@ -67,15 +98,12 @@ export async function syncEventToFirestore(
   eventData: Partial<CalendarEvent>
 ) {
   if (!eventData.id_externe || !eventData.companyId) return;
-
   const eventRef = doc(db, 'companies', eventData.companyId, 'events', eventData.id_externe);
-  
-  // On force l'écriture avec merge: true pour mettre à jour les infos existantes
   setDocumentNonBlocking(eventRef, eventData, { merge: true });
 }
 
 /**
- * Calcul des bornes temporelles ISO (période de 30 jours autour d'aujourd'hui).
+ * Calcul des bornes temporelles ISO.
  */
 export function getSyncTimeRange() {
   const now = new Date();

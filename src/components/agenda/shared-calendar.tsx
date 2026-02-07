@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -19,7 +18,9 @@ import {
   RefreshCw,
   Trash2,
   Clock,
-  X
+  X,
+  UploadCloud,
+  DownloadCloud
 } from 'lucide-react';
 import { 
   useFirestore, 
@@ -33,7 +34,7 @@ import {
 } from '@/firebase';
 import { collection, query, doc } from 'firebase/firestore';
 import { CalendarEvent, User } from '@/lib/types';
-import { format, isSameDay, parseISO, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isToday, startOfWeek, endOfWeek, isValid, setHours, setMinutes } from 'date-fns';
+import { format, isSameDay, parseISO, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isToday, startOfWeek, endOfWeek, isValid } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import {
@@ -49,7 +50,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from '@/hooks/use-toast';
 import { signInWithGoogleCalendar } from '@/firebase/non-blocking-login';
-import { getSyncTimeRange, fetchGoogleEvents, mapGoogleEvent, syncEventToFirestore } from '@/services/calendar-sync';
+import { getSyncTimeRange, fetchGoogleEvents, mapGoogleEvent, syncEventToFirestore, pushEventToGoogle } from '@/services/calendar-sync';
 
 interface SharedCalendarProps {
   companyId: string;
@@ -60,7 +61,7 @@ interface SharedCalendarProps {
 export function SharedCalendar({ companyId, isCompact = false, defaultView = '3day' }: SharedCalendarProps) {
   const [viewMode, setViewMode] = React.useState<'3day' | 'month'>(isCompact ? '3day' : defaultView);
   const [currentDate, setCurrentDate] = React.useState(new Date());
-  const [isSyncing, setIsSyncing] = React.useState(false);
+  const [isSyncing, setIsSyncing] = React.useState<'idle' | 'importing' | 'exporting'>('idle');
   const [isEventDialogOpen, setIsEventDialogOpen] = React.useState(false);
   const [editingEvent, setEditingEvent] = React.useState<CalendarEvent | null>(null);
   
@@ -104,44 +105,64 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
   const nextMonth = () => setCurrentDate(addDays(endOfMonth(currentDate), 1));
   const prevMonth = () => setCurrentDate(addDays(startOfMonth(currentDate), -1));
 
-  const handleManualSync = async () => {
-    if (!db || !companyId || !user || !auth) {
-      toast({ variant: "destructive", title: "Erreur", description: "Services non disponibles." });
-      return;
-    }
-    
-    setIsSyncing(true);
+  const handleImportFromGoogle = async () => {
+    if (!db || !companyId || !user || !auth) return;
+    setIsSyncing('importing');
     try {
-      toast({ title: "Synchronisation...", description: "Connexion à Google Calendar en cours." });
       const result = await signInWithGoogleCalendar(auth);
       if (!result.token) throw new Error("Accès refusé.");
-
       const { timeMin, timeMax } = getSyncTimeRange();
       const externalEvents = await fetchGoogleEvents(result.token, timeMin, timeMax);
-
       for (const extEvent of externalEvents) {
         const mapped = mapGoogleEvent(extEvent, companyId, user.uid);
         await syncEventToFirestore(db, mapped);
       }
-
-      toast({ title: "Synchronisation terminée !", description: `${externalEvents.length} événements mis à jour.` });
+      toast({ title: "Importation terminée !", description: `${externalEvents.length} événements synchronisés.` });
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Échec de synchronisation", description: error.message });
+      toast({ variant: "destructive", title: "Échec d'importation", description: error.message });
     } finally {
-      setIsSyncing(false);
+      setIsSyncing('idle');
+    }
+  };
+
+  const handleExportToGoogle = async () => {
+    if (!db || !companyId || !user || !auth || !events) return;
+    const localEvents = events.filter(e => e.source === 'local');
+    if (localEvents.length === 0) {
+      toast({ title: "Rien à exporter", description: "Tous vos événements sont déjà synchronisés." });
+      return;
+    }
+
+    setIsSyncing('exporting');
+    try {
+      const result = await signInWithGoogleCalendar(auth);
+      if (!result.token) throw new Error("Accès refusé.");
+      
+      let count = 0;
+      for (const event of localEvents) {
+        const googleResult = await pushEventToGoogle(result.token!, event);
+        if (googleResult.id) {
+          // Marquer comme synchronisé localement
+          const eventRef = doc(db, 'companies', companyId, 'events', event.id);
+          setDocumentNonBlocking(eventRef, { source: 'google', id_externe: googleResult.id }, { merge: true });
+          count++;
+        }
+      }
+      toast({ title: "Exportation réussie !", description: `${count} événements ajoutés à votre Google Calendar.` });
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Échec d'exportation", description: error.message });
+    } finally {
+      setIsSyncing('idle');
     }
   };
 
   const openAddEvent = (date?: Date) => {
     setEditingEvent(null);
     const targetDate = date || new Date();
-    // Format YYYY-MM-DDThh:mm
     const dateStr = format(targetDate, "yyyy-MM-dd'T'HH:mm");
-    const endStr = format(addDays(targetDate, 0), "yyyy-MM-dd'T'HH:mm"); // Default 1h later simplified
-    
     setFormTitre('');
     setFormDebut(dateStr);
-    setFormFin(endStr);
+    setFormFin(dateStr);
     setFormDescription('');
     setIsEventDialogOpen(true);
   };
@@ -184,7 +205,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
         ...eventData,
         id_externe: Math.random().toString(36).substring(7)
       });
-      toast({ title: "Événement créé" });
+      toast({ title: "Événement créé localement" });
     }
     setIsEventDialogOpen(false);
   };
@@ -197,68 +218,32 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
     setIsEventDialogOpen(false);
   };
 
-  // --- RENDU VUE 3 JOURS ---
   const render3DayView = () => {
     const days = [currentDate, addDays(currentDate, 1), addDays(currentDate, 2)];
-
     return (
-      <div className={cn(
-        "grid gap-4 h-full",
-        isCompact ? "grid-cols-3 gap-2 p-3" : "grid-cols-1 md:grid-cols-3 p-8 min-h-[600px]"
-      )}>
+      <div className={cn("grid gap-4 h-full", isCompact ? "grid-cols-3 gap-2 p-3" : "grid-cols-1 md:grid-cols-3 p-8 min-h-[600px]")}>
         {days.map((day, idx) => {
           const dayEvents = getEventsForDay(day);
           const isTday = isToday(day);
-
           return (
-            <div key={idx} className={cn(
-              "flex flex-col gap-2 rounded-2xl border transition-all overflow-hidden",
-              isTday ? "bg-primary/[0.03] border-primary/20" : "bg-card shadow-sm",
-              isCompact ? "p-2 border-none" : "p-6"
-            )}>
+            <div key={idx} className={cn("flex flex-col gap-2 rounded-2xl border transition-all overflow-hidden", isTday ? "bg-primary/[0.03] border-primary/20" : "bg-card shadow-sm", isCompact ? "p-2 border-none" : "p-6")}>
               <div className={cn("flex flex-col border-b pb-1 mb-1", isCompact && "items-center text-center")}>
                 <div className="flex justify-between items-center">
-                  <p className="text-[8px] font-black uppercase tracking-wider text-primary/60">
-                    {isTday ? "Auj." : format(day, "EEE", { locale: fr })}
-                  </p>
-                  {!isCompact && (
-                    <Button variant="ghost" size="icon" className="h-6 w-6 text-primary/40 hover:text-primary" onClick={() => openAddEvent(day)}>
-                      <Plus className="w-3 h-3" />
-                    </Button>
-                  )}
+                  <p className="text-[8px] font-black uppercase tracking-wider text-primary/60">{isTday ? "Auj." : format(day, "EEE", { locale: fr })}</p>
+                  {!isCompact && <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openAddEvent(day)}><Plus className="w-3 h-3" /></Button>}
                 </div>
-                <h3 className={cn("font-black text-primary", isCompact ? "text-xs" : "text-xl")}>
-                  {format(day, "d MMM", { locale: fr })}
-                </h3>
+                <h3 className={cn("font-black text-primary", isCompact ? "text-xs" : "text-xl")}>{format(day, "d MMM", { locale: fr })}</h3>
               </div>
-              
               <div className="flex-1 space-y-1.5 overflow-y-auto pr-0.5 custom-scrollbar">
-                {dayEvents.length > 0 ? (
-                  dayEvents.slice(0, isCompact ? 3 : 10).map(event => (
-                    <div 
-                      key={event.id} 
-                      onClick={() => !isCompact && openEditEvent(event)}
-                      className={cn(
-                        "bg-white rounded-lg border-l-4 border-primary shadow-sm hover:border-l-primary/50 transition-colors cursor-pointer",
-                        isCompact ? "p-1.5" : "p-3"
-                      )}
-                    >
-                      <div className="flex items-center justify-between mb-0.5">
-                        <p className="text-[7px] font-black text-primary/70">
-                          {event.debut ? format(parseISO(event.debut), "HH:mm") : "--:--"}
-                        </p>
-                        {event.source === 'google' && <Chrome className="w-2 h-2 text-primary opacity-30" />}
-                      </div>
-                      <h4 className={cn("font-bold leading-tight text-foreground line-clamp-2", isCompact ? "text-[8px]" : "text-xs")}>
-                        {event.titre}
-                      </h4>
+                {dayEvents.length > 0 ? dayEvents.map(event => (
+                  <div key={event.id} onClick={() => !isCompact && openEditEvent(event)} className={cn("bg-white rounded-lg border-l-4 border-primary shadow-sm hover:border-l-primary/50 transition-colors cursor-pointer", isCompact ? "p-1.5" : "p-3")}>
+                    <div className="flex items-center justify-between mb-0.5">
+                      <p className="text-[7px] font-black text-primary/70">{event.debut ? format(parseISO(event.debut), "HH:mm") : "--:--"}</p>
+                      {event.source === 'google' && <Chrome className="w-2 h-2 text-primary opacity-30" />}
                     </div>
-                  ))
-                ) : (
-                  <div className="h-full flex flex-col items-center justify-center opacity-20 text-center py-4">
-                    <p className="text-[7px] font-black uppercase tracking-widest">Aucun RDV</p>
+                    <h4 className={cn("font-bold leading-tight text-foreground line-clamp-2", isCompact ? "text-[8px]" : "text-xs")}>{event.titre}</h4>
                   </div>
-                )}
+                )) : <div className="h-full flex flex-col items-center justify-center opacity-20 text-center py-4"><p className="text-[7px] font-black uppercase tracking-widest">Aucun RDV</p></div>}
               </div>
             </div>
           );
@@ -267,100 +252,57 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
     );
   };
 
-  // --- RENDU VUE MENSUELLE ---
   const renderMonthView = () => {
     const monthStart = startOfMonth(currentDate);
     const monthEnd = endOfMonth(currentDate);
     const calendarStart = startOfWeek(monthStart, { locale: fr });
     const calendarEnd = endOfWeek(monthEnd, { locale: fr });
-
     const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
 
     return (
       <div className="bg-card flex flex-col h-full animate-in zoom-in-95 duration-300">
-        <div className="p-6 border-b bg-muted/5 flex items-center justify-between">
+        <div className="p-6 border-b bg-muted/5 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-6">
-            <h2 className="text-3xl font-black tracking-tighter text-primary uppercase">
-              {format(currentDate, "MMMM yyyy", { locale: fr })}
-            </h2>
+            <h2 className="text-3xl font-black tracking-tighter text-primary uppercase">{format(currentDate, "MMMM yyyy", { locale: fr })}</h2>
             <div className="flex bg-background border rounded-full p-1 shadow-sm">
               <Button variant="ghost" size="icon" className="rounded-full h-8 w-8" onClick={prevMonth}><ChevronLeft className="w-4 h-4" /></Button>
               <Button variant="ghost" size="icon" className="rounded-full h-8 w-8" onClick={nextMonth}><ChevronRight className="w-4 h-4" /></Button>
             </div>
           </div>
-          <div className="flex gap-3">
-             <Button 
-                variant="outline" 
-                size="sm" 
-                className="rounded-full font-bold gap-2"
-                onClick={handleManualSync}
-                disabled={isSyncing}
-              >
-                {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                Synchroniser avec Google
+          <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" className="rounded-full font-bold gap-2" onClick={handleImportFromGoogle} disabled={isSyncing !== 'idle'}>
+                {isSyncing === 'importing' ? <Loader2 className="w-4 h-4 animate-spin" /> : <DownloadCloud className="w-4 h-4" />}
+                Importer de Google
               </Button>
-              <Button 
-                size="sm" 
-                className="rounded-full font-bold gap-2 bg-primary"
-                onClick={() => openAddEvent()}
-              >
-                <Plus className="w-4 h-4" />
-                Ajouter un événement
+              <Button variant="outline" size="sm" className="rounded-full font-bold gap-2 border-primary/30 text-primary" onClick={handleExportToGoogle} disabled={isSyncing !== 'idle'}>
+                {isSyncing === 'exporting' ? <Loader2 className="w-4 h-4 animate-spin" /> : <UploadCloud className="w-4 h-4" />}
+                Exporter vers Google
               </Button>
-              <Button variant="outline" size="sm" onClick={() => setViewMode('3day')} className="rounded-full font-bold">
-                Retour vue 3 jours
+              <Button size="sm" className="rounded-full font-bold gap-2 bg-primary" onClick={() => openAddEvent()}>
+                <Plus className="w-4 h-4" /> Ajouter
               </Button>
+              <Button variant="ghost" size="sm" onClick={() => setViewMode('3day')} className="rounded-full font-bold">Retour</Button>
           </div>
         </div>
-
         <div className="grid grid-cols-7 border-b bg-muted/10">
-          {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map(d => (
-            <div key={d} className="py-3 text-center text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-              {d}
-            </div>
-          ))}
+          {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map(d => <div key={d} className="py-3 text-center text-[10px] font-black uppercase tracking-widest text-muted-foreground">{d}</div>)}
         </div>
-
         <div className="flex-1 grid grid-cols-7 auto-rows-fr min-h-[500px]">
           {days.map((day, idx) => {
             const dayEvents = getEventsForDay(day);
             const isTday = isToday(day);
             const isCurrentMonth = isSameDay(startOfMonth(day), startOfMonth(currentDate));
-
             return (
-              <div 
-                key={idx} 
-                className={cn(
-                  "border-r border-b p-2 flex flex-col gap-1.5 transition-colors min-h-[100px] group",
-                  !isCurrentMonth && "bg-muted/10 opacity-30",
-                  isTday && "bg-primary/[0.04]"
-                )}
-              >
+              <div key={idx} className={cn("border-r border-b p-2 flex flex-col gap-1.5 transition-colors min-h-[100px] group", !isCurrentMonth && "bg-muted/10 opacity-30", isTday && "bg-primary/[0.04]")}>
                 <div className="flex justify-between items-center">
-                  <span 
-                    className={cn(
-                      "text-[10px] font-black w-5 h-5 flex items-center justify-center rounded-full cursor-pointer hover:bg-primary/10",
-                      isTday ? "bg-primary text-white" : "text-muted-foreground"
-                    )}
-                    onClick={() => openAddEvent(day)}
-                  >
-                    {format(day, "d")}
-                  </span>
-                  {dayEvents.length > 0 && <span className="w-1 h-1 bg-primary rounded-full" />}
+                  <span className={cn("text-[10px] font-black w-5 h-5 flex items-center justify-center rounded-full cursor-pointer hover:bg-primary/10", isTday ? "bg-primary text-white" : "text-muted-foreground")} onClick={() => openAddEvent(day)}>{format(day, "d")}</span>
                 </div>
                 <div className="space-y-1 overflow-hidden">
                   {dayEvents.slice(0, 4).map(event => (
-                    <div 
-                      key={event.id} 
-                      onClick={() => openEditEvent(event)}
-                      className="text-[8px] font-bold p-1 bg-primary/5 border-l-2 border-primary rounded-sm truncate cursor-pointer hover:bg-primary/10 transition-colors"
-                    >
+                    <div key={event.id} onClick={() => openEditEvent(event)} className={cn("text-[8px] font-bold p-1 border-l-2 rounded-sm truncate cursor-pointer transition-colors", event.source === 'google' ? "bg-primary/5 border-primary hover:bg-primary/10" : "bg-amber-50 border-amber-500 hover:bg-amber-100")}>
                       {event.titre}
                     </div>
                   ))}
-                  {dayEvents.length > 4 && (
-                    <p className="text-[7px] text-muted-foreground font-bold pl-1">+{dayEvents.length - 4} autres</p>
-                  )}
                 </div>
               </div>
             );
@@ -370,79 +312,24 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
     );
   };
 
-  if (isLoading) {
-    return (
-      <div className="h-full w-full flex flex-col items-center justify-center gap-4 py-12">
-        <Loader2 className="w-8 h-8 animate-spin text-primary opacity-30" />
-        <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground animate-pulse">Chargement de l'agenda...</p>
-      </div>
-    );
-  }
+  if (isLoading) return <div className="h-full w-full flex flex-col items-center justify-center gap-4 py-12"><Loader2 className="w-8 h-8 animate-spin text-primary opacity-30" /><p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground animate-pulse">Chargement...</p></div>;
 
   return (
     <div className="h-full w-full bg-card overflow-hidden flex flex-col">
-      <div className="flex-1 overflow-hidden">
-        {viewMode === '3day' ? render3DayView() : renderMonthView()}
-      </div>
-
+      <div className="flex-1 overflow-hidden">{viewMode === '3day' ? render3DayView() : renderMonthView()}</div>
       <Dialog open={isEventDialogOpen} onOpenChange={setIsEventDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <CalendarIcon className="w-5 h-5 text-primary" />
-              {editingEvent ? "Modifier l'événement" : "Nouvel événement"}
-            </DialogTitle>
-            <DialogDescription>
-              Planifiez vos rendez-vous Grow&Go.
-            </DialogDescription>
-          </DialogHeader>
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><CalendarIcon className="w-5 h-5 text-primary" />{editingEvent ? "Modifier" : "Nouvel événement"}</DialogTitle><DialogDescription>Détails de votre rendez-vous Grow&Go.</DialogDescription></DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="titre">Titre</Label>
-              <Input 
-                id="titre" 
-                value={formTitre} 
-                onChange={(e) => setFormTitre(e.target.value)} 
-                placeholder="Réunion client, Signature..." 
-              />
-            </div>
+            <div className="grid gap-2"><Label htmlFor="titre">Titre</Label><Input id="titre" value={formTitre} onChange={(e) => setFormTitre(e.target.value)} placeholder="Réunion, Signature..." /></div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="debut">Début</Label>
-                <Input 
-                  id="debut" 
-                  type="datetime-local" 
-                  value={formDebut} 
-                  onChange={(e) => setFormDebut(e.target.value)} 
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="fin">Fin</Label>
-                <Input 
-                  id="fin" 
-                  type="datetime-local" 
-                  value={formFin} 
-                  onChange={(e) => setFormFin(e.target.value)} 
-                />
-              </div>
+              <div className="grid gap-2"><Label htmlFor="debut">Début</Label><Input id="debut" type="datetime-local" value={formDebut} onChange={(e) => setFormDebut(e.target.value)} /></div>
+              <div className="grid gap-2"><Label htmlFor="fin">Fin</Label><Input id="fin" type="datetime-local" value={formFin} onChange={(e) => setFormFin(e.target.value)} /></div>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="description">Description (optionnel)</Label>
-              <Textarea 
-                id="description" 
-                value={formDescription} 
-                onChange={(e) => setFormDescription(e.target.value)} 
-                placeholder="Détails de l'événement..."
-                className="min-h-[100px]"
-              />
-            </div>
+            <div className="grid gap-2"><Label htmlFor="description">Description (optionnel)</Label><Textarea id="description" value={formDescription} onChange={(e) => setFormDescription(e.target.value)} placeholder="Détails..." className="min-h-[100px]" /></div>
           </div>
           <DialogFooter className="flex justify-between items-center sm:justify-between w-full">
-            {editingEvent && (
-              <Button variant="destructive" size="sm" onClick={handleDeleteEvent} className="gap-2">
-                <Trash2 className="w-4 h-4" /> Supprimer
-              </Button>
-            )}
+            {editingEvent && <Button variant="destructive" size="sm" onClick={handleDeleteEvent} className="gap-2"><Trash2 className="w-4 h-4" /> Supprimer</Button>}
             <div className="flex gap-2 ml-auto">
               <Button variant="outline" onClick={() => setIsEventDialogOpen(false)}>Annuler</Button>
               <Button onClick={handleSaveEvent} className="bg-primary">Enregistrer</Button>

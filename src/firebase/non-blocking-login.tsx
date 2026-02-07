@@ -24,11 +24,12 @@ export function initiateEmailSignIn(authInstance: Auth, email: string, password:
 }
 
 /** 
- * Sign in with Google and request Calendar scopes.
+ * Sign in with Google and request Calendar scopes (Read & Write).
  */
 export async function signInWithGoogleCalendar(authInstance: Auth) {
   const provider = new GoogleAuthProvider();
-  provider.addScope('https://www.googleapis.com/auth/calendar.readonly');
+  // We need 'calendar.events' to be able to create events, not just 'readonly'
+  provider.addScope('https://www.googleapis.com/auth/calendar.events');
   try {
     const result = await signInWithPopup(authInstance, provider);
     const credential = GoogleAuthProvider.credentialFromResult(result);
