@@ -31,7 +31,7 @@ import {
 } from '@/firebase';
 import { collection, query, doc } from 'firebase/firestore';
 import { CalendarEvent } from '@/lib/types';
-import { format, isSameDay, parseISO, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isToday, startOfWeek, endOfWeek, isValid, addMinutes, setHours, setMinutes, eachHourOfInterval, startOfDay, endOfDay, differenceInMinutes } from 'date-fns';
+import { format, isSameDay, parseISO, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isToday, startOfWeek, endOfWeek, isValid, addMinutes, setHours, setMinutes, eachHourOfInterval, startOfDay, endOfDay, differenceInMinutes, setSeconds, setMilliseconds } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import {
@@ -61,6 +61,26 @@ interface SharedCalendarProps {
   companyId: string;
   isCompact?: boolean;
   defaultView?: '3day' | 'month';
+}
+
+/**
+ * Arrondit une date à la tranche de 10 minutes la plus proche.
+ */
+function roundToNearest10(date: Date): Date {
+  const roundedDate = new Date(date);
+  const minutes = roundedDate.getMinutes();
+  const roundedMinutes = Math.round(minutes / 10) * 10;
+  
+  if (roundedMinutes === 60) {
+    roundedDate.setHours(roundedDate.getHours() + 1);
+    roundedDate.setMinutes(0);
+  } else {
+    roundedDate.setMinutes(roundedMinutes);
+  }
+  
+  roundedDate.setSeconds(0);
+  roundedDate.setMilliseconds(0);
+  return roundedDate;
 }
 
 export function SharedCalendar({ companyId, isCompact = false, defaultView = '3day' }: SharedCalendarProps) {
@@ -163,8 +183,11 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
         if (minutesDelta !== 0 && db && companyId) {
           const oldStart = parseISO(event.debut);
           const oldEnd = parseISO(event.fin);
-          const newStart = addMinutes(oldStart, minutesDelta);
-          const newEnd = addMinutes(oldEnd, minutesDelta);
+          
+          // Calcul du nouvel horaire avec arrondi forcé à 10min
+          let newStart = roundToNearest10(addMinutes(oldStart, minutesDelta));
+          const duration = differenceInMinutes(oldEnd, oldStart);
+          const newEnd = addMinutes(newStart, duration);
 
           const eventRef = doc(db, 'companies', companyId, 'events', event.id);
           updateDocumentNonBlocking(eventRef, {
@@ -239,15 +262,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
 
   const openAddEvent = (date?: Date) => {
     setEditingEvent(null);
-    const targetDate = date || new Date();
-    const minutesVal = targetDate.getMinutes();
-    const roundedMinutes = Math.round(minutesVal / 10) * 10;
-    if (roundedMinutes >= 60) {
-      targetDate.setHours(targetDate.getHours() + 1);
-      targetDate.setMinutes(0);
-    } else {
-      targetDate.setMinutes(roundedMinutes);
-    }
+    const targetDate = roundToNearest10(date || new Date());
     
     setFormTitre('');
     setFormDate(format(targetDate, 'yyyy-MM-dd'));
@@ -260,8 +275,8 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
 
   const openEditEvent = (event: CalendarEvent) => {
     setEditingEvent(event);
-    const startDate = parseISO(event.debut);
-    const endDate = parseISO(event.fin);
+    const startDate = roundToNearest10(parseISO(event.debut));
+    const endDate = roundToNearest10(parseISO(event.fin));
     
     setFormTitre(event.titre);
     setFormDate(format(startDate, 'yyyy-MM-dd'));
@@ -283,7 +298,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
     }
 
     const [year, month, day] = formDate.split('-').map(Number);
-    const startDate = new Date(year, month - 1, day, parseInt(formHour), parseInt(formMinute));
+    const startDate = roundToNearest10(new Date(year, month - 1, day, parseInt(formHour), parseInt(formMinute)));
     const endDate = addMinutes(startDate, parseInt(selectedDuration));
 
     const eventData: Partial<CalendarEvent> = {
