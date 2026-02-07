@@ -112,9 +112,9 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
   const db = useFirestore();
   const { toast } = useToast();
 
-  const startHour = 6;
+  const startHour = 8;
   const endHour = 20;
-  const hourHeight = isCompact ? 50 : 60;
+  const hourHeight = isCompact ? 45 : 55;
 
   const eventsQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
@@ -184,7 +184,6 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
           const oldStart = parseISO(event.debut);
           const oldEnd = parseISO(event.fin);
           
-          // Calcul du nouvel horaire avec arrondi forcé à 10min
           let newStart = roundToNearest10(addMinutes(oldStart, minutesDelta));
           const duration = differenceInMinutes(oldEnd, oldStart);
           const newEnd = addMinutes(newStart, duration);
