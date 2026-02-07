@@ -1,3 +1,4 @@
+
 'use client';
 
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
@@ -27,7 +28,7 @@ export default function NotificationsPage() {
   }, [db, user]);
 
   const { data: profile } = useDoc<User>(userRef);
-  const companyId = profile?.companyId || 'default-company';
+  const companyId = profile?.companyId;
 
   const pendingDocsQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
@@ -50,7 +51,7 @@ export default function NotificationsPage() {
         </div>
 
         <div className="grid gap-4">
-          {isLoading ? (
+          {!companyId || isLoading ? (
             Array(3).fill(0).map((_, i) => (
               <Card key={i} className="animate-pulse">
                 <CardContent className="h-24 bg-muted" />

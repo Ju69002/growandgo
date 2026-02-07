@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Search, Bell, UserCircle, ShieldCheck, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
@@ -15,7 +16,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useFirestore, useUser, useDoc, useMemoFirebase, updateDocumentNonBlocking, useCollection } from '@/firebase';
-import { doc, collection, query, where, limit, orderBy } from 'firebase/firestore';
+import { doc, collection, query, where, limit } from 'firebase/firestore';
 import { User, BusinessDocument, DocumentStatus } from '@/lib/types';
 import Link from 'next/link';
 
@@ -36,7 +37,7 @@ export function Header() {
   }, [db, user]);
 
   const { data: profile } = useDoc<User>(userRef);
-  const companyId = profile?.companyId || 'default-company';
+  const companyId = profile?.companyId;
 
   const notificationsQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
@@ -92,7 +93,11 @@ export function Header() {
           <DropdownMenuContent align="end" className="w-80 p-0">
             <DropdownMenuLabel className="p-4 border-b">Notifications ({unreadCount})</DropdownMenuLabel>
             <div className="max-h-80 overflow-y-auto">
-              {notifications && notifications.length > 0 ? (
+              {!companyId ? (
+                <div className="p-8 text-center text-muted-foreground text-sm">
+                  Initialisation...
+                </div>
+              ) : notifications && notifications.length > 0 ? (
                 notifications.map((notif) => {
                   const Icon = statusIcons[notif.status] || Clock;
                   return (

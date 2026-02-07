@@ -10,25 +10,6 @@ service cloud.firestore {
      * This ruleset implements a multi-tenant architecture where data is segregated by Company. 
      * Authorization is centered around the User's profile, which links them to a specific 
      * Company and assigns a Role (super_admin, admin, employee).
-     * 
-     * Data Structure:
-     * - /users/{userId}: Private user profiles containing role and company affinity.
-     * - /companies/{companyId}: Top-level company configuration.
-     * - /companies/{companyId}/categories: Company-specific UI modules and AI settings.
-     * - /companies/{companyId}/documents: Company-specific document storage.
-     * - /companies/{companyId}/events: Shared calendar events.
-     * 
-     * Key Security Decisions:
-     * 1. Authorization Independence: While the reasoning suggests avoiding get(), standard 
-     *    Firestore multi-tenancy requires fetching the User document to verify their 
-     *    companyId and role. This is the most secure way to prevent cross-tenant access.
-     * 2. Role-Based Access: Admins/Super-admins have full write access to company settings 
-     *    and categories. Employees have restricted read/write access based on visibility flags.
-     * 3. Structural Segregation: Documents are nested under companies to ensure that 
-     *    a list request for one company's documents can never leak data from another.
-     * 4. Prototyping Flexibility: Logic enforces "Who" can access data and "Relational Integrity" 
-     *    (e.g., matching company IDs), but does not strictly validate every data type or 
-     *    optional field to allow for schema iteration.
      */
 
     // --- GLOBAL HELPER FUNCTIONS ---
@@ -61,87 +42,44 @@ service cloud.firestore {
 
     // --- COLLECTION RULES ---
 
-    /**
-     * @description Rules for User profiles. Users can manage their own profile.
-     * @path /users/{userId}
-     * @allow (create) if auth.uid matches document ID.
-     * @deny (read) if user is trying to read another user's profile.
-     * @principle Ownership and Self-Creation.
-     */
     match /users/{userId} {
       allow get: if isOwner(userId);
-      allow list: if false; // Users should not be able to list all users
+      allow list: if false;
       allow create: if isOwner(userId);
       allow update: if isOwner(userId);
       allow delete: if isOwner(userId);
     }
 
-    /**
-     * @description Rules for Company profiles. Access restricted to company members.
-     * @path /companies/{companyId}
-     * @allow (get) if user belongs to the company.
-     * @deny (update) if user is an employee (Admin/Super-admin only).
-     * @principle Shared Access with Role-Based writes.
-     */
     match /companies/{companyId} {
       allow get: if belongsToCompany(companyId);
-      allow list: if false; // Prevent listing all companies in the system
+      allow list: if false;
       allow create: if isAdmin();
       allow update: if belongsToCompany(companyId) && isAdmin();
       allow delete: if belongsToCompany(companyId) && hasRole('super_admin');
     }
 
-    /**
-     * @description Rules for Categories. Governs tiles on the home screen.
-     * @path /companies/{companyId}/categories/{categoryId}
-     * @allow (list) if user belongs to the company.
-     * @deny (get) if category is hidden and user is an employee.
-     * @principle Hierarchical segregation and Role-based visibility.
-     */
     match /companies/{companyId}/categories/{categoryId} {
-      // Employees can only see categories marked as visible to them
-      allow get: if belongsToCompany(companyId) && (isAdmin() || request.resource.data.visibleToEmployees == true);
+      allow get: if belongsToCompany(companyId) && (isAdmin() || resource.data.visibleToEmployees == true);
       allow list: if belongsToCompany(companyId); 
-      
-      // Relational integrity: ensure the category is created with the correct companyId
-      allow create: if belongsToCompany(companyId) && isAdmin() 
-                    && request.resource.data.companyId == companyId;
-      
+      allow create: if belongsToCompany(companyId) && isAdmin() && request.resource.data.companyId == companyId;
       allow update: if belongsToCompany(companyId) && isAdmin();
       allow delete: if belongsToCompany(companyId) && isAdmin();
     }
 
-    /**
-     * @description Rules for Documents. Restricted by role and category.
-     * @path /companies/{companyId}/documents/{documentId}
-     * @allow (create) if user belongs to the company.
-     * @deny (get) if user is employee and document is in restricted category (finance/rh).
-     * @principle Shared access with specific data-driven restrictions.
-     */
     match /companies/{companyId}/documents/{documentId} {
-      // Logic: Admins see everything. Employees see all unless it belongs to restricted categories.
       allow get: if belongsToCompany(companyId) && (
                     isAdmin() || 
-                    (request.resource.data.categoryId != 'finance' && request.resource.data.categoryId != 'rh')
+                    (resource.data.categoryId != 'finance' && resource.data.categoryId != 'rh')
                   );
-      
       allow list: if belongsToCompany(companyId);
-      
-      // Prototyping: Allow any member to create docs, but check company alignment
       allow create: if belongsToCompany(companyId);
-      
       allow update: if belongsToCompany(companyId) && (
                       isAdmin() || 
-                      (request.resource.data.categoryId != 'finance' && request.resource.data.categoryId != 'rh')
+                      (resource.data.categoryId != 'finance' && resource.data.categoryId != 'rh')
                     );
-      
       allow delete: if belongsToCompany(companyId) && isAdmin();
     }
 
-    /**
-     * @description Rules for Calendar Events. Shared access within the company.
-     * @path /companies/{companyId}/events/{eventId}
-     */
     match /companies/{companyId}/events/{eventId} {
       allow read, write: if belongsToCompany(companyId);
     }

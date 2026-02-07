@@ -1,3 +1,4 @@
+
 'use client';
 
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
@@ -77,7 +78,7 @@ export default function CategoryPage() {
   }, [db, user]);
 
   const { data: profile } = useDoc<User>(userProfileRef);
-  const companyId = profile?.companyId || 'default-company';
+  const companyId = profile?.companyId;
 
   const categoriesQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
@@ -87,7 +88,7 @@ export default function CategoryPage() {
   const { data: allCategories } = useCollection<Category>(categoriesQuery);
 
   const categoryRef = useMemoFirebase(() => {
-    if (!db) return null;
+    if (!db || !companyId) return null;
     return doc(db, 'companies', companyId, 'categories', categoryId);
   }, [db, categoryId, companyId]);
 
@@ -176,11 +177,11 @@ export default function CategoryPage() {
             </Link>
             <div className="flex items-center gap-3">
               <h1 className="text-3xl font-bold tracking-tight text-primary">
-                {isCatLoading ? 'Chargement...' : (category?.label || 'Catégorie')}
+                {isCatLoading || !companyId ? 'Chargement...' : (category?.label || 'Catégorie')}
               </h1>
             </div>
           </div>
-          {!isAgenda && (
+          {!isAgenda && companyId && (
             <div className="flex gap-3">
               <Button size="lg" className="bg-primary hover:bg-primary/90 shadow-lg" onClick={() => fileInputRef.current?.click()}>
                 <FileUp className="w-5 h-5 mr-2" /> Importer un document / photo
@@ -189,7 +190,12 @@ export default function CategoryPage() {
           )}
         </div>
 
-        {isAgenda ? (
+        {!companyId ? (
+          <div className="flex flex-col items-center justify-center p-20 gap-4">
+            <Loader2 className="w-12 h-12 animate-spin text-primary opacity-50" />
+            <p className="text-muted-foreground font-medium animate-pulse">Initialisation de votre espace...</p>
+          </div>
+        ) : isAgenda ? (
           <div className="w-full bg-background min-h-[80vh]">
             <SharedCalendar companyId={companyId} />
           </div>
