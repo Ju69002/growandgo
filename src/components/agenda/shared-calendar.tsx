@@ -5,7 +5,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Mail, Calendar as CalendarIcon, Plus, Users, Chrome, Layout, Loader2, Link2, LogIn, AlertTriangle } from 'lucide-react';
+import { Mail, Calendar as CalendarIcon, Plus, Users, Chrome, Layout, Loader2, Link2, LogIn } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser, useAuth } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
 import { CalendarEvent } from '@/lib/types';
@@ -213,9 +213,6 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
                         </div>
                       </div>
                     </div>
-                    <Button variant="ghost" size="icon" className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-all">
-                      <Mail className="w-5 h-5" />
-                    </Button>
                   </div>
                 </CardContent>
               </Card>
