@@ -119,8 +119,8 @@ export default function AccountsPage() {
     const userRef = doc(db, 'users', editingUser.uid);
     updateDocumentNonBlocking(userRef, { companyId: editingUser.companyId });
     toast({ 
-      title: "Affiliation modifiée", 
-      description: `${editingUser.name} est désormais rattaché à l'ID : ${editingUser.companyId}` 
+      title: "Entreprise mise à jour", 
+      description: `${editingUser.name} est désormais rattaché à : ${editingUser.companyId}` 
     });
     setEditingUser(null);
   };
@@ -146,7 +146,7 @@ export default function AccountsPage() {
               <UserCog className="w-10 h-10" />
               Comptes Utilisateurs
             </h1>
-            <p className="text-muted-foreground font-medium">Gestion individuelle des accès et des affiliations par entreprise.</p>
+            <p className="text-muted-foreground font-medium">Gestion individuelle des accès et des entreprises.</p>
           </div>
           <Badge variant="outline" className="px-4 py-1 border-primary/20 text-primary font-bold">
             {allUsers?.length || 0} PROFILS ACTIFS
@@ -171,7 +171,7 @@ export default function AccountsPage() {
                 <TableHeader className="bg-muted/50">
                   <TableRow>
                     <TableHead className="w-[200px] font-black uppercase text-[10px] tracking-widest pl-8">Utilisateur</TableHead>
-                    <TableHead className="font-black uppercase text-[10px] tracking-widest">Entreprise (ID)</TableHead>
+                    <TableHead className="font-black uppercase text-[10px] tracking-widest">Entreprise</TableHead>
                     <TableHead className="font-black uppercase text-[10px] tracking-widest">Rôle</TableHead>
                     <TableHead className="font-black uppercase text-[10px] tracking-widest">ID Connexion</TableHead>
                     <TableHead className="text-right font-black uppercase text-[10px] tracking-widest pr-8">Actions</TableHead>
@@ -198,10 +198,7 @@ export default function AccountsPage() {
                         <TableCell>
                           <div className="flex items-center gap-2 group">
                             <Building2 className="w-3.5 h-3.5 text-muted-foreground" />
-                            <div className="flex flex-col">
-                              <span className="text-sm font-semibold">{companyDisplayName}</span>
-                              <span className="text-[9px] font-mono opacity-50">ID: {u.companyId}</span>
-                            </div>
+                            <span className="text-sm font-semibold">{companyDisplayName}</span>
                             {u.role !== 'super_admin' && (
                               <Button 
                                 variant="ghost" 
@@ -294,21 +291,20 @@ export default function AccountsPage() {
       <Dialog open={!!editingUser} onOpenChange={(open) => !open && setEditingUser(null)}>
         <DialogContent className="rounded-[2rem] border-none shadow-2xl max-w-sm">
           <DialogHeader>
-            <DialogTitle className="text-xl font-black uppercase tracking-tighter">Modifier l'Affiliation</DialogTitle>
+            <DialogTitle className="text-xl font-black uppercase tracking-tighter">Modifier l'Entreprise</DialogTitle>
             <DialogDescription className="text-xs">
-              Modifiez l'ID d'entreprise pour <strong>{editingUser?.name}</strong>. Cela permet de le déplacer ou de l'isoler individuellement.
+              Mettez à jour le nom de l'entreprise associée à <strong>{editingUser?.name}</strong>.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
             <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">ID Entreprise (Slug)</Label>
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Nom de l'entreprise</Label>
               <Input 
                 value={editingUser?.companyId || ''} 
                 onChange={(e) => setEditingUser(prev => prev ? { ...prev, companyId: e.target.value.toLowerCase().replace(/\s+/g, '-') } : null)}
-                placeholder="ex: studio-dubois"
-                className="rounded-xl border-primary/10 h-12 font-mono font-bold"
+                placeholder="Ex: Studio Dubois..."
+                className="rounded-xl border-primary/10 h-12 font-bold"
               />
-              <p className="text-[9px] text-muted-foreground italic">L'ID doit être unique pour chaque nouveau groupe d'utilisateurs.</p>
             </div>
           </div>
           <DialogFooter>
