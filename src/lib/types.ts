@@ -25,6 +25,7 @@ export interface User {
   isCategoryModifier: boolean; // Droit accordé par le Super Admin pour modifier les tuiles
   name: string;
   email: string;
+  loginId: string; // Identifiant utilisé pour la connexion (sensible à la casse)
   calendarTokens?: {
     google_refresh_token?: string;
   };

@@ -7,9 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { useAuth, useFirestore, setDocumentNonBlocking, useUser } from '@/firebase';
+import { useAuth, useFirestore, useUser } from '@/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Lock, UserCircle, UserPlus, Eye, EyeOff } from 'lucide-react';
 import Image from 'next/image';
@@ -44,21 +44,18 @@ export default function LoginPage() {
     if (!trimmedId) return;
 
     setIsLoading(true);
-    // L'email est utilisé comme support technique (Firebase Auth)
     const email = `${trimmedId.toLowerCase()}@growandgo.ai`;
 
     try {
       if (isSignUp) {
-        // Tentative de création de compte
         try {
           const userCredential = await createUserWithEmailAndPassword(auth, email, password);
           const newUser = userCredential.user;
           
-          // Seul l'identifiant exact "JSecchi" devient Super Admin
           const isSuperAdmin = trimmedId === 'JSecchi';
           
           const userRef = doc(db, 'users', newUser.uid);
-          setDocumentNonBlocking(userRef, {
+          await setDoc(userRef, {
             uid: newUser.uid,
             companyId: isSuperAdmin ? 'growandgo-hq' : 'default-company',
             role: isSuperAdmin ? 'super_admin' : 'employee',
@@ -66,12 +63,11 @@ export default function LoginPage() {
             isCategoryModifier: isSuperAdmin,
             name: name || trimmedId,
             email: email,
-            loginId: trimmedId // On stocke la casse EXACTE choisie à l'inscription
-          }, { merge: true });
+            loginId: trimmedId 
+          });
 
-          toast({ title: "Compte créé !", description: "Vous pouvez maintenant vous connecter." });
+          toast({ title: "Compte créé !", description: "Veuillez maintenant vous connecter." });
           
-          // Une fois inscrit, on déconnecte et on renvoie vers le formulaire de connexion
           await signOut(auth);
           setIsSignUp(false);
           setPassword('');
@@ -79,7 +75,7 @@ export default function LoginPage() {
           if (authError.code === 'auth/email-already-in-use') {
             toast({ 
               variant: "destructive", 
-              title: "Erreur d'inscription", 
+              title: "Compte existant", 
               description: "Un compte avec cet identifiant existe déjà dans la base." 
             });
           } else {
@@ -87,28 +83,25 @@ export default function LoginPage() {
           }
         }
       } else {
-        // Tentative de connexion
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         const loggedUser = userCredential.user;
 
-        // VERIFICATION STRICTE de la casse de l'identifiant via Firestore
         const userRef = doc(db, 'users', loggedUser.uid);
         const userSnap = await getDoc(userRef);
         
         if (userSnap.exists()) {
           const userData = userSnap.data();
-          // Comparaison stricte (Case Sensitive)
           if (userData.loginId !== trimmedId) {
             await signOut(auth);
             throw new Error('invalid-case');
           }
         } else {
-          // Si le document n'existe pas encore (cas rare), on déconnecte par sécurité
+          // Document non trouvé, l'utilisateur a peut-être un compte auth mais pas de profil
           await signOut(auth);
           throw new Error('no-profile');
         }
         
-        toast({ title: "Connexion réussie", description: `Ravi de vous revoir.` });
+        toast({ title: "Connexion réussie", description: "Chargement de votre espace..." });
         router.push('/');
       }
     } catch (error: any) {
@@ -138,7 +131,7 @@ export default function LoginPage() {
           <div>
             <CardTitle className="text-2xl font-bold text-[#1E4D3B] uppercase tracking-tighter">Grow&Go Design Studio</CardTitle>
             <CardDescription className="text-[#1E4D3B]/60 font-medium">
-              {isSignUp ? "Créez votre compte personnel." : "Veuillez vous identifier pour accéder à vos dossiers."}
+              {isSignUp ? "Créez votre accès personnel." : "Authentification requise pour vos dossiers."}
             </CardDescription>
           </div>
         </CardHeader>
@@ -224,7 +217,7 @@ export default function LoginPage() {
                   setPassword('');
                 }}
               >
-                {isSignUp ? "Déjà un compte ? Se connecter" : "Pas encore de compte ? S'inscrire"}
+                {isSignUp ? "Déjà inscrit ? Se connecter" : "Nouveau ? Créer un compte"}
               </Button>
             </div>
           </form>
