@@ -79,11 +79,14 @@ export function CategoryTiles({ isAdminMode }: CategoryTilesProps) {
     );
   }
 
-  const sortedCategories = [...(categories || [])].sort((a, b) => {
-    if (a.type === 'standard' && b.type !== 'standard') return -1;
-    if (a.type !== 'standard' && b.type === 'standard') return 1;
-    return a.label.localeCompare(b.label);
-  });
+  // On filtre 'agenda' car il est maintenant affiché dans une tuile dédiée en haut du dashboard
+  const sortedCategories = [...(categories || [])]
+    .filter(cat => cat.id !== 'agenda')
+    .sort((a, b) => {
+      if (a.type === 'standard' && b.type !== 'standard') return -1;
+      if (a.type !== 'standard' && b.type === 'standard') return 1;
+      return a.label.localeCompare(b.label);
+    });
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">

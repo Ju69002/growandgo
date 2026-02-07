@@ -62,12 +62,6 @@ const DEFAULT_CATEGORIES = [
     subCategories: ['Contrats Travail', 'Fiches de Paie', 'Mutuelle & Prévoyance', 'Candidatures']
   },
   { 
-    id: 'agenda', 
-    label: 'Agenda', 
-    aiInstructions: 'Organisation du planning équipe.',
-    subCategories: ['Réunions', 'Planning Équipe', 'Déplacements']
-  },
-  { 
     id: 'signatures', 
     label: 'Signatures', 
     aiInstructions: 'Suivi des signatures de contrats.',
@@ -104,7 +98,6 @@ export default function Home() {
   const { data: profile, isLoading: isProfileLoading } = useDoc<User>(userProfileRef);
   const companyId = profile?.companyId;
 
-  // Fetch pending tasks for the summary (weekly view metaphor)
   const pendingTasksQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
     return query(
@@ -217,10 +210,7 @@ export default function Home() {
           </div>
         </header>
 
-        {/* RECAP SECTION: TWO CARDS GRID */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          
-          {/* WEEKLY TASKS TILE WITH SYNC BUTTON */}
           <Card className="border-none shadow-md overflow-hidden bg-card h-full flex flex-col">
             <CardHeader className="pb-4 border-b flex flex-row items-center justify-between space-y-0">
               <CardTitle className="text-lg font-bold flex items-center gap-2">
@@ -270,7 +260,6 @@ export default function Home() {
             </CardContent>
           </Card>
 
-          {/* AGENDA 3-DAYS TILE WITH MAXIMIZE BUTTON */}
           <Card className="border-none shadow-md overflow-hidden bg-card h-full relative group flex flex-col">
             <CardHeader className="pb-2 border-b flex flex-row items-center justify-between space-y-0 bg-muted/5">
               <CardTitle className="text-lg font-bold flex items-center gap-2">
@@ -295,7 +284,6 @@ export default function Home() {
           </Card>
         </div>
 
-        {/* CATEGORY TILES SECTION */}
         <div className="pt-4">
           <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
             <FileText className="w-5 h-5 text-primary" />
@@ -305,7 +293,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* FULL CALENDAR DIALOG */}
       <Dialog open={isCalendarFull} onOpenChange={setIsCalendarFull}>
         <DialogContent className="max-w-[95vw] w-full h-[90vh] p-0 overflow-hidden bg-background border-none shadow-2xl">
           <div className="sr-only">
