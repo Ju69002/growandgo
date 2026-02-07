@@ -17,7 +17,8 @@ import {
   CheckCircle2,
   CalendarDays,
   Info,
-  X
+  X,
+  Users
 } from 'lucide-react';
 import { 
   useFirestore, 
@@ -57,6 +58,7 @@ import { useToast } from '@/hooks/use-toast';
 import { signInWithGoogleCalendar } from '@/firebase/non-blocking-login';
 import { getSyncTimeRange, fetchGoogleEvents, mapGoogleEvent, syncEventToFirestore, pushEventToGoogle } from '@/services/calendar-sync';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
 
 interface SharedCalendarProps {
   companyId: string;
@@ -64,9 +66,6 @@ interface SharedCalendarProps {
   defaultView?: '3day' | 'month';
 }
 
-/**
- * Arrondit une date à la tranche de 10 minutes la plus proche.
- */
 function roundToNearest10(date: Date): Date {
   const roundedDate = new Date(date);
   const minutes = roundedDate.getMinutes();
@@ -93,14 +92,12 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
   const [selectedDay, setSelectedDay] = React.useState<Date | null>(null);
   const [editingEvent, setEditingEvent] = React.useState<CalendarEvent | null>(null);
   
-  // Drag and Drop State
   const [draggedEventId, setDraggedEventId] = React.useState<string | null>(null);
   const [dragOffset, setDragOffset] = React.useState(0);
   const isDraggingRef = React.useRef(false);
 
   const [openSelect, setOpenSelect] = React.useState<'duration' | 'hour' | 'minute' | null>(null);
 
-  // Form State
   const [formTitre, setFormTitre] = React.useState('');
   const [formDate, setFormDate] = React.useState(format(new Date(), 'yyyy-MM-dd'));
   const [formHour, setFormHour] = React.useState('09');
@@ -115,7 +112,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
 
   const startHour = 8;
   const endHour = 20;
-  const hourHeight = isCompact ? 40 : 55;
+  const hourHeight = isCompact ? 40 : 60;
 
   const eventsQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
@@ -156,7 +153,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
   };
 
   const handleMouseDown = (e: React.MouseEvent, event: CalendarEvent) => {
-    if (e.button !== 0) return; // Only left click
+    if (e.button !== 0) return;
     
     const startY = e.clientY;
     const snapPixels = (10 / 60) * hourHeight;
@@ -222,7 +219,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
         const mapped = mapGoogleEvent(extEvent, companyId, user.uid);
         await syncEventToFirestore(db, mapped);
       }
-      toast({ title: "Importation terminée !", description: `${externalEvents.length} événements synchronisés.` });
+      toast({ title: "Importation terminée !", description: `${externalEvents.length} événements synchronisés pour toute l'équipe.` });
     } catch (error: any) {
       toast({ variant: "destructive", title: "Échec d'importation", description: error.message });
     } finally {
@@ -252,7 +249,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
           count++;
         }
       }
-      toast({ title: "Exportation réussie !", description: `${count} événements ajoutés à votre Google Calendar.` });
+      toast({ title: "Exportation réussie !", description: `${count} événements ajoutés à votre Google Calendar personnel.` });
     } catch (error: any) {
       toast({ variant: "destructive", title: "Échec d'exportation", description: error.message });
     } finally {
@@ -323,7 +320,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
         ...eventData,
         id_externe: Math.random().toString(36).substring(7)
       });
-      toast({ title: "Événement créé" });
+      toast({ title: "Événement créé pour l'équipe" });
     }
     setIsEventDialogOpen(false);
   };
@@ -354,21 +351,24 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
 
     return (
       <div className={cn("flex flex-col h-full bg-card overflow-hidden", !isCompact && "p-8")}>
-        <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/5 mb-2">
-           <div className="flex gap-1">
-             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setCurrentDate(addDays(currentDate, -1))}><ChevronLeft className="w-3 h-3" /></Button>
-             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setCurrentDate(addDays(currentDate, 1))}><ChevronRight className="w-3 h-3" /></Button>
+        <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/5 mb-2 rounded-t-2xl">
+           <div className="flex items-center gap-4">
+             <div className="flex gap-1">
+               <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setCurrentDate(addDays(currentDate, -1))}><ChevronLeft className="w-3 h-3" /></Button>
+               <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setCurrentDate(addDays(currentDate, 1))}><ChevronRight className="w-3 h-3" /></Button>
+             </div>
+             {!isCompact && (
+               <Badge variant="outline" className="h-6 border-primary/20 text-primary font-bold gap-1.5 uppercase text-[9px]">
+                  <Users className="w-3 h-3" /> Agenda d'Équipe
+               </Badge>
+             )}
            </div>
            <div className="flex gap-2">
               <Button variant="ghost" size="sm" className="h-6 text-[9px] font-black uppercase px-2 gap-1" onClick={handleImportFromGoogle} disabled={isSyncing !== 'idle'}>
                 {isSyncing === 'importing' ? <Loader2 className="w-3 h-3 animate-spin" /> : <DownloadCloud className="w-3 h-3" />}
-                Import
+                Sync Google
               </Button>
-              <Button variant="ghost" size="sm" className="h-6 text-[9px] font-black uppercase px-2 gap-1 text-primary" onClick={handleExportToGoogle} disabled={isSyncing !== 'idle'}>
-                {isSyncing === 'exporting' ? <Loader2 className="w-3 h-3 animate-spin" /> : <UploadCloud className="w-3 h-3" />}
-                Export
-              </Button>
-              <Button size="sm" className="h-6 text-[9px] font-black uppercase px-2 bg-primary" onClick={() => openAddEvent()}>
+              <Button size="sm" className="h-6 text-[9px] font-black uppercase px-2 bg-primary rounded-lg" onClick={() => openAddEvent()}>
                 <Plus className="w-3 h-3" />
               </Button>
            </div>
@@ -379,7 +379,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
           <div className="flex-1 grid grid-cols-3 gap-2">
             {days.map((day, idx) => (
               <div key={idx} className="text-center">
-                <p className="text-[10px] font-black uppercase tracking-wider text-primary/60">{isToday(day) ? "Auj." : format(day, "EEE", { locale: fr })}</p>
+                <p className="text-[10px] font-black uppercase tracking-wider text-primary/40">{isToday(day) ? "Auj." : format(day, "EEE", { locale: fr })}</p>
                 <h3 className={cn("font-black text-primary leading-none", isCompact ? "text-xs" : "text-base")}>{format(day, "d MMM", { locale: fr })}</h3>
               </div>
             ))}
@@ -391,7 +391,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
             <div className={cn("flex-shrink-0 flex flex-col border-r bg-muted/5", isCompact ? "w-10" : "w-16")}>
               {hours.map((h) => (
                 <div key={h} className="relative flex items-start justify-center border-b last:border-0" style={{ height: `${hourHeight}px` }}>
-                  <span className={cn("font-black text-muted-foreground/40 mt-1", isCompact ? "text-[8px]" : "text-[10px]")}>{h}:00</span>
+                  <span className={cn("font-black text-muted-foreground/30 mt-1", isCompact ? "text-[8px]" : "text-[10px]")}>{h}:00</span>
                 </div>
               ))}
             </div>
@@ -426,7 +426,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
                           key={event.id} 
                           onMouseDown={(e) => handleMouseDown(e, event)}
                           className={cn(
-                            "absolute left-0 right-0 mx-1 z-10 rounded-lg border-l-4 shadow-md hover:ring-2 hover:ring-primary/20 transition-all cursor-pointer p-1.5 overflow-hidden flex flex-col select-none",
+                            "absolute left-0 right-0 mx-1 z-10 rounded-xl border-l-4 shadow-md hover:ring-2 hover:ring-primary/20 transition-all cursor-pointer p-2 overflow-hidden flex flex-col select-none",
                             event.source === 'google' ? "bg-white border-primary" : "bg-amber-50 border-amber-500",
                             isCurrentDragged && "z-30 opacity-90 scale-[1.02] shadow-2xl ring-2 ring-primary border-dashed"
                           )}
@@ -436,10 +436,13 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
                             minHeight: '20px' 
                           }}
                         >
-                          <p className={cn("font-black text-primary/80 shrink-0", isCompact ? "text-[8px]" : "text-[10px]")}>
-                            {format(isCurrentDragged ? addMinutes(start, (dragOffset/hourHeight)*60) : start, "HH:mm")}
-                          </p>
-                          <h4 className={cn("font-bold leading-tight line-clamp-2 text-foreground", isCompact ? "text-[9px]" : "text-sm")}>
+                          <div className="flex items-center justify-between mb-0.5">
+                            <p className={cn("font-black text-primary/60 shrink-0", isCompact ? "text-[8px]" : "text-[9px]")}>
+                              {format(isCurrentDragged ? addMinutes(start, (dragOffset/hourHeight)*60) : start, "HH:mm")}
+                            </p>
+                            {event.source === 'google' && <Chrome className="w-2.5 h-2.5 opacity-20" />}
+                          </div>
+                          <h4 className={cn("font-bold leading-tight line-clamp-2 text-foreground", isCompact ? "text-[9px]" : "text-xs")}>
                             {event.titre}
                           </h4>
                         </div>
@@ -464,30 +467,31 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
 
     return (
       <div className="bg-card flex flex-col h-full animate-in zoom-in-95 duration-300">
-        <div className="p-6 border-b bg-muted/5 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-6">
-            <h2 className="text-3xl font-black tracking-tighter text-primary uppercase">{format(currentDate, "MMMM yyyy", { locale: fr })}</h2>
-            <div className="flex bg-background border rounded-full p-1 shadow-sm">
-              <Button variant="ghost" size="icon" className="rounded-full h-8 w-8" onClick={() => setCurrentDate(addDays(startOfMonth(currentDate), -1))}><ChevronLeft className="w-4 h-4" /></Button>
-              <Button variant="ghost" size="icon" className="rounded-full h-8 w-8" onClick={() => setCurrentDate(addDays(endOfMonth(currentDate), 1))}><ChevronRight className="w-4 h-4" /></Button>
+        <div className="p-8 border-b bg-muted/5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-8">
+            <div className="space-y-1">
+              <h2 className="text-4xl font-black tracking-tighter text-primary uppercase leading-none">
+                {format(currentDate, "MMMM", { locale: fr })}
+              </h2>
+              <p className="text-xs font-black uppercase tracking-widest text-muted-foreground opacity-50">{format(currentDate, "yyyy")}</p>
+            </div>
+            <div className="flex bg-white border rounded-full p-1.5 shadow-sm">
+              <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 hover:bg-muted" onClick={() => setCurrentDate(addDays(startOfMonth(currentDate), -1))}><ChevronLeft className="w-5 h-5" /></Button>
+              <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 hover:bg-muted" onClick={() => setCurrentDate(addDays(endOfMonth(currentDate), 1))}><ChevronRight className="w-5 h-5" /></Button>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-              <Button variant="outline" size="sm" className="rounded-full font-bold gap-2" onClick={handleImportFromGoogle} disabled={isSyncing !== 'idle'}>
-                {isSyncing === 'importing' ? <Loader2 className="w-4 h-4 animate-spin" /> : <DownloadCloud className="w-4 h-4" />}
-                Importer de Google
+          <div className="flex flex-wrap gap-3">
+              <Button variant="outline" size="lg" className="rounded-full font-bold gap-2 h-12 shadow-sm" onClick={handleImportFromGoogle} disabled={isSyncing !== 'idle'}>
+                {isSyncing === 'importing' ? <Loader2 className="w-5 h-5 animate-spin" /> : <DownloadCloud className="w-5 h-5" />}
+                Importer Google
               </Button>
-              <Button variant="outline" size="sm" className="rounded-full font-bold gap-2 border-primary/30 text-primary" onClick={handleExportToGoogle} disabled={isSyncing !== 'idle'}>
-                {isSyncing === 'exporting' ? <Loader2 className="w-4 h-4 animate-spin" /> : <UploadCloud className="w-4 h-4" />}
-                Exporter vers Google
-              </Button>
-              <Button size="sm" className="rounded-full font-bold gap-2 bg-primary" onClick={() => openAddEvent()}>
-                <Plus className="w-4 h-4" /> Ajouter
+              <Button size="lg" className="rounded-full font-bold gap-2 bg-primary h-12 px-8 shadow-xl" onClick={() => openAddEvent()}>
+                <Plus className="w-5 h-5" /> Ajouter un RDV
               </Button>
           </div>
         </div>
-        <div className="grid grid-cols-7 border-b bg-muted/10">
-          {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map(d => <div key={d} className="py-3 text-center text-[10px] font-black uppercase tracking-widest text-muted-foreground">{d}</div>)}
+        <div className="grid grid-cols-7 border-b bg-muted/20">
+          {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map(d => <div key={d} className="py-4 text-center text-[10px] font-black uppercase tracking-widest text-primary/40">{d}</div>)}
         </div>
         <div className="flex-1 grid grid-cols-7 auto-rows-fr min-h-[500px]">
           {days.map((day, idx) => {
@@ -495,10 +499,13 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
             const isTday = isToday(day);
             const isCurrentMonth = isSameDay(startOfMonth(day), startOfMonth(currentDate));
             return (
-              <div key={idx} className={cn("border-r border-b p-2 flex flex-col gap-1.5 transition-colors min-h-[100px] group", !isCurrentMonth && "bg-muted/10 opacity-30", isTday && "bg-primary/[0.04]")}>
+              <div key={idx} className={cn("border-r border-b p-3 flex flex-col gap-2 transition-colors min-h-[120px] group", !isCurrentMonth && "bg-muted/10 opacity-30", isTday && "bg-primary/[0.04]")}>
                 <div className="flex justify-between items-center">
                   <span 
-                    className={cn("text-[10px] font-black w-5 h-5 flex items-center justify-center rounded-full cursor-pointer hover:bg-primary/20", isTday ? "bg-primary text-white" : "text-muted-foreground")} 
+                    className={cn(
+                      "text-[10px] font-black w-7 h-7 flex items-center justify-center rounded-xl cursor-pointer transition-all", 
+                      isTday ? "bg-primary text-white shadow-lg scale-110" : "text-muted-foreground hover:bg-muted"
+                    )} 
                     onClick={() => {
                       setSelectedDay(day);
                       setIsDayViewOpen(true);
@@ -506,13 +513,17 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
                   >
                     {format(day, "d")}
                   </span>
+                  {dayEvents.length > 0 && <span className="text-[9px] font-black uppercase opacity-20">{dayEvents.length} RDV</span>}
                 </div>
-                <div className="space-y-1 overflow-hidden">
-                  {dayEvents.slice(0, 4).map(event => (
-                    <div key={event.id} onClick={() => openEditEvent(event)} className={cn("text-[8px] font-bold p-1 border-l-2 rounded-sm truncate cursor-pointer transition-colors", event.source === 'google' ? "bg-primary/5 border-primary hover:bg-primary/10" : "bg-amber-50 border-amber-500 hover:bg-amber-100")}>
+                <div className="space-y-1.5 overflow-hidden">
+                  {dayEvents.slice(0, 3).map(event => (
+                    <div key={event.id} onClick={() => openEditEvent(event)} className={cn("text-[9px] font-bold p-1.5 border-l-2 rounded-lg truncate cursor-pointer transition-all hover:translate-x-1", event.source === 'google' ? "bg-white border-primary shadow-sm" : "bg-amber-50 border-amber-500")}>
                       {event.titre}
                     </div>
                   ))}
+                  {dayEvents.length > 3 && (
+                    <div className="text-[8px] font-black uppercase text-center opacity-30">+ {dayEvents.length - 3} autres</div>
+                  )}
                 </div>
               </div>
             );
@@ -522,7 +533,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
     );
   };
 
-  if (isLoading) return <div className="h-full w-full flex flex-col items-center justify-center gap-4 py-12"><Loader2 className="w-8 h-8 animate-spin text-primary opacity-30" /><p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground animate-pulse">Chargement...</p></div>;
+  if (isLoading) return <div className="h-full w-full flex flex-col items-center justify-center gap-4 py-20"><Loader2 className="w-12 h-12 animate-spin text-primary opacity-30" /><p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground animate-pulse">Chargement de l'agenda collaboratif...</p></div>;
 
   return (
     <div className="h-full w-full bg-card overflow-hidden flex flex-col">
@@ -534,44 +545,47 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
           setOpenSelect(null);
         }
       }}>
-        <DialogContent className="sm:max-w-[420px] p-0 overflow-hidden border-none shadow-2xl bg-card">
-          <div className="p-5 bg-primary text-primary-foreground">
+        <DialogContent className="sm:max-w-[420px] p-0 overflow-hidden border-none shadow-2xl bg-card rounded-[2rem]">
+          <div className="p-6 bg-primary text-primary-foreground">
             <DialogHeader>
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-white/20 rounded-xl">
-                  <CalendarDays className="w-5 h-5" />
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-white/20 rounded-2xl shadow-inner">
+                  <CalendarDays className="w-6 h-6" />
                 </div>
-                <DialogTitle className="text-lg font-bold">
-                  {editingEvent ? "Éditer l'événement" : "Nouvel événement"}
-                </DialogTitle>
+                <div className="flex flex-col">
+                  <DialogTitle className="text-xl font-black uppercase tracking-tighter">
+                    {editingEvent ? "Modifier le RDV" : "Nouveau RDV Équipe"}
+                  </DialogTitle>
+                  <p className="text-[10px] font-bold opacity-60 uppercase tracking-widest">Agenda Partagé</p>
+                </div>
               </div>
             </DialogHeader>
           </div>
 
-          <div className="p-5 space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="titre" className="text-[10px] font-black uppercase tracking-wider text-muted-foreground ml-1">Objet de l'événement</Label>
+          <div className="p-8 space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="titre" className="text-[10px] font-black uppercase tracking-wider text-muted-foreground ml-1">Objet du rendez-vous</Label>
               <Input 
                 id="titre" 
                 value={formTitre} 
                 onChange={(e) => setFormTitre(e.target.value)} 
-                placeholder="Ex: Réunion d'équipe..." 
-                className="border-primary/10 focus:ring-primary font-semibold h-10"
+                placeholder="Ex: Briefing design Grow&Go..." 
+                className="border-primary/10 h-12 rounded-xl font-bold shadow-sm"
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
                 <Label htmlFor="date" className="text-[10px] font-black uppercase tracking-wider text-muted-foreground ml-1">Date</Label>
                 <Input 
                   id="date" 
                   type="date" 
                   value={formDate} 
                   onChange={(e) => setFormDate(e.target.value)} 
-                  className="border-primary/10 h-10"
+                  className="border-primary/10 h-12 rounded-xl font-bold"
                 />
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground ml-1">Durée</Label>
                 <Select 
                   open={openSelect === 'duration'} 
@@ -579,33 +593,33 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
                   value={selectedDuration} 
                   onValueChange={setSelectedDuration}
                 >
-                  <SelectTrigger className="border-primary/10 h-10">
+                  <SelectTrigger className="border-primary/10 h-12 rounded-xl font-bold">
                     <SelectValue placeholder="Choisir" />
                   </SelectTrigger>
-                  <SelectContent className="bg-card border shadow-xl">
+                  <SelectContent className="bg-card border-none shadow-2xl rounded-xl">
                     {durations.map(d => (
-                      <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
+                      <SelectItem key={d.value} value={d.value} className="font-bold">{d.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
             
-            <div className="space-y-1.5">
-              <Label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground ml-1">Début (Heure & Min)</Label>
-              <div className="flex gap-2">
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground ml-1">Heure de début</Label>
+              <div className="flex gap-3">
                 <Select 
                   open={openSelect === 'hour'} 
                   onOpenChange={(open) => setOpenSelect(open ? 'hour' : null)}
                   value={formHour} 
                   onValueChange={setFormHour}
                 >
-                  <SelectTrigger className="w-full border-primary/10 h-10">
+                  <SelectTrigger className="w-full border-primary/10 h-12 rounded-xl font-bold">
                     <SelectValue placeholder="Heure" />
                   </SelectTrigger>
-                  <SelectContent className="max-h-[160px] bg-card border shadow-xl">
+                  <SelectContent className="max-h-[200px] bg-card border-none shadow-2xl rounded-xl">
                     {hoursList.map(h => (
-                      <SelectItem key={h} value={h}>{h} h</SelectItem>
+                      <SelectItem key={h} value={h} className="font-mono font-bold">{h} h</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -615,12 +629,12 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
                   value={formMinute} 
                   onValueChange={setFormMinute}
                 >
-                  <SelectTrigger className="w-full border-primary/10 h-10">
+                  <SelectTrigger className="w-full border-primary/10 h-12 rounded-xl font-bold">
                     <SelectValue placeholder="Min" />
                   </SelectTrigger>
-                  <SelectContent className="bg-card border shadow-xl">
+                  <SelectContent className="bg-card border-none shadow-2xl rounded-xl">
                     {minutesList.map(m => (
-                      <SelectItem key={m} value={m}>{m}</SelectItem>
+                      <SelectItem key={m} value={m} className="font-mono font-bold">{m}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -628,45 +642,45 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
             </div>
 
             {calculatedTimes && (
-              <div className="bg-primary/5 p-3 rounded-xl border border-dashed border-primary/20 space-y-2">
+              <div className="bg-primary/5 p-4 rounded-[1.5rem] border-2 border-dashed border-primary/10 space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Du</p>
-                    <p className="text-xs font-bold text-foreground">{format(calculatedTimes.start, "d MMM HH:mm", { locale: fr })}</p>
+                    <p className="text-[9px] font-black text-primary/40 uppercase tracking-widest">Début</p>
+                    <p className="text-sm font-black text-primary">{format(calculatedTimes.start, "d MMM HH:mm", { locale: fr })}</p>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-primary/30" />
+                  <ChevronRight className="w-5 h-5 text-primary/20" />
                   <div className="space-y-0.5 text-right">
-                    <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Au</p>
-                    <p className="text-xs font-bold text-foreground">{format(calculatedTimes.end, "HH:mm", { locale: fr })}</p>
+                    <p className="text-[9px] font-black text-primary/40 uppercase tracking-widest">Fin</p>
+                    <p className="text-sm font-black text-primary">{format(calculatedTimes.end, "HH:mm", { locale: fr })}</p>
                   </div>
                 </div>
               </div>
             )}
             
-            <div className="space-y-1.5">
-              <Label htmlFor="description" className="text-[10px] font-black uppercase tracking-wider text-muted-foreground ml-1">Notes</Label>
+            <div className="space-y-2">
+              <Label htmlFor="description" className="text-[10px] font-black uppercase tracking-wider text-muted-foreground ml-1">Notes collaboratives</Label>
               <Textarea 
                 id="description" 
                 value={formDescription} 
                 onChange={(e) => setFormDescription(e.target.value)} 
-                placeholder="Précisions sur le rendez-vous..." 
-                className="min-h-[40px] focus:min-h-[100px] transition-all duration-300 border-primary/10 resize-none font-medium text-sm p-3" 
+                placeholder="Précisions pour vos collaborateurs..." 
+                className="min-h-[60px] rounded-xl border-primary/10 resize-none font-bold text-sm p-4 shadow-inner" 
               />
             </div>
           </div>
 
-          <div className="p-4 bg-muted/20 border-t flex items-center justify-between">
+          <div className="p-6 bg-muted/20 border-t flex items-center justify-between rounded-b-[2rem]">
             {editingEvent ? (
-              <Button variant="ghost" size="sm" onClick={handleDeleteEvent} className="text-destructive hover:bg-destructive/10 font-black text-[10px] gap-2 rounded-full uppercase">
-                <Trash2 className="w-3.5 h-3.5" /> Supprimer
+              <Button variant="ghost" size="sm" onClick={handleDeleteEvent} className="text-rose-900 hover:bg-rose-100 font-black text-[10px] gap-2 rounded-full uppercase tracking-widest">
+                <Trash2 className="w-4 h-4" /> Supprimer
               </Button>
             ) : <div />}
-            <div className="flex gap-2">
-              <Button variant="ghost" onClick={() => setIsEventDialogOpen(false)} className="rounded-full font-bold text-xs">
+            <div className="flex gap-3">
+              <Button variant="ghost" onClick={() => setIsEventDialogOpen(false)} className="rounded-full font-bold uppercase text-[10px] tracking-widest">
                 Annuler
               </Button>
-              <Button onClick={handleSaveEvent} className="bg-primary hover:bg-primary/90 rounded-full font-bold text-xs px-6 shadow-md">
-                Enregistrer
+              <Button onClick={handleSaveEvent} className="bg-primary hover:bg-primary/90 rounded-full font-bold uppercase text-[10px] tracking-widest px-8 h-10 shadow-lg">
+                Valider
               </Button>
             </div>
           </div>
@@ -674,18 +688,20 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
       </Dialog>
 
       <Dialog open={isDayViewOpen} onOpenChange={setIsDayViewOpen}>
-        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl bg-background">
-          <div className="p-6 bg-primary text-primary-foreground flex justify-between items-center">
-            <div className="flex flex-col">
-               <DialogTitle className="text-2xl font-black uppercase tracking-tighter">
-                {selectedDay ? format(selectedDay, "EEEE d MMMM", { locale: fr }) : "Détails de la journée"}
+        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl bg-background rounded-[2rem]">
+          <div className="p-8 bg-primary text-primary-foreground flex justify-between items-center">
+            <div className="flex flex-col gap-1">
+               <DialogTitle className="text-3xl font-black uppercase tracking-tighter">
+                {selectedDay ? format(selectedDay, "d MMMM", { locale: fr }) : "Détails"}
                </DialogTitle>
-               <p className="text-[10px] font-bold opacity-70 uppercase tracking-widest">Planning heure par heure</p>
+               <p className="text-[10px] font-black opacity-60 uppercase tracking-widest flex items-center gap-2">
+                <Users className="w-3 h-3" /> Agenda de Studio
+               </p>
             </div>
           </div>
           
-          <ScrollArea className="h-[60vh] p-0">
-             <div className="relative p-6">
+          <ScrollArea className="h-[55vh] p-0">
+             <div className="relative p-6 space-y-1">
                 {Array.from({ length: 24 }).map((_, hour) => {
                    const hourDate = selectedDay ? setHours(startOfDay(selectedDay), hour) : null;
                    const hourEvents = hourDate ? getEventsForDay(selectedDay!).filter(e => {
@@ -694,11 +710,11 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
                    }) : [];
 
                    return (
-                      <div key={hour} className="flex border-b last:border-0 min-h-[60px] relative group hover:bg-muted/5 transition-colors">
-                         <div className="w-16 flex-shrink-0 py-4 text-[10px] font-black text-muted-foreground border-r bg-muted/5 flex flex-col items-center justify-center">
+                      <div key={hour} className="flex border-b border-muted/30 last:border-0 min-h-[70px] relative group hover:bg-primary/[0.02] transition-colors rounded-xl overflow-hidden">
+                         <div className="w-20 flex-shrink-0 py-6 text-[10px] font-black text-primary/30 border-r bg-muted/5 flex flex-col items-center justify-center">
                             {hour.toString().padStart(2, '0')}:00
                          </div>
-                         <div className="flex-1 p-2 flex flex-col gap-2">
+                         <div className="flex-1 p-3 flex flex-col gap-2">
                             {hourEvents.length > 0 ? hourEvents.map(event => (
                                <div 
                                   key={event.id} 
@@ -707,17 +723,19 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
                                      openEditEvent(event);
                                   }}
                                   className={cn(
-                                     "p-2 rounded-lg border-l-4 shadow-sm cursor-pointer transition-transform hover:scale-[1.02]",
-                                     event.source === 'google' ? "bg-primary/5 border-primary" : "bg-amber-50 border-amber-500"
+                                     "p-3 rounded-xl border-l-4 shadow-md cursor-pointer transition-all hover:translate-x-1",
+                                     event.source === 'google' ? "bg-white border-primary" : "bg-amber-50 border-amber-500"
                                   )}
                                >
-                                  <div className="flex items-center justify-between mb-1">
-                                     <p className="text-[8px] font-black uppercase text-primary/60">
+                                  <div className="flex items-center justify-between mb-1.5">
+                                     <p className="text-[9px] font-black uppercase text-primary/40">
                                         {format(parseISO(event.debut), "HH:mm")} - {format(parseISO(event.fin), "HH:mm")}
                                      </p>
-                                     {event.source === 'google' && <Chrome className="w-3 h-3 text-primary opacity-30" />}
+                                     <Badge variant="outline" className="text-[7px] h-4 border-primary/10 font-black uppercase">
+                                        {event.source}
+                                     </Badge>
                                   </div>
-                                  <h4 className="text-xs font-bold text-foreground leading-tight">{event.titre}</h4>
+                                  <h4 className="text-sm font-bold text-foreground leading-tight">{event.titre}</h4>
                                </div>
                             )) : (
                                <div 
@@ -728,7 +746,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
                                      openAddEvent(target);
                                   }}
                                >
-                                  <Plus className="w-4 h-4 text-primary/20" />
+                                  <Plus className="w-5 h-5 text-primary/10" />
                                </div>
                             )}
                          </div>
@@ -738,12 +756,12 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
              </div>
           </ScrollArea>
           
-          <div className="p-4 border-t bg-muted/10 flex justify-end">
-             <Button className="rounded-full font-bold gap-2" onClick={() => {
+          <div className="p-6 border-t bg-muted/10 flex justify-end rounded-b-[2rem]">
+             <Button className="rounded-full font-black uppercase text-[10px] tracking-widest gap-2 h-11 px-8 shadow-xl" onClick={() => {
                 setIsDayViewOpen(false);
                 openAddEvent(selectedDay || new Date());
              }}>
-                <Plus className="w-4 h-4" /> Ajouter un événement
+                <Plus className="w-4 h-4" /> Créer un rendez-vous
              </Button>
           </div>
         </DialogContent>
@@ -751,3 +769,4 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
     </div>
   );
 }
+
