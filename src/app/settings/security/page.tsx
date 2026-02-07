@@ -5,13 +5,15 @@ import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Chrome, ShieldCheck, KeyRound, Loader2, CheckCircle2, RefreshCw } from 'lucide-react';
-import { useAuth, useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query } from 'firebase/firestore';
+import { useAuth, useFirestore, useUser, useMemoFirebase } from '@/firebase';
+import { doc } from 'firebase/firestore';
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { signInWithGoogleCalendar } from '@/firebase/non-blocking-login';
 import { getSyncTimeRange, fetchGoogleEvents, mapGoogleEvent, syncEventToFirestore } from '@/services/calendar-sync';
 import { cn } from '@/lib/utils';
+import { User } from '@/lib/types';
+import { useDoc } from '@/firebase';
 
 export default function SecuritySettingsPage() {
   const { user } = useUser();
@@ -21,12 +23,13 @@ export default function SecuritySettingsPage() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'authenticating' | 'fetching' | 'saving' | 'success' | 'error'>('idle');
 
-  const userProfileRef = useMemoFirebase(() => {
+  const userRef = useMemoFirebase(() => {
     if (!db || !user) return null;
-    return query(collection(db, 'users'));
+    return doc(db, 'users', user.uid);
   }, [db, user]);
 
-  const companyId = user ? 'default-company' : null; // Simplified for MVP
+  const { data: profile } = useDoc<User>(userRef);
+  const companyId = profile?.companyId;
 
   const handleGoogleSync = async () => {
     if (!db || !companyId || !user || !auth) {

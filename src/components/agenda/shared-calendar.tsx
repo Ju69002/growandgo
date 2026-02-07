@@ -18,7 +18,7 @@ import {
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
 import { CalendarEvent } from '@/lib/types';
-import { format, isSameDay, parseISO, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isToday, startOfWeek, endOfWeek } from 'date-fns';
+import { format, isSameDay, parseISO, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isToday, startOfWeek, endOfWeek, isValid } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
@@ -36,8 +36,21 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
 
   const getEventsForDay = (day: Date) => {
     if (!events) return [];
-    return events.filter(e => isSameDay(parseISO(e.debut), day))
-      .sort((a, b) => new Date(a.debut).getTime() - new Date(b.debut).getTime());
+    return events
+      .filter(e => {
+        if (!e.debut) return false;
+        try {
+          const eventDate = parseISO(e.debut);
+          return isValid(eventDate) && isSameDay(eventDate, day);
+        } catch (err) {
+          return false;
+        }
+      })
+      .sort((a, b) => {
+        const dateA = a.debut ? new Date(a.debut).getTime() : 0;
+        const dateB = b.debut ? new Date(b.debut).getTime() : 0;
+        return dateA - dateB;
+      });
   };
 
   const nextMonth = () => setCurrentDate(addDays(endOfMonth(currentDate), 1));
@@ -74,7 +87,7 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
                     <div key={event.id} className="p-4 bg-background rounded-2xl border shadow-sm group hover:border-primary/50 transition-colors">
                       <div className="flex items-center gap-2 mb-2">
                         <span className="text-xs font-black text-primary">
-                          {format(parseISO(event.debut), "HH:mm")}
+                          {event.debut ? format(parseISO(event.debut), "HH:mm") : "--:--"}
                         </span>
                         <Badge variant="outline" className="text-[9px] h-4 uppercase">{event.source}</Badge>
                       </div>
