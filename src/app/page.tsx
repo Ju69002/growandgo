@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -344,7 +343,7 @@ export default function Home() {
       <Dialog open={isCalendarFull} onOpenChange={setIsCalendarFull}>
         <DialogContent className="max-w-[95vw] w-full h-[90vh] p-0 overflow-hidden bg-background border-none shadow-2xl">
           <div className="sr-only">
-            <DialogTitle>Agenda Grow&Go</DialogTitle>
+            <DialogTitle>Agenda</DialogTitle>
           </div>
           <div className="h-full flex flex-col">
             <div className="p-4 border-b flex justify-between items-center bg-primary text-primary-foreground">
