@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { useAuth, useFirestore, useUser } from '@/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Lock, UserCircle, UserPlus, Eye, EyeOff } from 'lucide-react';
 import Image from 'next/image';
@@ -44,16 +44,16 @@ export default function LoginPage() {
     if (!trimmedId) return;
 
     setIsLoading(true);
-    // L'email Firebase Auth est toujours en minuscule pour l'unicité technique
+    // L'email technique reste insensible à la casse pour Firebase Auth
     const email = `${trimmedId.toLowerCase()}@growandgo.ai`;
 
     try {
       if (isSignUp) {
         try {
+          // Tenter de créer le compte
           const userCredential = await createUserWithEmailAndPassword(auth, email, password);
           const newUser = userCredential.user;
           
-          // Seul l'identifiant exact "JSecchi" a les droits de super_admin
           const isSuperAdmin = trimmedId === 'JSecchi';
           
           const userRef = doc(db, 'users', newUser.uid);
@@ -65,14 +65,16 @@ export default function LoginPage() {
             isCategoryModifier: isSuperAdmin,
             name: name || trimmedId,
             email: email,
-            loginId: trimmedId // Stockage de la casse originale pour vérification stricte
+            loginId: trimmedId // On stocke la casse exacte choisie
           });
 
           toast({ title: "Compte créé !", description: "Veuillez maintenant vous connecter." });
           
+          // Déconnexion forcée pour obliger à passer par l'écran de login
           await signOut(auth);
           setIsSignUp(false);
           setPassword('');
+          setId(trimmedId); // Garder l'id pour faciliter le login
         } catch (authError: any) {
           if (authError.code === 'auth/email-already-in-use') {
             toast({ 
@@ -90,6 +92,7 @@ export default function LoginPage() {
         }
       } else {
         try {
+          // Tentative d'authentification
           const userCredential = await signInWithEmailAndPassword(auth, email, password);
           const loggedUser = userCredential.user;
 
@@ -98,14 +101,29 @@ export default function LoginPage() {
           
           if (userSnap.exists()) {
             const userData = userSnap.data();
-            // Vérification STRICTE de la casse de l'identifiant
-            if (userData.loginId === trimmedId) {
+            
+            // LOGIQUE DE RÉPARATION ET VÉRIFICATION STRICTE
+            const isTargetId = trimmedId === 'JSecchi';
+            const storedId = userData.loginId;
+
+            // Si c'est JSecchi et que le mot de passe est bon, on répare le profil s'il y a un souci de casse
+            if (isTargetId && (!storedId || storedId.toLowerCase() === 'jsecchi')) {
+              if (storedId !== 'JSecchi') {
+                await updateDoc(userRef, { loginId: 'JSecchi', role: 'super_admin' });
+              }
+              const t = toast({ title: "Connexion réussie", description: "Accès Super Admin validé." });
+              setTimeout(() => t.dismiss(), 3000);
+              router.push('/');
+              return;
+            }
+
+            // Vérification standard pour les autres
+            if (storedId === trimmedId) {
               const t = toast({ title: "Connexion réussie", description: "Chargement de votre espace..." });
-              // Faire disparaître le toast de succès après 3 secondes
               setTimeout(() => t.dismiss(), 3000);
               router.push('/');
             } else {
-              // Mauvaise casse (ex: Jsecchi au lieu de JSecchi)
+              // Casse incorrecte (ex: Jsecchi au lieu de JSecchi)
               await signOut(auth);
               toast({ 
                 variant: "destructive", 
@@ -114,30 +132,13 @@ export default function LoginPage() {
               });
             }
           } else {
-            // Cas critique : Compte Auth existant mais Profil Firestore manquant
-            if (trimmedId === 'JSecchi') {
-              // Restauration automatique du profil Super Admin pour JSecchi
-              await setDoc(userRef, {
-                uid: loggedUser.uid,
-                companyId: 'growandgo-hq',
-                role: 'super_admin',
-                adminMode: true,
-                isCategoryModifier: true,
-                name: trimmedId,
-                email: email,
-                loginId: trimmedId
-              });
-              const t = toast({ title: "Connexion réussie", description: "Profil restauré." });
-              setTimeout(() => t.dismiss(), 3000);
-              router.push('/');
-            } else {
-              await signOut(auth);
-              toast({ 
-                variant: "destructive", 
-                title: "Échec", 
-                description: "Identifiant non reconnu dans la base." 
-              });
-            }
+            // Pas de profil Firestore trouvé
+            await signOut(auth);
+            toast({ 
+              variant: "destructive", 
+              title: "Échec", 
+              description: "Identifiant non reconnu dans la base." 
+            });
           }
         } catch (authError: any) {
           toast({ 
@@ -151,7 +152,7 @@ export default function LoginPage() {
       toast({ 
         variant: "destructive", 
         title: "Échec", 
-        description: "Une erreur est survenue lors de l'accès au compte." 
+        description: "Une erreur est survenue lors de l'accès." 
       });
     } finally {
       setIsLoading(false);
