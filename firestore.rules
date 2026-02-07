@@ -17,21 +17,23 @@ service cloud.firestore {
     }
 
     function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      let path = /databases/$(database)/documents/users/$(request.auth.uid);
+      return exists(path) ? get(path).data : null;
     }
 
     function isSuperAdmin() {
-      return isSignedIn() && (getUserData().role == 'super_admin' || request.auth.uid == 'JSecchi');
+      let data = getUserData();
+      return isSignedIn() && data != null && data.role == 'super_admin';
     }
 
     function isPatron(companyId) {
       let data = getUserData();
-      return isSignedIn() && data.companyId == companyId && data.role == 'admin';
+      return isSignedIn() && data != null && data.companyId == companyId && data.role == 'admin';
     }
 
     function isEmployee(companyId) {
       let data = getUserData();
-      return isSignedIn() && data.companyId == companyId && data.role == 'employee';
+      return isSignedIn() && data != null && data.companyId == companyId && data.role == 'employee';
     }
 
     function canModifyCategories(companyId) {
@@ -48,27 +50,27 @@ service cloud.firestore {
     }
 
     match /companies/{companyId} {
-      allow get: if isSignedIn() && (getUserData().companyId == companyId || isSuperAdmin());
+      allow get: if isSignedIn() && (isSuperAdmin() || (getUserData() != null && getUserData().companyId == companyId));
       allow list: if isSuperAdmin();
       allow write: if isSuperAdmin();
     }
 
     match /companies/{companyId}/categories/{categoryId} {
-      allow list: if isSignedIn() && (getUserData().companyId == companyId || isSuperAdmin());
-      allow get: if isSignedIn() && (getUserData().companyId == companyId || isSuperAdmin());
+      allow list: if isSignedIn() && (isSuperAdmin() || (getUserData() != null && getUserData().companyId == companyId));
+      allow get: if isSignedIn() && (isSuperAdmin() || (getUserData() != null && getUserData().companyId == companyId));
       allow create: if canModifyCategories(companyId);
       allow update: if canModifyCategories(companyId) || (isPatron(companyId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['visibleToEmployees', 'badgeCount']));
       allow delete: if canModifyCategories(companyId);
     }
 
     match /companies/{companyId}/documents/{documentId} {
-      allow read: if isSignedIn() && (getUserData().companyId == companyId || isSuperAdmin());
-      allow write: if isSignedIn() && (getUserData().companyId == companyId || isSuperAdmin());
+      allow read: if isSignedIn() && (isSuperAdmin() || (getUserData() != null && getUserData().companyId == companyId));
+      allow write: if isSignedIn() && (isSuperAdmin() || (getUserData() != null && getUserData().companyId == companyId));
     }
 
     match /companies/{companyId}/events/{eventId} {
-      allow read: if isSignedIn() && (getUserData().companyId == companyId || isSuperAdmin());
-      allow write: if isSignedIn() && (getUserData().companyId == companyId || isSuperAdmin());
+      allow read: if isSignedIn() && (isSuperAdmin() || (getUserData() != null && getUserData().companyId == companyId));
+      allow write: if isSignedIn() && (isSuperAdmin() || (getUserData() != null && getUserData().companyId == companyId));
     }
   }
 }

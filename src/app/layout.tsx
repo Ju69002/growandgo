@@ -22,8 +22,8 @@ function ThemeInjector({ children }: { children: React.ReactNode }) {
 
   const { data: profile } = useDoc<User>(userRef);
   
-  // Utilise l'ID de l'entreprise du profil ou l'ID par défaut pendant l'initialisation
-  const companyId = profile?.companyId || (user ? 'default-company' : null);
+  // On ne tente de récupérer l'entreprise que si le profil est chargé et contient un ID d'entreprise
+  const companyId = profile?.companyId;
 
   const companyRef = useMemoFirebase(() => {
     if (!db || !companyId) return null;
