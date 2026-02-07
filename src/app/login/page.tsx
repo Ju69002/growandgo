@@ -44,7 +44,7 @@ export default function LoginPage() {
     if (!trimmedId) return;
 
     setIsLoading(true);
-    // L'email Firebase Auth est toujours en minuscule pour éviter les doublons techniques
+    // L'email Firebase Auth est toujours en minuscule pour l'unicité technique
     const email = `${trimmedId.toLowerCase()}@growandgo.ai`;
 
     try {
@@ -114,27 +114,37 @@ export default function LoginPage() {
               });
             }
           } else {
-            await signOut(auth);
-            toast({ 
-              variant: "destructive", 
-              title: "Échec", 
-              description: "Identifiant non reconnu dans la base." 
-            });
+            // Cas critique : Compte Auth existant mais Profil Firestore manquant
+            if (trimmedId === 'JSecchi') {
+              // Restauration automatique du profil Super Admin pour JSecchi
+              await setDoc(userRef, {
+                uid: loggedUser.uid,
+                companyId: 'growandgo-hq',
+                role: 'super_admin',
+                adminMode: true,
+                isCategoryModifier: true,
+                name: trimmedId,
+                email: email,
+                loginId: trimmedId
+              });
+              const t = toast({ title: "Connexion réussie", description: "Profil restauré." });
+              setTimeout(() => t.dismiss(), 3000);
+              router.push('/');
+            } else {
+              await signOut(auth);
+              toast({ 
+                variant: "destructive", 
+                title: "Échec", 
+                description: "Identifiant non reconnu dans la base." 
+              });
+            }
           }
         } catch (authError: any) {
-          if (authError.code === 'auth/user-not-found') {
-            toast({ 
-              variant: "destructive", 
-              title: "Échec", 
-              description: "Identifiant non reconnu dans la base." 
-            });
-          } else {
-            toast({ 
-              variant: "destructive", 
-              title: "Échec", 
-              description: "Identifiant ou mot de passe incorrect." 
-            });
-          }
+          toast({ 
+            variant: "destructive", 
+            title: "Échec", 
+            description: "Identifiant ou mot de passe incorrect." 
+          });
         }
       }
     } catch (error: any) {
