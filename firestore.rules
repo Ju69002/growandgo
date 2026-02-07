@@ -1,3 +1,4 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -15,6 +16,7 @@ service cloud.firestore {
      * - /companies/{companyId}: Top-level company configuration.
      * - /companies/{companyId}/categories: Company-specific UI modules and AI settings.
      * - /companies/{companyId}/documents: Company-specific document storage.
+     * - /companies/{companyId}/events: Shared calendar events.
      * 
      * Key Security Decisions:
      * 1. Authorization Independence: While the reasoning suggests avoiding get(), standard 
@@ -27,24 +29,6 @@ service cloud.firestore {
      * 4. Prototyping Flexibility: Logic enforces "Who" can access data and "Relational Integrity" 
      *    (e.g., matching company IDs), but does not strictly validate every data type or 
      *    optional field to allow for schema iteration.
-     */
-
-    /**
-     * IR ANALYSIS & SYNTHESIS
-     * 
-     * 1. Adopt the Intent: The primary goal is data segregation and RBAC. Use the 'role' 
-     *    field and 'companyId' field from the user document as the source of truth.
-     * 
-     * 2. Access Patterns:
-     *    - /users/{userId}: Ownership (Self-Creation).
-     *    - /companies/{companyId}: Shared Access (Company Membership).
-     *    - /companies/.../categories: Shared Access (Admin-only writes).
-     *    - /companies/.../documents: Shared Access (Role-restricted reads for Employees).
-     * 
-     * 3. Identified Ambiguities: The reasoning mentions "Employees can't view finance or rh 
-     *    documents". Since category names are dynamic but IDs like 'finance' are used as 
-     *    examples, rules will restrict access to specific category IDs for employees 
-     *    where specified in the resource data.
      */
 
     // --- GLOBAL HELPER FUNCTIONS ---
@@ -152,6 +136,14 @@ service cloud.firestore {
                     );
       
       allow delete: if belongsToCompany(companyId) && isAdmin();
+    }
+
+    /**
+     * @description Rules for Calendar Events. Shared access within the company.
+     * @path /companies/{companyId}/events/{eventId}
+     */
+    match /companies/{companyId}/events/{eventId} {
+      allow read, write: if belongsToCompany(companyId);
     }
   }
 }

@@ -150,6 +150,77 @@
         "status",
         "fileUrl"
       ]
+    },
+    "CalendarEvent": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "CalendarEvent",
+      "type": "object",
+      "description": "Represents a shared calendar event.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the event."
+        },
+        "id_externe": {
+          "type": "string",
+          "description": "External ID from Google or Outlook."
+        },
+        "companyId": {
+          "type": "string",
+          "description": "The company this event belongs to."
+        },
+        "userId": {
+          "type": "string",
+          "description": "The user who owns or synced this event."
+        },
+        "titre": {
+          "type": "string",
+          "description": "Title of the event."
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the event."
+        },
+        "debut": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Start date and time."
+        },
+        "fin": {
+          "type": "string",
+          "format": "date-time",
+          "description": "End date and time."
+        },
+        "attendees": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List of attendee emails."
+        },
+        "source": {
+          "type": "string",
+          "enum": ["local", "google", "outlook"],
+          "description": "Source of the event."
+        },
+        "type": {
+          "type": "string",
+          "enum": ["meeting", "task", "event"],
+          "description": "Type of event."
+        },
+        "derniere_maj": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update timestamp."
+        }
+      },
+      "required": [
+        "id_externe",
+        "companyId",
+        "userId",
+        "titre",
+        "debut",
+        "fin",
+        "source"
+      ]
     }
   },
   "auth": {
@@ -230,6 +301,26 @@
             {
               "name": "documentId",
               "description": "Unique identifier for the document."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/companies/{companyId}/events/{eventId}",
+        "definition": {
+          "entityName": "CalendarEvent",
+          "schema": {
+            "$ref": "#/backend/entities/CalendarEvent"
+          },
+          "description": "Stores shared calendar events for a company.",
+          "params": [
+            {
+              "name": "companyId",
+              "description": "Unique identifier for the company."
+            },
+            {
+              "name": "eventId",
+              "description": "Unique identifier for the event (external ID)."
             }
           ]
         }
