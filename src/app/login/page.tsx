@@ -51,7 +51,7 @@ export default function LoginPage() {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const newUser = userCredential.user;
         
-        // JSecchi est le seul Super Admin (vérification stricte de la casse à l'inscription)
+        // JSecchi est le seul Super Admin
         const isSuperAdmin = trimmedId === 'JSecchi';
         const userRef = doc(db, 'users', newUser.uid);
         
@@ -71,14 +71,14 @@ export default function LoginPage() {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         const loggedUser = userCredential.user;
 
-        // Vérification de sécurité pour JSecchi : on vérifie que le loginId en base correspond exactement
+        // Vérification STRICTE de la casse de l'identifiant
         const userRef = doc(db, 'users', loggedUser.uid);
         const userSnap = await getDoc(userRef);
         
         if (userSnap.exists()) {
           const userData = userSnap.data();
-          // Si l'utilisateur est JSecchi mais que la casse saisie est mauvaise, on rejette
-          if (userData.loginId === 'JSecchi' && trimmedId !== 'JSecchi') {
+          // Si le loginId stocké en base ne correspond pas exactement à la saisie, on déconnecte
+          if (userData.loginId !== trimmedId) {
             await signOut(auth);
             throw new Error('invalid-case');
           }
@@ -88,7 +88,7 @@ export default function LoginPage() {
       }
       router.push('/');
     } catch (error: any) {
-      // Message d'erreur générique comme demandé
+      // Message d'erreur générique systématique
       toast({ 
         variant: "destructive", 
         title: "Échec", 
@@ -101,7 +101,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-[#F5F2EA] flex items-center justify-center p-4">
-      <Card className="w-full max-w-md shadow-2xl border-none p-4 rounded-[2rem] bg-white">
+      <Card className="w-full max-w-md shadow-2xl border-none p-4 rounded-[2.5rem] bg-white">
         <CardHeader className="text-center space-y-4">
           <div className="relative w-24 h-24 mx-auto overflow-hidden rounded-2xl border bg-white shadow-xl">
             <Image 
@@ -177,7 +177,6 @@ export default function LoginPage() {
                   ) : (
                     <Eye className="h-4 w-4 text-muted-foreground" />
                   )}
-                  <span className="sr-only">{showPassword ? "Masquer" : "Afficher"} le mot de passe</span>
                 </Button>
               </div>
             </div>
