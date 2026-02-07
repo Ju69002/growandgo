@@ -72,20 +72,21 @@ export default function AccountsPage() {
     return doc(db, 'users', currentUser.uid);
   }, [db, currentUser]);
 
-  const { data: myProfile } = useDoc<User>(userProfileRef);
+  const { data: myProfile, isLoading: isProfileLoading } = useDoc<User>(userProfileRef);
   const isSuperAdmin = myProfile?.role === 'super_admin';
 
+  // On ne lance les requêtes globales que si on est certain d'être Super Admin
   const usersQuery = useMemoFirebase(() => {
-    if (!db) return null;
+    if (!db || !isSuperAdmin) return null;
     return query(collection(db, 'users'));
-  }, [db]);
+  }, [db, isSuperAdmin]);
 
-  const { data: allUsers, isLoading } = useCollection<User>(usersQuery);
+  const { data: allUsers, isLoading: isUsersLoading } = useCollection<User>(usersQuery);
 
   const companiesQuery = useMemoFirebase(() => {
-    if (!db) return null;
+    if (!db || !isSuperAdmin) return null;
     return query(collection(db, 'companies'));
-  }, [db]);
+  }, [db, isSuperAdmin]);
 
   const { data: allCompanies } = useCollection<Company>(companiesQuery);
 
@@ -125,7 +126,18 @@ export default function AccountsPage() {
     setEditingUser(null);
   };
 
-  if (!isSuperAdmin && myProfile) {
+  if (isProfileLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+          <Loader2 className="w-12 h-12 animate-spin text-primary opacity-30" />
+          <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Vérification des droits...</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (!isSuperAdmin) {
     return (
       <DashboardLayout>
         <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
@@ -161,7 +173,7 @@ export default function AccountsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            {isLoading ? (
+            {isUsersLoading ? (
               <div className="p-20 flex flex-col items-center justify-center gap-4">
                 <Loader2 className="w-12 h-12 animate-spin text-primary opacity-30" />
                 <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Chargement de la base...</p>
