@@ -18,7 +18,8 @@ import {
   Clock,
   CalendarDays,
   User as UserIcon,
-  Users
+  Users,
+  X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -29,8 +30,6 @@ import {
   useFirestore, 
   useDoc, 
   useMemoFirebase, 
-  setDocumentNonBlocking, 
-  useAuth, 
   useCollection 
 } from '@/firebase';
 import { doc, collection, query, where, limit } from 'firebase/firestore';
@@ -306,4 +305,3 @@ export default function Home() {
     </DashboardLayout>
   );
 }
-
