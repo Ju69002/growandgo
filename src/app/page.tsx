@@ -147,6 +147,8 @@ export default function Home() {
 
   if (!user || !profile) return null;
 
+  const isSuperAdmin = profile.role === 'super_admin';
+
   return (
     <DashboardLayout>
       <div className="space-y-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -225,13 +227,30 @@ export default function Home() {
           </Card>
         </div>
 
-        <div className="pt-4">
-          <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-            <FileText className="w-5 h-5 text-primary" />
-            Vos Dossiers Grow&Go
-          </h2>
-          <CategoryTiles profile={profile} />
-        </div>
+        {!isSuperAdmin && (
+          <div className="pt-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
+              <FileText className="w-5 h-5 text-primary" />
+              Vos Dossiers Grow&Go
+            </h2>
+            <CategoryTiles profile={profile} />
+          </div>
+        )}
+
+        {isSuperAdmin && (
+          <div className="pt-8 border-t border-dashed">
+            <div className="bg-primary/5 p-8 rounded-[2rem] border-2 border-dashed border-primary/20 flex flex-col items-center text-center gap-4">
+              <ShieldCheck className="w-12 h-12 text-primary/40" />
+              <div>
+                <h2 className="text-xl font-bold uppercase tracking-tight">Console Super Admin</h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Les dossiers de catégories sont réservés aux comptes Patrons et Employés.<br/>
+                  Utilisez la barre latérale pour gérer les utilisateurs et les configurations globales.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <Dialog open={isCalendarFull} onOpenChange={setIsCalendarFull}>

@@ -31,7 +31,7 @@ import { usePathname } from 'next/navigation';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
-import { User } from '@/lib/types';
+import { User, Company } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 export function AppSidebar() {
@@ -46,6 +46,15 @@ export function AppSidebar() {
   }, [db, user]);
 
   const { data: profile } = useDoc<User>(userRef);
+  const companyId = profile?.companyId;
+
+  const companyRef = useMemoFirebase(() => {
+    if (!db || !companyId) return null;
+    return doc(db, 'companies', companyId);
+  }, [db, companyId]);
+
+  const { data: company } = useDoc<Company>(companyRef);
+
   const isSuperAdmin = profile?.role === 'super_admin';
 
   const mainItems = [
@@ -73,15 +82,18 @@ export function AppSidebar() {
           <div className="relative w-12 h-12 overflow-hidden rounded-lg border border-white/20 shadow-xl bg-white">
             <Image 
               src={logo?.imageUrl || "https://picsum.photos/seed/growgo/100/100"} 
-              alt="Grow&Go Logo" 
+              alt="Logo" 
               fill
               className="object-cover p-0.5"
-              data-ai-hint="design studio logo"
             />
           </div>
-          <div className="flex flex-col group-data-[collapsible=icon]:hidden">
-            <span className="text-lg leading-tight tracking-tight text-white">Grow&Go</span>
-            <span className="text-[10px] uppercase tracking-widest opacity-70 font-medium text-white">Design Studio</span>
+          <div className="flex flex-col group-data-[collapsible=icon]:hidden max-w-[160px]">
+            <span className="text-lg leading-tight tracking-tight text-white truncate">
+              {company?.name || "Grow&Go"}
+            </span>
+            <span className="text-[10px] uppercase tracking-widest opacity-70 font-medium text-white truncate">
+              {isSuperAdmin ? "Administration" : "Espace Studio"}
+            </span>
           </div>
         </div>
       </SidebarHeader>
