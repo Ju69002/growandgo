@@ -15,7 +15,8 @@ import {
   Clock,
   CheckCircle2,
   CalendarDays,
-  Info
+  Info,
+  X
 } from 'lucide-react';
 import { 
   useFirestore, 
@@ -29,7 +30,7 @@ import {
 } from '@/firebase';
 import { collection, query, doc } from 'firebase/firestore';
 import { CalendarEvent } from '@/lib/types';
-import { format, isSameDay, parseISO, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isToday, startOfWeek, endOfWeek, isValid, addMinutes, setHours, setMinutes } from 'date-fns';
+import { format, isSameDay, parseISO, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isToday, startOfWeek, endOfWeek, isValid, addMinutes, setHours, setMinutes, eachHourOfInterval, startOfDay, endOfDay } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import {
@@ -53,6 +54,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { signInWithGoogleCalendar } from '@/firebase/non-blocking-login';
 import { getSyncTimeRange, fetchGoogleEvents, mapGoogleEvent, syncEventToFirestore, pushEventToGoogle } from '@/services/calendar-sync';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface SharedCalendarProps {
   companyId: string;
@@ -65,9 +67,10 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
   const [currentDate, setCurrentDate] = React.useState(new Date());
   const [isSyncing, setIsSyncing] = React.useState<'idle' | 'importing' | 'exporting'>('idle');
   const [isEventDialogOpen, setIsEventDialogOpen] = React.useState(false);
+  const [isDayViewOpen, setIsDayViewOpen] = React.useState(false);
+  const [selectedDay, setSelectedDay] = React.useState<Date | null>(null);
   const [editingEvent, setEditingEvent] = React.useState<CalendarEvent | null>(null);
   
-  // State for controlled selects to avoid multiple menus being open at once
   const [openSelect, setOpenSelect] = React.useState<'duration' | 'hour' | 'minute' | null>(null);
 
   // Form State
@@ -90,7 +93,6 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
 
   const { data: events, isLoading } = useCollection<CalendarEvent>(eventsQuery);
 
-  // Helper for calculated times summary
   const calculatedTimes = React.useMemo(() => {
     if (!formDate || !formHour || !formMinute || !selectedDuration) return null;
     try {
@@ -121,9 +123,6 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
         return dateA - dateB;
       });
   };
-
-  const nextMonth = () => setCurrentDate(addDays(endOfMonth(currentDate), 1));
-  const prevMonth = () => setCurrentDate(addDays(startOfMonth(currentDate), -1));
 
   const handleImportFromGoogle = async () => {
     if (!db || !companyId || !user || !auth) return;
@@ -178,7 +177,6 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
   const openAddEvent = (date?: Date) => {
     setEditingEvent(null);
     const targetDate = date || new Date();
-    // Round to nearest 10 mins
     const minutesVal = targetDate.getMinutes();
     const roundedMinutes = Math.round(minutesVal / 10) * 10;
     if (roundedMinutes >= 60) {
@@ -318,8 +316,8 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
           <div className="flex items-center gap-6">
             <h2 className="text-3xl font-black tracking-tighter text-primary uppercase">{format(currentDate, "MMMM yyyy", { locale: fr })}</h2>
             <div className="flex bg-background border rounded-full p-1 shadow-sm">
-              <Button variant="ghost" size="icon" className="rounded-full h-8 w-8" onClick={prevMonth}><ChevronLeft className="w-4 h-4" /></Button>
-              <Button variant="ghost" size="icon" className="rounded-full h-8 w-8" onClick={nextMonth}><ChevronRight className="w-4 h-4" /></Button>
+              <Button variant="ghost" size="icon" className="rounded-full h-8 w-8" onClick={() => setCurrentDate(addDays(startOfMonth(currentDate), -1))}><ChevronLeft className="w-4 h-4" /></Button>
+              <Button variant="ghost" size="icon" className="rounded-full h-8 w-8" onClick={() => setCurrentDate(addDays(endOfMonth(currentDate), 1))}><ChevronRight className="w-4 h-4" /></Button>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -334,7 +332,6 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
               <Button size="sm" className="rounded-full font-bold gap-2 bg-primary" onClick={() => openAddEvent()}>
                 <Plus className="w-4 h-4" /> Ajouter
               </Button>
-              <Button variant="ghost" size="sm" onClick={() => setViewMode('3day')} className="rounded-full font-bold">Retour</Button>
           </div>
         </div>
         <div className="grid grid-cols-7 border-b bg-muted/10">
@@ -348,7 +345,15 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
             return (
               <div key={idx} className={cn("border-r border-b p-2 flex flex-col gap-1.5 transition-colors min-h-[100px] group", !isCurrentMonth && "bg-muted/10 opacity-30", isTday && "bg-primary/[0.04]")}>
                 <div className="flex justify-between items-center">
-                  <span className={cn("text-[10px] font-black w-5 h-5 flex items-center justify-center rounded-full cursor-pointer hover:bg-primary/10", isTday ? "bg-primary text-white" : "text-muted-foreground")} onClick={() => openAddEvent(day)}>{format(day, "d")}</span>
+                  <span 
+                    className={cn("text-[10px] font-black w-5 h-5 flex items-center justify-center rounded-full cursor-pointer hover:bg-primary/20", isTday ? "bg-primary text-white" : "text-muted-foreground")} 
+                    onClick={() => {
+                      setSelectedDay(day);
+                      setIsDayViewOpen(true);
+                    }}
+                  >
+                    {format(day, "d")}
+                  </span>
                 </div>
                 <div className="space-y-1 overflow-hidden">
                   {dayEvents.slice(0, 4).map(event => (
@@ -371,6 +376,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
     <div className="h-full w-full bg-card overflow-hidden flex flex-col">
       <div className="flex-1 overflow-hidden">{viewMode === '3day' ? render3DayView() : renderMonthView()}</div>
       
+      {/* Event Editor Dialog */}
       <Dialog open={isEventDialogOpen} onOpenChange={(open) => {
         if (!open) {
           setIsEventDialogOpen(false);
@@ -512,6 +518,86 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
                 Enregistrer
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Day View Hourly Detail Dialog */}
+      <Dialog open={isDayViewOpen} onOpenChange={setIsDayViewOpen}>
+        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl bg-background">
+          <div className="p-6 bg-primary text-primary-foreground flex justify-between items-center">
+            <div className="flex flex-col">
+               <DialogTitle className="text-2xl font-black uppercase tracking-tighter">
+                {selectedDay ? format(selectedDay, "EEEE d MMMM", { locale: fr }) : "Détails de la journée"}
+               </DialogTitle>
+               <p className="text-[10px] font-bold opacity-70 uppercase tracking-widest">Planning heure par heure</p>
+            </div>
+            <Button variant="ghost" size="icon" onClick={() => setIsDayViewOpen(false)} className="rounded-full hover:bg-white/20">
+               <X className="w-5 h-5" />
+            </Button>
+          </div>
+          
+          <ScrollArea className="h-[60vh] p-0">
+             <div className="relative p-6">
+                {Array.from({ length: 24 }).map((_, hour) => {
+                   const hourDate = selectedDay ? setHours(startOfDay(selectedDay), hour) : null;
+                   const hourEvents = hourDate ? getEventsForDay(selectedDay!).filter(e => {
+                      const start = parseISO(e.debut);
+                      return start.getHours() === hour;
+                   }) : [];
+
+                   return (
+                      <div key={hour} className="flex border-b last:border-0 min-h-[60px] relative group hover:bg-muted/5 transition-colors">
+                         <div className="w-16 flex-shrink-0 py-4 text-[10px] font-black text-muted-foreground border-r bg-muted/5 flex flex-col items-center justify-center">
+                            {hour.toString().padStart(2, '0')}:00
+                         </div>
+                         <div className="flex-1 p-2 flex flex-col gap-2">
+                            {hourEvents.length > 0 ? hourEvents.map(event => (
+                               <div 
+                                  key={event.id} 
+                                  onClick={() => {
+                                     setIsDayViewOpen(false);
+                                     openEditEvent(event);
+                                  }}
+                                  className={cn(
+                                     "p-2 rounded-lg border-l-4 shadow-sm cursor-pointer transition-transform hover:scale-[1.02]",
+                                     event.source === 'google' ? "bg-primary/5 border-primary" : "bg-amber-50 border-amber-500"
+                                  )}
+                               >
+                                  <div className="flex items-center justify-between mb-1">
+                                     <p className="text-[8px] font-black uppercase text-primary/60">
+                                        {format(parseISO(event.debut), "HH:mm")} - {format(parseISO(event.fin), "HH:mm")}
+                                     </p>
+                                     {event.source === 'google' && <Chrome className="w-3 h-3 text-primary opacity-30" />}
+                                  </div>
+                                  <h4 className="text-xs font-bold text-foreground leading-tight">{event.titre}</h4>
+                               </div>
+                            )) : (
+                               <div 
+                                  className="h-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                                  onClick={() => {
+                                     setIsDayViewOpen(false);
+                                     const target = selectedDay ? setHours(startOfDay(selectedDay), hour) : new Date();
+                                     openAddEvent(target);
+                                  }}
+                               >
+                                  <Plus className="w-4 h-4 text-primary/20" />
+                               </div>
+                            )}
+                         </div>
+                      </div>
+                   );
+                })}
+             </div>
+          </ScrollArea>
+          
+          <div className="p-4 border-t bg-muted/10 flex justify-end">
+             <Button className="rounded-full font-bold gap-2" onClick={() => {
+                setIsDayViewOpen(false);
+                openAddEvent(selectedDay || new Date());
+             }}>
+                <Plus className="w-4 h-4" /> Ajouter un événement
+             </Button>
           </div>
         </DialogContent>
       </Dialog>

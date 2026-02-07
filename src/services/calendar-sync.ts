@@ -2,6 +2,7 @@
 
 /**
  * @fileOverview Service de synchronisation bidirectionnelle des calendriers Google.
+ * Gère la prévention des doublons en utilisant les ID Google comme IDs Firestore.
  */
 
 import { CalendarEvent } from '@/lib/types';
@@ -75,8 +76,11 @@ export function mapGoogleEvent(googleEvent: any, companyId: string, userId: stri
   const start = googleEvent.start?.dateTime || googleEvent.start?.date || new Date().toISOString();
   const end = googleEvent.end?.dateTime || googleEvent.end?.date || new Date().toISOString();
 
+  // On utilise l'ID de Google s'il existe pour éviter les doublons lors du setDoc
+  const idToUse = googleEvent.id || Math.random().toString(36).substring(7);
+
   return {
-    id_externe: googleEvent.id || Math.random().toString(36).substring(7),
+    id_externe: idToUse,
     companyId,
     userId,
     titre: googleEvent.summary || 'Sans titre',
@@ -92,12 +96,15 @@ export function mapGoogleEvent(googleEvent: any, companyId: string, userId: stri
 
 /**
  * Enregistre un événement dans Firestore.
+ * Utilise id_externe comme ID du document pour garantir l'unicité (Anti-Doublons).
  */
 export async function syncEventToFirestore(
   db: Firestore, 
   eventData: Partial<CalendarEvent>
 ) {
   if (!eventData.id_externe || !eventData.companyId) return;
+  // Utiliser id_externe comme ID du document garantit que si l'événement est ré-importé, 
+  // il écrase le précédent au lieu d'en créer un nouveau.
   const eventRef = doc(db, 'companies', eventData.companyId, 'events', eventData.id_externe);
   setDocumentNonBlocking(eventRef, eventData, { merge: true });
 }
