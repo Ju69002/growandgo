@@ -26,7 +26,8 @@ import {
   useAuth,
   setDocumentNonBlocking,
   deleteDocumentNonBlocking,
-  addDocumentNonBlocking
+  addDocumentNonBlocking,
+  updateDocumentNonBlocking
 } from '@/firebase';
 import { collection, query, doc } from 'firebase/firestore';
 import { CalendarEvent } from '@/lib/types';
@@ -71,6 +72,11 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
   const [selectedDay, setSelectedDay] = React.useState<Date | null>(null);
   const [editingEvent, setEditingEvent] = React.useState<CalendarEvent | null>(null);
   
+  // Drag and Drop State
+  const [draggedEventId, setDraggedEventId] = React.useState<string | null>(null);
+  const [dragOffset, setDragOffset] = React.useState(0);
+  const isDraggingRef = React.useRef(false);
+
   const [openSelect, setOpenSelect] = React.useState<'duration' | 'hour' | 'minute' | null>(null);
 
   // Form State
@@ -85,6 +91,10 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
   const auth = useAuth();
   const db = useFirestore();
   const { toast } = useToast();
+
+  const startHour = 6;
+  const endHour = 20;
+  const hourHeight = isCompact ? 50 : 60;
 
   const eventsQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
@@ -122,6 +132,59 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
         const dateB = b.debut ? new Date(b.debut).getTime() : 0;
         return dateA - dateB;
       });
+  };
+
+  const handleMouseDown = (e: React.MouseEvent, event: CalendarEvent) => {
+    if (e.button !== 0) return; // Only left click
+    
+    const startY = e.clientY;
+    const snapPixels = (10 / 60) * hourHeight;
+    isDraggingRef.current = false;
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const deltaY = moveEvent.clientY - startY;
+      if (Math.abs(deltaY) > 5) {
+        isDraggingRef.current = true;
+        setDraggedEventId(event.id);
+        const snappedDelta = Math.round(deltaY / snapPixels) * snapPixels;
+        setDragOffset(snappedDelta);
+      }
+    };
+
+    const onMouseUp = (upEvent: MouseEvent) => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+
+      if (isDraggingRef.current) {
+        const deltaY = upEvent.clientY - startY;
+        const snappedDelta = Math.round(deltaY / snapPixels) * snapPixels;
+        const minutesDelta = (snappedDelta / hourHeight) * 60;
+
+        if (minutesDelta !== 0 && db && companyId) {
+          const oldStart = parseISO(event.debut);
+          const oldEnd = parseISO(event.fin);
+          const newStart = addMinutes(oldStart, minutesDelta);
+          const newEnd = addMinutes(oldEnd, minutesDelta);
+
+          const eventRef = doc(db, 'companies', companyId, 'events', event.id);
+          updateDocumentNonBlocking(eventRef, {
+            debut: newStart.toISOString(),
+            fin: newEnd.toISOString(),
+            derniere_maj: new Date().toISOString()
+          });
+          toast({ title: "Horaire mis à jour" });
+        }
+      } else {
+        openEditEvent(event);
+      }
+
+      setDraggedEventId(null);
+      setDragOffset(0);
+      isDraggingRef.current = false;
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
   };
 
   const handleImportFromGoogle = async () => {
@@ -271,15 +334,11 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
 
   const render3DayView = () => {
     const days = [currentDate, addDays(currentDate, 1), addDays(currentDate, 2)];
-    const startHour = 6;
-    const endHour = 20;
-    const hourHeight = isCompact ? 50 : 60; // Hauteur par heure
     const totalHeight = (endHour - startHour + 1) * hourHeight;
     const hours = Array.from({ length: endHour - startHour + 1 }, (_, i) => startHour + i);
 
     return (
       <div className={cn("flex flex-col h-full bg-card overflow-hidden", !isCompact && "p-8")}>
-        {/* Header avec les dates */}
         <div className="flex mb-2 flex-shrink-0">
           <div className={cn("flex-shrink-0", isCompact ? "w-10" : "w-16")} />
           <div className="flex-1 grid grid-cols-3 gap-2">
@@ -292,10 +351,8 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
           </div>
         </div>
 
-        {/* Grille horaire et événements */}
         <div className="relative flex-1 overflow-hidden">
           <div className="flex relative h-full" style={{ height: `${totalHeight}px` }}>
-            {/* Colonne des heures à gauche */}
             <div className={cn("flex-shrink-0 flex flex-col border-r bg-muted/5", isCompact ? "w-10" : "w-16")}>
               {hours.map((h) => (
                 <div key={h} className="relative flex items-start justify-center border-b last:border-0" style={{ height: `${hourHeight}px` }}>
@@ -304,7 +361,6 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
               ))}
             </div>
 
-            {/* Colonnes des jours */}
             <div className="flex-1 grid grid-cols-3 gap-2 relative bg-muted/[0.02]">
               {days.map((day, idx) => {
                 const dayEvents = getEventsForDay(day);
@@ -312,12 +368,10 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
                 
                 return (
                   <div key={idx} className={cn("relative h-full border-r last:border-r-0", isTday && "bg-primary/[0.03]")}>
-                    {/* Lignes de fond */}
                     {hours.map((h) => (
                       <div key={h} className="border-b last:border-0 w-full" style={{ height: `${hourHeight}px` }} />
                     ))}
 
-                    {/* Événements positionnés */}
                     {dayEvents.map(event => {
                       const start = parseISO(event.debut);
                       const end = parseISO(event.fin);
@@ -325,25 +379,30 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
                       const eventStartMin = start.getMinutes();
                       const duration = differenceInMinutes(end, start);
 
-                      // Ne pas afficher si hors plage 6h-20h
                       if (eventStartHour < startHour && (eventStartHour + duration/60) <= startHour) return null;
                       if (eventStartHour > endHour) return null;
 
+                      const isCurrentDragged = draggedEventId === event.id;
                       const topPos = Math.max(0, (eventStartHour - startHour) * hourHeight + (eventStartMin / 60 * hourHeight));
                       const eventHeight = Math.min(totalHeight - topPos, (duration / 60) * hourHeight);
 
                       return (
                         <div 
                           key={event.id} 
-                          onClick={() => openEditEvent(event)} 
+                          onMouseDown={(e) => handleMouseDown(e, event)}
                           className={cn(
-                            "absolute left-0 right-0 mx-1 z-20 rounded-lg border-l-4 shadow-md hover:ring-2 hover:ring-primary/20 transition-all cursor-pointer p-1.5 overflow-hidden flex flex-col",
-                            event.source === 'google' ? "bg-white border-primary" : "bg-amber-50 border-amber-500"
+                            "absolute left-0 right-0 mx-1 z-20 rounded-lg border-l-4 shadow-md hover:ring-2 hover:ring-primary/20 transition-all cursor-pointer p-1.5 overflow-hidden flex flex-col select-none",
+                            event.source === 'google' ? "bg-white border-primary" : "bg-amber-50 border-amber-500",
+                            isCurrentDragged && "z-50 opacity-90 scale-[1.02] shadow-2xl ring-2 ring-primary border-dashed"
                           )}
-                          style={{ top: `${topPos}px`, height: `${eventHeight}px`, minHeight: '24px' }}
+                          style={{ 
+                            top: `${topPos + (isCurrentDragged ? dragOffset : 0)}px`, 
+                            height: `${eventHeight}px`, 
+                            minHeight: '24px' 
+                          }}
                         >
                           <p className={cn("font-black text-primary/80 shrink-0", isCompact ? "text-[8px]" : "text-[10px]")}>
-                            {format(start, "HH:mm")}
+                            {format(isCurrentDragged ? addMinutes(start, (dragOffset/hourHeight)*60) : start, "HH:mm")}
                           </p>
                           <h4 className={cn("font-bold leading-tight line-clamp-2 text-foreground", isCompact ? "text-[10px]" : "text-sm")}>
                             {event.titre}
@@ -434,7 +493,6 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
     <div className="h-full w-full bg-card overflow-hidden flex flex-col">
       <div className="flex-1 overflow-hidden">{viewMode === '3day' ? render3DayView() : renderMonthView()}</div>
       
-      {/* Event Editor Dialog */}
       <Dialog open={isEventDialogOpen} onOpenChange={(open) => {
         if (!open) {
           setIsEventDialogOpen(false);
@@ -580,7 +638,6 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
         </DialogContent>
       </Dialog>
 
-      {/* Day View Hourly Detail Dialog */}
       <Dialog open={isDayViewOpen} onOpenChange={setIsDayViewOpen}>
         <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl bg-background">
           <div className="p-6 bg-primary text-primary-foreground flex justify-between items-center">
