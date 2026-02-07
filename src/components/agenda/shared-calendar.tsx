@@ -1,24 +1,15 @@
 'use client';
 
 import * as React from 'react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { 
   Calendar as CalendarIcon, 
-  Users, 
   Loader2, 
   ChevronLeft, 
   ChevronRight, 
-  Maximize2, 
-  Minimize2,
-  ListFilter,
-  Chrome,
-  Plus,
-  RefreshCw,
+  Plus, 
   Trash2,
-  Clock,
-  X,
+  Chrome,
   UploadCloud,
   DownloadCloud
 } from 'lucide-react';
@@ -33,8 +24,8 @@ import {
   addDocumentNonBlocking
 } from '@/firebase';
 import { collection, query, doc } from 'firebase/firestore';
-import { CalendarEvent, User } from '@/lib/types';
-import { format, isSameDay, parseISO, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isToday, startOfWeek, endOfWeek, isValid } from 'date-fns';
+import { CalendarEvent } from '@/lib/types';
+import { format, isSameDay, parseISO, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isToday, startOfWeek, endOfWeek, isValid, addMinutes } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import {
@@ -48,6 +39,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from '@/hooks/use-toast';
 import { signInWithGoogleCalendar } from '@/firebase/non-blocking-login';
 import { getSyncTimeRange, fetchGoogleEvents, mapGoogleEvent, syncEventToFirestore, pushEventToGoogle } from '@/services/calendar-sync';
@@ -70,6 +68,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
   const [formDebut, setFormDebut] = React.useState('');
   const [formFin, setFormFin] = React.useState('');
   const [formDescription, setFormDescription] = React.useState('');
+  const [selectedDuration, setSelectedDuration] = React.useState('30');
 
   const { user } = useUser();
   const auth = useAuth();
@@ -142,7 +141,6 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
       for (const event of localEvents) {
         const googleResult = await pushEventToGoogle(result.token!, event);
         if (googleResult.id) {
-          // Marquer comme synchronisé localement
           const eventRef = doc(db, 'companies', companyId, 'events', event.id);
           setDocumentNonBlocking(eventRef, { source: 'google', id_externe: googleResult.id }, { merge: true });
           count++;
@@ -159,11 +157,20 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
   const openAddEvent = (date?: Date) => {
     setEditingEvent(null);
     const targetDate = date || new Date();
-    const dateStr = format(targetDate, "yyyy-MM-dd'T'HH:mm");
+    // Round to nearest 15 mins
+    const minutes = targetDate.getMinutes();
+    const roundedMinutes = Math.round(minutes / 15) * 15;
+    targetDate.setMinutes(roundedMinutes);
+    targetDate.setSeconds(0);
+    
+    const startStr = format(targetDate, "yyyy-MM-dd'T'HH:mm");
+    const endStr = format(addMinutes(targetDate, 30), "yyyy-MM-dd'T'HH:mm");
+    
     setFormTitre('');
-    setFormDebut(dateStr);
-    setFormFin(dateStr);
+    setFormDebut(startStr);
+    setFormFin(endStr);
     setFormDescription('');
+    setSelectedDuration('30');
     setIsEventDialogOpen(true);
   };
 
@@ -173,7 +180,32 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
     setFormDebut(event.debut.slice(0, 16));
     setFormFin(event.fin.slice(0, 16));
     setFormDescription(event.description || '');
+    
+    // Calculate duration for the select
+    const start = parseISO(event.debut);
+    const end = parseISO(event.fin);
+    const diff = (end.getTime() - start.getTime()) / (1000 * 60);
+    setSelectedDuration(diff.toString());
+    
     setIsEventDialogOpen(true);
+  };
+
+  const handleDurationChange = (duration: string) => {
+    setSelectedDuration(duration);
+    if (formDebut && duration !== 'custom') {
+      const startDate = new Date(formDebut);
+      const endDate = addMinutes(startDate, parseInt(duration));
+      setFormFin(format(endDate, "yyyy-MM-dd'T'HH:mm"));
+    }
+  };
+
+  const handleDebutChange = (newDebut: string) => {
+    setFormDebut(newDebut);
+    if (selectedDuration !== 'custom') {
+      const startDate = new Date(newDebut);
+      const endDate = addMinutes(startDate, parseInt(selectedDuration));
+      setFormFin(format(endDate, "yyyy-MM-dd'T'HH:mm"));
+    }
   };
 
   const handleSaveEvent = () => {
@@ -317,19 +349,75 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
   return (
     <div className="h-full w-full bg-card overflow-hidden flex flex-col">
       <div className="flex-1 overflow-hidden">{viewMode === '3day' ? render3DayView() : renderMonthView()}</div>
-      <Dialog open={isEventDialogOpen} onOpenChange={setIsEventDialogOpen}>
+      
+      <Dialog open={isEventDialogOpen} onOpenChange={(open) => !open && setIsEventDialogOpen(false)}>
         <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader><DialogTitle className="flex items-center gap-2"><CalendarIcon className="w-5 h-5 text-primary" />{editingEvent ? "Modifier" : "Nouvel événement"}</DialogTitle><DialogDescription>Détails de votre rendez-vous Grow&Go.</DialogDescription></DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2"><Label htmlFor="titre">Titre</Label><Input id="titre" value={formTitre} onChange={(e) => setFormTitre(e.target.value)} placeholder="Réunion, Signature..." /></div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2"><Label htmlFor="debut">Début</Label><Input id="debut" type="datetime-local" value={formDebut} onChange={(e) => setFormDebut(e.target.value)} /></div>
-              <div className="grid gap-2"><Label htmlFor="fin">Fin</Label><Input id="fin" type="datetime-local" value={formFin} onChange={(e) => setFormFin(e.target.value)} /></div>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarIcon className="w-5 h-5 text-primary" />
+              {editingEvent ? "Modifier" : "Nouvel événement"}
+            </DialogTitle>
+            <DialogDescription>Détails de votre rendez-vous Grow&Go. Les modifications sont enregistrées à la validation.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-6 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="titre">Titre de l'événement</Label>
+              <Input id="titre" value={formTitre} onChange={(e) => setFormTitre(e.target.value)} placeholder="Réunion, Signature, Design review..." />
             </div>
-            <div className="grid gap-2"><Label htmlFor="description">Description (optionnel)</Label><Textarea id="description" value={formDescription} onChange={(e) => setFormDescription(e.target.value)} placeholder="Détails..." className="min-h-[100px]" /></div>
+            
+            <div className="grid gap-2">
+              <Label htmlFor="duration">Durée prévue</Label>
+              <Select value={selectedDuration} onValueChange={handleDurationChange}>
+                <SelectTrigger id="duration">
+                  <SelectValue placeholder="Choisir une durée" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="15">15 minutes</SelectItem>
+                  <SelectItem value="30">30 minutes</SelectItem>
+                  <SelectItem value="45">45 minutes</SelectItem>
+                  <SelectItem value="60">1 heure</SelectItem>
+                  <SelectItem value="90">1h 30min</SelectItem>
+                  <SelectItem value="120">2 heures</SelectItem>
+                  <SelectItem value="custom">Personnalisée</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="debut">Début</Label>
+                <Input 
+                  id="debut" 
+                  type="datetime-local" 
+                  step="900" 
+                  value={formDebut} 
+                  onChange={(e) => handleDebutChange(e.target.value)} 
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="fin">Fin</Label>
+                <Input 
+                  id="fin" 
+                  type="datetime-local" 
+                  step="900" 
+                  value={formFin} 
+                  onChange={(e) => setFormFin(e.target.value)}
+                  disabled={selectedDuration !== 'custom'}
+                />
+              </div>
+            </div>
+            
+            <div className="grid gap-2">
+              <Label htmlFor="description">Notes / Description (optionnel)</Label>
+              <Textarea id="description" value={formDescription} onChange={(e) => setFormDescription(e.target.value)} placeholder="Détails, liens de visio, ordre du jour..." className="min-h-[80px]" />
+            </div>
           </div>
           <DialogFooter className="flex justify-between items-center sm:justify-between w-full">
-            {editingEvent && <Button variant="destructive" size="sm" onClick={handleDeleteEvent} className="gap-2"><Trash2 className="w-4 h-4" /> Supprimer</Button>}
+            {editingEvent && (
+              <Button variant="destructive" size="sm" onClick={handleDeleteEvent} className="gap-2">
+                <Trash2 className="w-4 h-4" /> Supprimer
+              </Button>
+            )}
             <div className="flex gap-2 ml-auto">
               <Button variant="outline" onClick={() => setIsEventDialogOpen(false)}>Annuler</Button>
               <Button onClick={handleSaveEvent} className="bg-primary">Enregistrer</Button>
