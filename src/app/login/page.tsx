@@ -49,11 +49,11 @@ export default function LoginPage() {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const newUser = userCredential.user;
         
-        // Création du profil par défaut (Employé)
+        // Création du profil par défaut
         const userRef = doc(db, 'users', newUser.uid);
         setDocumentNonBlocking(userRef, {
           uid: newUser.uid,
-          companyId: 'default-company',
+          companyId: id.toLowerCase() === 'jsecchi' ? 'growandgo-hq' : 'default-company',
           role: id.toLowerCase() === 'jsecchi' ? 'super_admin' : 'employee',
           adminMode: id.toLowerCase() === 'jsecchi',
           isCategoryModifier: id.toLowerCase() === 'jsecchi',
@@ -87,7 +87,7 @@ export default function LoginPage() {
       }
       router.push('/');
     } catch (error: any) {
-      console.error(error);
+      // On évite console.error ici pour ne pas déclencher l'overlay NextJS en mode dev
       let message = "Une erreur est survenue.";
       
       // Gestion précise des erreurs d'authentification pour l'utilisateur
