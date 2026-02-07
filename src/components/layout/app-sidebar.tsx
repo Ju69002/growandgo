@@ -81,13 +81,13 @@ export function AppSidebar() {
           </div>
           <div className="flex flex-col group-data-[collapsible=icon]:hidden">
             <span className="text-lg leading-tight tracking-tight">Grow&Go</span>
-            <span className="text-[10px] uppercase tracking-widest opacity-70 font-medium">Design Studio</span>
+            <span className="text-[10px] uppercase tracking-widest opacity-70 font-medium text-white">Design Studio</span>
           </div>
         </div>
       </SidebarHeader>
       <SidebarContent className="bg-sidebar">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/50 font-bold uppercase text-[10px] tracking-widest px-4 mb-2">Principal</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-white/50 font-bold uppercase text-[10px] tracking-widest px-4 mb-2">Principal</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {mainItems.map((item) => {
@@ -101,12 +101,12 @@ export function AppSidebar() {
                       className={cn(
                         "transition-all duration-200 px-4 h-11 rounded-xl mx-2 w-[calc(100%-1rem)] font-bold",
                         active 
-                          ? "bg-white text-primary shadow-lg" 
-                          : "text-sidebar-foreground hover:bg-sidebar-accent"
+                          ? "bg-white text-primary shadow-lg hover:bg-white hover:text-primary" 
+                          : "text-white hover:bg-white/10"
                       )}
                     >
                       <Link href={item.url}>
-                        <item.icon className={cn("w-5 h-5", active ? "text-primary" : "text-sidebar-foreground")} />
+                        <item.icon className={cn("w-5 h-5", active ? "text-primary" : "text-white")} />
                         <span>{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
@@ -119,7 +119,7 @@ export function AppSidebar() {
 
         {isSuperAdmin && (
           <SidebarGroup>
-            <SidebarGroupLabel className="text-sidebar-foreground/50 font-bold uppercase text-[10px] tracking-widest px-4 mb-2">Administration</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-white/50 font-bold uppercase text-[10px] tracking-widest px-4 mb-2">Administration</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 <SidebarMenuItem>
@@ -130,12 +130,12 @@ export function AppSidebar() {
                     className={cn(
                       "transition-all duration-200 px-4 h-11 rounded-xl mx-2 w-[calc(100%-1rem)] font-bold",
                       isItemActive('/accounts') 
-                        ? "bg-white text-primary shadow-lg" 
-                        : "text-sidebar-foreground hover:bg-sidebar-accent"
+                        ? "bg-white text-primary shadow-lg hover:bg-white hover:text-primary" 
+                        : "text-white hover:bg-white/10"
                     )}
                   >
                     <Link href="/accounts">
-                      <UserCheck className={cn("w-5 h-5", isItemActive('/accounts') ? "text-primary" : "text-sidebar-foreground")} />
+                      <UserCheck className={cn("w-5 h-5", isItemActive('/accounts') ? "text-primary" : "text-white")} />
                       <span>Comptes</span>
                     </Link>
                   </SidebarMenuButton>
@@ -146,7 +146,7 @@ export function AppSidebar() {
         )}
 
         <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/50 font-bold uppercase text-[10px] tracking-widest px-4 mb-2">Configuration</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-white/50 font-bold uppercase text-[10px] tracking-widest px-4 mb-2">Configuration</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {configItems.map((item) => {
@@ -160,12 +160,12 @@ export function AppSidebar() {
                       className={cn(
                         "transition-all duration-200 px-4 h-11 rounded-xl mx-2 w-[calc(100%-1rem)] font-bold",
                         active 
-                          ? "bg-white text-primary shadow-lg" 
-                          : "text-sidebar-foreground hover:bg-sidebar-accent"
+                          ? "bg-white text-primary shadow-lg hover:bg-white hover:text-primary" 
+                          : "text-white hover:bg-white/10"
                       )}
                     >
                       <Link href={item.url}>
-                        <item.icon className={cn("w-5 h-5", active ? "text-primary" : "text-sidebar-foreground")} />
+                        <item.icon className={cn("w-5 h-5", active ? "text-primary" : "text-white")} />
                         <span>{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
@@ -185,12 +185,12 @@ export function AppSidebar() {
               className={cn(
                 "transition-all duration-200 px-4 h-11 rounded-xl mx-2 w-[calc(100%-1rem)] font-bold",
                 isItemActive('/settings') 
-                  ? "bg-white text-primary shadow-lg" 
-                  : "text-sidebar-foreground hover:bg-sidebar-accent"
+                  ? "bg-white text-primary shadow-lg hover:bg-white hover:text-primary" 
+                  : "text-white hover:bg-white/10"
               )}
             >
               <Link href="/settings">
-                <Settings className={cn("w-5 h-5", isItemActive('/settings') ? "text-primary" : "text-sidebar-foreground")} />
+                <Settings className={cn("w-5 h-5", isItemActive('/settings') ? "text-primary" : "text-white")} />
                 <span>Paramètres</span>
               </Link>
             </SidebarMenuButton>

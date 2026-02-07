@@ -13,6 +13,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { 
   useFirestore, 
   useCollection, 
@@ -23,7 +25,7 @@ import {
   deleteDocumentNonBlocking
 } from '@/firebase';
 import { collection, doc, query } from 'firebase/firestore';
-import { User, UserRole } from '@/lib/types';
+import { User, UserRole, Company } from '@/lib/types';
 import { 
   ShieldCheck, 
   User as UserIcon, 
@@ -32,12 +34,13 @@ import {
   ShieldAlert, 
   UserCog, 
   Loader2,
-  CheckCircle2,
   AlertTriangle,
   RefreshCcw,
-  Building2
+  Building2,
+  Edit2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useState } from 'react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,11 +52,19 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 export default function AccountsPage() {
   const { user: currentUser } = useUser();
   const db = useFirestore();
   const { toast } = useToast();
+  const [editingCompany, setEditingCompany] = useState<{ id: string, name: string } | null>(null);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !currentUser) return null;
@@ -69,6 +80,13 @@ export default function AccountsPage() {
   }, [db]);
 
   const { data: allUsers, isLoading } = useCollection<User>(usersQuery);
+
+  const companiesQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return query(collection(db, 'companies'));
+  }, [db]);
+
+  const { data: allCompanies } = useCollection<Company>(companiesQuery);
 
   const handleRoleChange = (userId: string, currentRole: UserRole) => {
     if (!db) return;
@@ -95,6 +113,14 @@ export default function AccountsPage() {
     });
   };
 
+  const handleUpdateCompanyName = () => {
+    if (!db || !editingCompany) return;
+    const companyRef = doc(db, 'companies', editingCompany.id);
+    updateDocumentNonBlocking(companyRef, { name: editingCompany.name });
+    toast({ title: "Entreprise renommée", description: `Le nom a été mis à jour pour tous les membres.` });
+    setEditingCompany(null);
+  };
+
   if (!isSuperAdmin && myProfile) {
     return (
       <DashboardLayout>
@@ -116,7 +142,7 @@ export default function AccountsPage() {
               <UserCog className="w-10 h-10" />
               Gestion des Comptes
             </h1>
-            <p className="text-muted-foreground font-medium">Administration globale des accès par entreprise.</p>
+            <p className="text-muted-foreground font-medium">Administration globale des accès et des entreprises.</p>
           </div>
           <Badge variant="outline" className="px-4 py-1 border-primary/20 text-primary font-bold">
             {allUsers?.length || 0} UTILISATEURS
@@ -148,100 +174,136 @@ export default function AccountsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {allUsers?.map((u) => (
-                    <TableRow key={u.uid} className="hover:bg-primary/5 transition-colors border-b-primary/5">
-                      <TableCell className="pl-8 py-6">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 bg-primary/10 rounded-xl text-primary">
-                            <UserIcon className="w-4 h-4" />
-                          </div>
-                          <div>
-                            <p className="font-bold">{u.name}</p>
-                            <p className="text-[10px] text-muted-foreground truncate max-w-[120px]">{u.email}</p>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Building2 className="w-3.5 h-3.5 text-muted-foreground" />
-                          <span className="text-sm font-semibold">{u.companyId === 'growandgo-hq' ? 'Grow&Go HQ' : u.companyId}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {u.role === 'super_admin' ? (
-                          <Badge className="bg-rose-900 text-white font-black uppercase text-[9px] px-2">
-                            Super Admin
-                          </Badge>
-                        ) : (
-                          <Badge 
-                            className={u.role === 'admin' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}
-                            variant={u.role === 'admin' ? "default" : "outline"}
-                          >
-                            {u.role === 'admin' ? "PATRON" : "EMPLOYÉ"}
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2 px-3 py-1 bg-muted rounded-lg w-fit border border-black/5">
-                          <Key className="w-3 h-3 text-muted-foreground" />
-                          <span className="font-mono text-xs font-bold">{u.loginId}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right pr-8">
-                        {u.role !== 'super_admin' && (
-                          <div className="flex items-center justify-end gap-2">
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              className="rounded-full font-bold text-[9px] uppercase h-8 px-3 gap-1.5 hover:bg-primary hover:text-primary-foreground border-primary/20"
-                              onClick={() => handleRoleChange(u.uid, u.role)}
-                            >
-                              <RefreshCcw className="w-3 h-3" />
-                              {u.role === 'admin' ? 'Vers Employé' : 'Vers Patron'}
-                            </Button>
+                  {allUsers?.map((u) => {
+                    const company = allCompanies?.find(c => c.id === u.companyId);
+                    const companyName = company?.name || u.companyId;
 
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon" 
-                                  className="h-8 w-8 text-rose-800 hover:bg-rose-100 hover:text-rose-900 rounded-full"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent className="rounded-[2rem] border-none shadow-2xl">
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle className="text-2xl font-black uppercase flex items-center gap-2">
-                                    <AlertTriangle className="text-rose-800 w-6 h-6" />
-                                    Supprimer le compte ?
-                                  </AlertDialogTitle>
-                                  <AlertDialogDescription className="text-base">
-                                    Cette action retirera <strong>{u.name}</strong> de <strong>{u.companyId}</strong>. Il devra se réinscrire pour accéder à nouveau au studio.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter className="mt-6 gap-3">
-                                  <AlertDialogCancel className="rounded-full font-bold h-11 px-8 border-primary/20">Annuler</AlertDialogCancel>
-                                  <AlertDialogAction 
-                                    onClick={() => handleDeleteUser(u.uid)}
-                                    className="bg-rose-800 hover:bg-rose-900 text-white rounded-full font-bold h-11 px-8"
-                                  >
-                                    Confirmer
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
+                    return (
+                      <TableRow key={u.uid} className="hover:bg-primary/5 transition-colors border-b-primary/5">
+                        <TableCell className="pl-8 py-6">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-primary/10 rounded-xl text-primary">
+                              <UserIcon className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <p className="font-bold">{u.name}</p>
+                              <p className="text-[10px] text-muted-foreground truncate max-w-[120px]">{u.email}</p>
+                            </div>
                           </div>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2 group">
+                            <Building2 className="w-3.5 h-3.5 text-muted-foreground" />
+                            <span className="text-sm font-semibold">{companyName}</span>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-6 w-6 opacity-0 group-hover:opacity-100"
+                              onClick={() => setEditingCompany({ id: u.companyId, name: companyName })}
+                            >
+                              <Edit2 className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {u.role === 'super_admin' ? (
+                            <Badge className="bg-rose-900 text-white font-black uppercase text-[9px] px-2">
+                              Super Admin
+                            </Badge>
+                          ) : (
+                            <Badge 
+                              className={u.role === 'admin' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}
+                              variant={u.role === 'admin' ? "default" : "outline"}
+                            >
+                              {u.role === 'admin' ? "PATRON" : "EMPLOYÉ"}
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2 px-3 py-1 bg-muted rounded-lg w-fit border border-black/5">
+                            <Key className="w-3 h-3 text-muted-foreground" />
+                            <span className="font-mono text-xs font-bold">{u.loginId}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right pr-8">
+                          {u.role !== 'super_admin' && (
+                            <div className="flex items-center justify-end gap-2">
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="rounded-full font-bold text-[9px] uppercase h-8 px-3 gap-1.5 hover:bg-primary hover:text-primary-foreground border-primary/20"
+                                onClick={() => handleRoleChange(u.uid, u.role)}
+                              >
+                                <RefreshCcw className="w-3 h-3" />
+                                {u.role === 'admin' ? 'Vers Employé' : 'Vers Patron'}
+                              </Button>
+
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-8 w-8 text-rose-900 hover:bg-rose-100 hover:text-rose-950 rounded-full"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent className="rounded-[2rem] border-none shadow-2xl">
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle className="text-2xl font-black uppercase flex items-center gap-2">
+                                      <AlertTriangle className="text-rose-900 w-6 h-6" />
+                                      Supprimer le compte ?
+                                    </AlertDialogTitle>
+                                    <AlertDialogDescription className="text-base">
+                                      Cette action retirera <strong>{u.name}</strong> de <strong>{companyName}</strong>. Il devra se réinscrire pour accéder à nouveau au studio.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter className="mt-6 gap-3">
+                                    <AlertDialogCancel className="rounded-full font-bold h-11 px-8 border-primary/20">Annuler</AlertDialogCancel>
+                                    <AlertDialogAction 
+                                      onClick={() => handleDeleteUser(u.uid)}
+                                      className="bg-rose-900 hover:bg-rose-950 text-white rounded-full font-bold h-11 px-8"
+                                    >
+                                      Confirmer
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={!!editingCompany} onOpenChange={(open) => !open && setEditingCompany(null)}>
+        <DialogContent className="rounded-[2rem] border-none shadow-2xl max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-black uppercase tracking-tighter">Renommer l'entreprise</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Nouveau nom d'affichage</Label>
+              <Input 
+                value={editingCompany?.name || ''} 
+                onChange={(e) => setEditingCompany(prev => prev ? { ...prev, name: e.target.value } : null)}
+                placeholder="Ex: Grow&Go Studio..."
+                className="rounded-xl border-primary/10 h-12 font-bold"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEditingCompany(null)} className="rounded-full font-bold">Annuler</Button>
+            <Button onClick={handleUpdateCompanyName} className="rounded-full font-bold px-8 bg-primary">Sauvegarder</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }
