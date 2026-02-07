@@ -89,14 +89,18 @@ export default function LoginPage() {
     } catch (error: any) {
       console.error(error);
       let message = "Une erreur est survenue.";
-      if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-        message = "Mot de passe incorrect. Veuillez réessayer.";
-      } else if (error.code === 'auth/user-not-found') {
-        message = "Identifiant inconnu.";
+      
+      // Gestion précise des erreurs d'authentification pour l'utilisateur
+      if (
+        error.code === 'auth/wrong-password' || 
+        error.code === 'auth/invalid-credential' || 
+        error.code === 'auth/user-not-found'
+      ) {
+        message = "Identifiant ou mot de passe incorrect.";
       } else if (error.code === 'auth/email-already-in-use') {
         message = "Cet identifiant est déjà utilisé.";
       } else if (error.code === 'auth/weak-password') {
-        message = "Le mot de passe est trop court.";
+        message = "Le mot de passe doit contenir au moins 6 caractères.";
       }
       
       toast({ 
