@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -63,7 +62,7 @@ export function AppSidebar() {
 
   const isItemActive = (url: string) => {
     if (url === '/' && pathname !== '/') return false;
-    return pathname.startsWith(url);
+    return pathname === url || pathname.startsWith(url + '/');
   };
 
   return (
@@ -97,14 +96,14 @@ export function AppSidebar() {
                     tooltip={item.title} 
                     isActive={isItemActive(item.url)}
                     className={cn(
-                      "transition-all duration-200 px-4 h-11",
+                      "transition-all duration-200 px-4 h-11 rounded-xl mx-2 w-[calc(100%-1rem)]",
                       isItemActive(item.url) 
-                        ? "bg-sidebar-primary text-sidebar-primary-foreground font-bold" 
-                        : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                        ? "bg-sidebar-primary text-sidebar-primary-foreground font-bold shadow-lg" 
+                        : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                     )}
                   >
                     <Link href={item.url}>
-                      <item.icon className={cn("w-5 h-5", isItemActive(item.url) && "text-white")} />
+                      <item.icon className={cn("w-5 h-5", isItemActive(item.url) ? "text-sidebar-primary-foreground" : "text-sidebar-foreground/60")} />
                       <span>{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
@@ -125,14 +124,14 @@ export function AppSidebar() {
                     tooltip="Gestion des Comptes" 
                     isActive={isItemActive('/accounts')}
                     className={cn(
-                      "transition-all duration-200 px-4 h-11",
+                      "transition-all duration-200 px-4 h-11 rounded-xl mx-2 w-[calc(100%-1rem)]",
                       isItemActive('/accounts') 
-                        ? "bg-sidebar-primary text-sidebar-primary-foreground font-bold" 
-                        : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground text-emerald-400"
+                        ? "bg-sidebar-primary text-sidebar-primary-foreground font-bold shadow-lg" 
+                        : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                     )}
                   >
                     <Link href="/accounts">
-                      <UserCheck className={cn("w-5 h-5", isItemActive('/accounts') && "text-white")} />
+                      <UserCheck className={cn("w-5 h-5", isItemActive('/accounts') ? "text-sidebar-primary-foreground" : "text-sidebar-foreground/60")} />
                       <span>Comptes</span>
                     </Link>
                   </SidebarMenuButton>
@@ -153,14 +152,14 @@ export function AppSidebar() {
                     tooltip={item.title} 
                     isActive={isItemActive(item.url)}
                     className={cn(
-                      "transition-all duration-200 px-4 h-11",
+                      "transition-all duration-200 px-4 h-11 rounded-xl mx-2 w-[calc(100%-1rem)]",
                       isItemActive(item.url) 
-                        ? "bg-sidebar-primary text-sidebar-primary-foreground font-bold" 
-                        : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                        ? "bg-sidebar-primary text-sidebar-primary-foreground font-bold shadow-lg" 
+                        : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                     )}
                   >
                     <Link href={item.url}>
-                      <item.icon className={cn("w-5 h-5", isItemActive(item.url) && "text-white")} />
+                      <item.icon className={cn("w-5 h-5", isItemActive(item.url) ? "text-sidebar-primary-foreground" : "text-sidebar-foreground/60")} />
                       <span>{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
@@ -177,14 +176,14 @@ export function AppSidebar() {
               asChild 
               isActive={isItemActive('/settings')}
               className={cn(
-                "transition-all duration-200 px-4 h-11",
+                "transition-all duration-200 px-4 h-11 rounded-xl mx-2 w-[calc(100%-1rem)]",
                 isItemActive('/settings') 
-                  ? "bg-sidebar-primary text-sidebar-primary-foreground font-bold" 
-                  : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                  ? "bg-sidebar-primary text-sidebar-primary-foreground font-bold shadow-lg" 
+                  : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               )}
             >
               <Link href="/settings">
-                <Settings className={cn("w-5 h-5", isItemActive('/settings') && "text-white")} />
+                <Settings className={cn("w-5 h-5", isItemActive('/settings') ? "text-sidebar-primary-foreground" : "text-sidebar-foreground/60")} />
                 <span>Paramètres</span>
               </Link>
             </SidebarMenuButton>
