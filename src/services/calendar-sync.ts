@@ -6,21 +6,25 @@
  */
 
 import { CalendarEvent } from '@/lib/types';
-import { Firestore, doc, getDoc } from 'firebase/firestore';
+import { Firestore, doc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase';
 
 /**
  * Mappe un événement Google Calendar vers le schéma interne
  */
 export function mapGoogleEvent(googleEvent: any, companyId: string, userId: string): Partial<CalendarEvent> {
+  // Les événements "toute la journée" ont .date au lieu de .dateTime
+  const start = googleEvent.start?.dateTime || googleEvent.start?.date || new Date().toISOString();
+  const end = googleEvent.end?.dateTime || googleEvent.end?.date || new Date().toISOString();
+
   return {
     id_externe: googleEvent.id || '',
     companyId,
     userId,
     titre: googleEvent.summary || 'Sans titre',
     description: googleEvent.description || '',
-    debut: googleEvent.start?.dateTime || googleEvent.start?.date || new Date().toISOString(),
-    fin: googleEvent.end?.dateTime || googleEvent.end?.date || new Date().toISOString(),
+    debut: start,
+    fin: end,
     attendees: googleEvent.attendees?.filter((a: any) => a?.email).map((a: any) => a.email) || [],
     source: 'google',
     type: 'meeting',
@@ -50,7 +54,8 @@ export async function fetchGoogleEvents(token: string, timeMin: string, timeMax:
 }
 
 /**
- * Logique d'Upsert avec vérification de la date de mise à jour
+ * Logique d'Upsert directe dans Firestore
+ * On utilise Google comme source de vérité absolue lors du fetch.
  */
 export async function syncEventToFirestore(
   db: Firestore, 
@@ -60,24 +65,9 @@ export async function syncEventToFirestore(
 
   const eventRef = doc(db, 'companies', eventData.companyId, 'events', eventData.id_externe);
   
-  try {
-    const docSnap = await getDoc(eventRef);
-
-    if (docSnap.exists()) {
-      const existingEvent = docSnap.data() as CalendarEvent;
-      const existingDate = new Date(existingEvent.derniere_maj || 0).getTime();
-      const newDate = new Date(eventData.derniere_maj!).getTime();
-
-      // On ne met à jour que si l'événement externe a été modifié plus récemment
-      if (newDate > existingDate) {
-        setDocumentNonBlocking(eventRef, eventData, { merge: true });
-      }
-    } else {
-      setDocumentNonBlocking(eventRef, eventData, { merge: true });
-    }
-  } catch (error) {
-    console.error("Sync Error:", error);
-  }
+  // On utilise set avec merge: true pour mettre à jour ou créer l'événement
+  // On ne vérifie plus manuellement la date de mise à jour pour garantir que le fetch force l'état actuel de Google
+  setDocumentNonBlocking(eventRef, eventData, { merge: true });
 }
 
 /**
@@ -85,7 +75,8 @@ export async function syncEventToFirestore(
  */
 export function getSyncTimeRange() {
   const now = new Date();
-  const timeMin = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  // On élargit un peu la fenêtre pour être sûr
+  const timeMin = new Date(now.getTime() - 45 * 24 * 60 * 60 * 1000).toISOString();
   const timeMax = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString();
   return { timeMin, timeMax };
 }
