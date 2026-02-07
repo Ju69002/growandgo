@@ -68,7 +68,7 @@ export default function LoginPage() {
             loginId: trimmedId // Stockage de la casse originale pour vérification stricte
           });
 
-          toast({ title: "Compte créé !", description: "Redirection vers la connexion..." });
+          toast({ title: "Compte créé !", description: "Veuillez maintenant vous connecter." });
           
           await signOut(auth);
           setIsSignUp(false);
@@ -81,7 +81,11 @@ export default function LoginPage() {
               description: "Un compte avec cet identifiant existe déjà dans la base." 
             });
           } else {
-            throw authError;
+            toast({ 
+              variant: "destructive", 
+              title: "Échec", 
+              description: "Erreur lors de la création du compte." 
+            });
           }
         }
       } else {
@@ -118,11 +122,19 @@ export default function LoginPage() {
             });
           }
         } catch (authError: any) {
-          toast({ 
-            variant: "destructive", 
-            title: "Échec", 
-            description: "Identifiant ou mot de passe incorrect." 
-          });
+          if (authError.code === 'auth/user-not-found') {
+            toast({ 
+              variant: "destructive", 
+              title: "Échec", 
+              description: "Identifiant non reconnu dans la base." 
+            });
+          } else {
+            toast({ 
+              variant: "destructive", 
+              title: "Échec", 
+              description: "Identifiant ou mot de passe incorrect." 
+            });
+          }
         }
       }
     } catch (error: any) {
