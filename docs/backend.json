@@ -4,7 +4,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Company",
       "type": "object",
-      "description": "Represents a company profile in the BusinessPilot application.",
+      "description": "Represents a company (client) in the BusinessPilot SaaS application.",
       "properties": {
         "id": {
           "type": "string",
@@ -19,20 +19,18 @@
           "description": "Subscription status of the company ('active', 'trial')."
         },
         "modulesConfig": {
-          "type": "string",
-          "description": "Configuration of the interface modules."
-        },
-        "showRh": {
-          "type": "boolean",
-          "description": "Visibility of the RH (Human Resources) module."
-        },
-        "showFinance": {
-          "type": "boolean",
-          "description": "Visibility of the Finance module."
+          "type": "array",
+          "description": "Configuration for the company's modules. References module ids.",
+          "items": {
+            "type": "string"
+          }
         },
         "customLabels": {
-          "type": "string",
-          "description": "Custom labels for renaming categories (e.g., 'finance': 'My Treasury')."
+          "type": "array",
+          "description": "Custom labels for renaming categories.",
+          "items": {
+            "type": "string"
+          }
         }
       },
       "required": [
@@ -45,11 +43,11 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "User",
       "type": "object",
-      "description": "Represents a user account within the BusinessPilot application.",
+      "description": "Represents a user in the BusinessPilot SaaS application, linked to Firebase Authentication.",
       "properties": {
         "uid": {
           "type": "string",
-          "description": "Unique identifier for the user, linked to Firebase Authentication."
+          "description": "Unique identifier for the user, linked to Firebase Auth."
         },
         "companyId": {
           "type": "string",
@@ -57,11 +55,15 @@
         },
         "role": {
           "type": "string",
-          "description": "User role ('super_admin', 'admin', 'employee')."
+          "description": "Role of the user ('super_admin', 'admin', 'employee')."
         },
         "adminMode": {
           "type": "boolean",
-          "description": "Indicates if the admin user is in architect mode (can modify structure)."
+          "description": "Indicates if the admin user is in architect mode (allows structure modifications)."
+        },
+        "isCategoryModifier": {
+          "type": "boolean",
+          "description": "Indicates if the user has the permission to add/modify categories."
         }
       },
       "required": [
@@ -74,11 +76,11 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Category",
       "type": "object",
-      "description": "Represents a category (tile) on the home screen.",
+      "description": "Represents a category (tile) in the BusinessPilot SaaS application.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the category (e.g., 'finance', 'admin', 'rh')."
+          "description": "Unique identifier for the category."
         },
         "companyId": {
           "type": "string",
@@ -86,7 +88,7 @@
         },
         "label": {
           "type": "string",
-          "description": "Name displayed for the category."
+          "description": "Display name of the category."
         },
         "badgeCount": {
           "type": "number",
@@ -94,15 +96,15 @@
         },
         "type": {
           "type": "string",
-          "description": "Type of category ('standard' or 'custom')."
+          "description": "Type of the category ('standard' or 'custom')."
         },
         "visibleToEmployees": {
           "type": "boolean",
-          "description": "Visibility setting for employees."
+          "description": "Indicates if the category is visible to employees."
         },
         "aiInstructions": {
           "type": "string",
-          "description": "System instructions for the AI within this category."
+          "description": "System instructions for the AI in this category."
         }
       },
       "required": [
@@ -116,7 +118,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Document",
       "type": "object",
-      "description": "Represents a document and its associated data.",
+      "description": "Represents a document in the BusinessPilot SaaS application.",
       "properties": {
         "id": {
           "type": "string",
@@ -128,109 +130,102 @@
         },
         "projectColumn": {
           "type": "string",
-          "description": "Project column ('technical', 'administrative', 'budget')."
+          "description": "Project column the document belongs to ('technical', 'administrative', 'budget')."
         },
         "status": {
           "type": "string",
           "description": "Status of the document ('pending_analysis', 'waiting_verification', 'waiting_validation', 'archived')."
         },
         "extractedData": {
-          "type": "string",
-          "description": "JSON data extracted from the document by the AI."
+          "type": "array",
+          "description": "JSON of the data extracted by the AI.",
+          "items": {
+            "type": "string"
+          }
         },
         "fileUrl": {
           "type": "string",
-          "description": "URL of the file in storage."
+          "description": "URL of the document file in Storage."
         }
       },
       "required": [
         "id",
         "categoryId",
+        "projectColumn",
         "status",
         "fileUrl"
       ]
     },
-    "CalendarEvent": {
+    "Module": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "CalendarEvent",
+      "title": "Module",
       "type": "object",
-      "description": "Represents a shared calendar event.",
+      "description": "Represents a module for the application such as RH, Finance etc.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the event."
+          "description": "Unique identifier for the module."
         },
-        "id_externe": {
+        "name": {
           "type": "string",
-          "description": "External ID from Google."
-        },
-        "companyId": {
-          "type": "string",
-          "description": "The company this event belongs to."
-        },
-        "userId": {
-          "type": "string",
-          "description": "The user who owns or synced this event."
-        },
-        "titre": {
-          "type": "string",
-          "description": "Title of the event."
+          "description": "Name of the module."
         },
         "description": {
           "type": "string",
-          "description": "Description of the event."
-        },
-        "debut": {
-          "type": "string",
-          "format": "date-time",
-          "description": "Start date and time."
-        },
-        "fin": {
-          "type": "string",
-          "format": "date-time",
-          "description": "End date and time."
-        },
-        "attendees": {
-          "type": "array",
-          "items": { "type": "string" },
-          "description": "List of attendee emails."
-        },
-        "source": {
-          "type": "string",
-          "enum": ["local", "google"],
-          "description": "Source of the event."
-        },
-        "type": {
-          "type": "string",
-          "enum": ["meeting", "task", "event"],
-          "description": "Type of event."
-        },
-        "derniere_maj": {
-          "type": "string",
-          "format": "date-time",
-          "description": "Last update timestamp."
+          "description": "A description of what the module is for."
         }
       },
       "required": [
-        "id_externe",
-        "companyId",
-        "userId",
-        "titre",
-        "debut",
-        "fin",
-        "source"
+        "id",
+        "name"
+      ]
+    },
+    "ApplicationOwner": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ApplicationOwner",
+      "type": "object",
+      "description": "Represents the super administrator who owns the BusinessPilot application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Application Owner (e.g., JSecchi)."
+        },
+        "passwordHash": {
+          "type": "string",
+          "description": "Hashed password of the application owner for authentication. Never store raw passwords.",
+          "format": "password"
+        }
+      },
+      "required": [
+        "id",
+        "passwordHash"
       ]
     }
   },
   "auth": {
     "providers": [
       "password",
-      "anonymous",
-      "google.com"
+      "anonymous"
     ]
   },
   "firestore": {
     "structure": [
+      {
+        "path": "/applicationOwners/{ownerId}",
+        "definition": {
+          "entityName": "ApplicationOwner",
+          "schema": {
+            "$ref": "#/backend/entities/ApplicationOwner"
+          },
+          "description": "Stores application owner credentials for login.  Only the application can access it. The {ownerId} is 'JSecchi'.",
+          "params": [
+            {
+              "name": "ownerId",
+              "description": "The unique identifier of the application owner (e.g., 'JSecchi')."
+            }
+          ]
+        }
+      },
       {
         "path": "/companies/{companyId}",
         "definition": {
@@ -238,11 +233,11 @@
           "schema": {
             "$ref": "#/backend/entities/Company"
           },
-          "description": "Stores company profiles.",
+          "description": "Stores company profiles, including name, subscription status, and module configurations.",
           "params": [
             {
               "name": "companyId",
-              "description": "Unique identifier for the company."
+              "description": "The unique identifier for the company."
             }
           ]
         }
@@ -254,11 +249,11 @@
           "schema": {
             "$ref": "#/backend/entities/User"
           },
-          "description": "Stores user profiles.",
+          "description": "Stores user accounts with roles (super_admin, admin, employee) and company affiliations. Includes denormalized 'companyId' for authorization independence.",
           "params": [
             {
               "name": "userId",
-              "description": "Unique identifier for the user."
+              "description": "The unique identifier for the user (Firebase Auth UID)."
             }
           ]
         }
@@ -270,15 +265,15 @@
           "schema": {
             "$ref": "#/backend/entities/Category"
           },
-          "description": "Stores categories associated with a company.",
+          "description": "Stores categories (tiles) with labels, badge counts, visibility settings, and AI instructions. Includes denormalized 'companyId' for authorization independence.",
           "params": [
             {
               "name": "companyId",
-              "description": "Unique identifier for the company."
+              "description": "The unique identifier for the company."
             },
             {
               "name": "categoryId",
-              "description": "Unique identifier for the category."
+              "description": "The unique identifier for the category."
             }
           ]
         }
@@ -290,39 +285,36 @@
           "schema": {
             "$ref": "#/backend/entities/Document"
           },
-          "description": "Stores documents associated with a company.",
+          "description": "Stores documents with metadata, extracted data, and file URLs. Includes denormalized 'companyId' for authorization independence.",
           "params": [
             {
               "name": "companyId",
-              "description": "Unique identifier for the company."
+              "description": "The unique identifier for the company."
             },
             {
               "name": "documentId",
-              "description": "Unique identifier for the document."
+              "description": "The unique identifier for the document."
             }
           ]
         }
       },
       {
-        "path": "/companies/{companyId}/events/{eventId}",
+        "path": "/modules/{moduleId}",
         "definition": {
-          "entityName": "CalendarEvent",
+          "entityName": "Module",
           "schema": {
-            "$ref": "#/backend/entities/CalendarEvent"
+            "$ref": "#/backend/entities/Module"
           },
-          "description": "Stores shared calendar events for a company.",
+          "description": "Stores module configurations.",
           "params": [
             {
-              "name": "companyId",
-              "description": "Unique identifier for the company."
-            },
-            {
-              "name": "eventId",
-              "description": "Unique identifier for the event."
+              "name": "moduleId",
+              "description": "The unique identifier for the module."
             }
           ]
         }
       }
-    ]
+    ],
+    "reasoning": "This Firestore structure is designed to support the BusinessPilot SaaS application, focusing on secure and scalable data management while adhering to the core design principles of Authorization Independence, Clarity of Intent, DBAC (Database-Based Access Control), and QAPs (Rules are Not Filters). It also enforces Invariants for data integrity.\n\n**Authorization Independence:**  Crucially, `companyId` is denormalized into the `users`, `categories`, and `documents` collections. This allows security rules to validate a user's access based on `request.auth.uid` and the document's `companyId`, without needing to perform `get()` operations to retrieve parent document data. This approach ensures atomic operations (transactions/batches) are possible and simplifies security rule evaluation.\n\n**Structural Segregation:** The structure segregates data with different security postures.  User-specific data resides under `/users/{uid}`, while company-specific data resides under `/companies/{companyId}`, preventing unintended access.\n\n**Access Modeling:**\n*   **Path-Based Ownership:** User data is stored under `/users/{uid}`, establishing clear ownership.\n*   **Membership Map:** While not directly used, this design anticipates future collaboration features by setting the stage for membership maps within documents, if needed.\n*   **Global Roles (DBAC):** The `users` collection stores user roles (`super_admin`, `admin`, `employee`), enabling role-based access control within the security rules. The presence of a role determines access, rather than relying on custom claims.\n\n**QAPs (Rules are Not Filters):** The structure supports secure `list` operations by ensuring that collections contain documents with a homogeneous security posture. Specifically, all documents within a given `/companies/{companyId}/categories` collection share the same access requirements, enabling rules to securely filter based on the `companyId` and user role.\n\n**Invariants:**  Timestamps (not explicitly included in the schema, but readily added) can be enforced within security rules, and denormalized data (like `companyId`) is validated to maintain data integrity.\n\n**Security Rules Highlights:**\n*   Super Admin: Has full access to all collections.\n*   Admin: Has full access to company data, except for `ai_instructions` in `categories`.\n*   Employee: Restricted access to certain categories (`finance`, `rh`) and fields (`budget` in `documents`).\n\nIn summary, the design promotes security and scalability through denormalization, structural segregation, and explicit access modeling. This results in simpler, more robust, and easily debuggable security rules."
   }
 }

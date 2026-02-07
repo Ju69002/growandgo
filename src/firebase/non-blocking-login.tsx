@@ -1,41 +1,29 @@
 'use client';
 import {
-  Auth,
+  Auth, // Import Auth type for type hinting
   signInAnonymously,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  GoogleAuthProvider,
-  signInWithPopup
+  // Assume getAuth and app are initialized elsewhere
 } from 'firebase/auth';
 
 /** Initiate anonymous sign-in (non-blocking). */
 export function initiateAnonymousSignIn(authInstance: Auth): void {
+  // CRITICAL: Call signInAnonymously directly. Do NOT use 'await signInAnonymously(...)'.
   signInAnonymously(authInstance);
+  // Code continues immediately. Auth state change is handled by onAuthStateChanged listener.
 }
 
 /** Initiate email/password sign-up (non-blocking). */
 export function initiateEmailSignUp(authInstance: Auth, email: string, password: string): void {
+  // CRITICAL: Call createUserWithEmailAndPassword directly. Do NOT use 'await createUserWithEmailAndPassword(...)'.
   createUserWithEmailAndPassword(authInstance, email, password);
+  // Code continues immediately. Auth state change is handled by onAuthStateChanged listener.
 }
 
 /** Initiate email/password sign-in (non-blocking). */
 export function initiateEmailSignIn(authInstance: Auth, email: string, password: string): void {
+  // CRITICAL: Call signInWithEmailAndPassword directly. Do NOT use 'await signInWithEmailAndPassword(...)'.
   signInWithEmailAndPassword(authInstance, email, password);
-}
-
-/** 
- * Sign in with Google and request Calendar scopes (Read & Write).
- */
-export async function signInWithGoogleCalendar(authInstance: Auth) {
-  const provider = new GoogleAuthProvider();
-  // We need 'calendar.events' to be able to create events, not just 'readonly'
-  provider.addScope('https://www.googleapis.com/auth/calendar.events');
-  try {
-    const result = await signInWithPopup(authInstance, provider);
-    const credential = GoogleAuthProvider.credentialFromResult(result);
-    return { user: result.user, token: credential?.accessToken };
-  } catch (error) {
-    console.error("Google Auth Error:", error);
-    throw error;
-  }
+  // Code continues immediately. Auth state change is handled by onAuthStateChanged listener.
 }
