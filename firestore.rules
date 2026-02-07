@@ -1,147 +1,74 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * BUSINESS PILOT SECURITY RULES - PROTOTYPING VERSION
+     * BUSINESS PILOT SECURITY RULES
      * 
-     * Core Philosophy:
-     * This ruleset implements a multi-tenant SaaS security model focused on high-level 
-     * authorization and relational integrity. It enforces a hierarchy where an Application 
-     * Owner (JSecchi) manages the overall platform, Company Admins (Patrons) manage their 
-     * internal company structure, and Employees have restricted visibility.
-     * 
-     * Data Structure:
-     * - /applicationOwners/{ownerId}: Global configuration and super-admin identifiers.
-     * - /companies/{companyId}: Tenant-level configuration.
-     * - /users/{userId}: User profiles including roles and company associations.
-     * - /companies/{companyId}/categories/{categoryId}: Company-specific operational categories.
-     * - /companies/{companyId}/documents/{docId}: Operational data linked to categories and companies.
-     * - /modules/{moduleId}: Global application module definitions.
-     * 
-     * Key Security Decisions:
-     * 1. Super Admin Access: The user 'JSecchi' is treated as the global application owner 
-     *    with authority over user permissions (like category modification rights).
-     * 2. Denormalization for Performance: The 'companyId' is denormalized across users, 
-     *    categories, and documents to allow for single-document security checks without 
-     *    expensive cross-collection gets.
-     * 3. Role-Based Visibility: Employees are restricted from listing or reading categories 
-     *    unless the 'visibleToEmployees' flag is explicitly set to true.
-     * 4. Categorical Modification: Only users with the 'isCategoryModifier' flag (granted by 
-     *    the App Owner) can create or update categories.
+     * Roles:
+     * - super_admin (JSecchi): Can manage everything and grant modification rights.
+     * - admin (Patron): Can manage visibility and modify categories IF isCategoryModifier is true.
+     * - employee: Read-only access to visible categories.
      */
-
-    // --- HELPER FUNCTIONS ---
 
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function isAppOwner() {
-      return isSignedIn() && (request.auth.uid == 'JSecchi' || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin');
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
-    function getUser(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data;
+    function isSuperAdmin() {
+      return isSignedIn() && (getUserData().role == 'super_admin' || request.auth.uid == 'JSecchi');
     }
 
-    function isMemberOf(companyId) {
-      return isSignedIn() && getUser(request.auth.uid).companyId == companyId;
+    function isPatron(companyId) {
+      let data = getUserData();
+      return isSignedIn() && data.companyId == companyId && data.role == 'admin';
     }
 
-    function hasRole(role) {
-      return isSignedIn() && getUser(request.auth.uid).role == role;
+    function isEmployee(companyId) {
+      let data = getUserData();
+      return isSignedIn() && data.companyId == companyId && data.role == 'employee';
     }
 
     function canModifyCategories(companyId) {
-      return isAppOwner() || (isMemberOf(companyId) && getUser(request.auth.uid).isCategoryModifier == true);
+      let data = getUserData();
+      return isSuperAdmin() || (isPatron(companyId) && data.isCategoryModifier == true);
     }
 
-    function isExistingOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId && resource != null;
-    }
-
-    // --- RULES ---
-
-    /**
-     * @description Rules for global application owners.
-     * @path /applicationOwners/{ownerId}
-     * @allow Authenticated users can read owner IDs; App Owner can manage.
-     * @deny Unauthenticated access or modification by standard users.
-     * @principle Restricts platform-level control to verified owners.
-     */
-    match /applicationOwners/{ownerId} {
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if isAppOwner();
-    }
-
-    /**
-     * @description Rules for company tenant data.
-     * @path /companies/{companyId}
-     * @allow Super admins or company members (read-only for members).
-     * @deny Modification by non-super-admins.
-     * @principle Protects corporate-level metadata and subscription status.
-     */
-    match /companies/{companyId} {
-      allow get: if isAppOwner() || isMemberOf(companyId);
-      allow list: if isAppOwner();
-      allow create, update, delete: if isAppOwner();
-    }
-
-    /**
-     * @description Rules for user profiles and roles.
-     * @path /users/{userId}
-     * @allow Users to read/create themselves; App Owner to manage roles and permissions.
-     * @deny Changing companyId or modifying roles without Super Admin status.
-     * @principle Enforces identity-based access and protects critical permission flags.
-     */
     match /users/{userId} {
-      allow get: if isSignedIn() && (request.auth.uid == userId || isAppOwner() || (getUser(request.auth.uid).companyId == resource.data.companyId && hasRole('admin')));
-      allow list: if isAppOwner() || (isSignedIn() && hasRole('admin'));
-      allow create: if isSignedIn() && (request.auth.uid == userId || isAppOwner());
-      allow update: if isAppOwner() || (isExistingOwner(userId) && request.resource.data.role == resource.data.role && request.resource.data.isCategoryModifier == resource.data.isCategoryModifier);
-      allow delete: if isAppOwner();
+      allow get: if isSignedIn() && (request.auth.uid == userId || isSuperAdmin());
+      allow list: if isSuperAdmin();
+      allow create: if isSignedIn();
+      allow update: if isSuperAdmin() || (request.auth.uid == userId && request.resource.data.role == resource.data.role && request.resource.data.isCategoryModifier == resource.data.isCategoryModifier);
+      allow delete: if isSuperAdmin();
     }
 
-    /**
-     * @description Rules for categories within a company.
-     * @path /companies/{companyId}/categories/{categoryId}
-     * @allow Members to read if visible; Authorized modifiers (Patrons) to write.
-     * @deny Employees reading hidden categories or unauthorized users writing.
-     * @principle Implements "Patron mode" vs "Employee mode" for structural control.
-     */
+    match /companies/{companyId} {
+      allow get: if isSignedIn() && (getUserData().companyId == companyId || isSuperAdmin());
+      allow list: if isSuperAdmin();
+      allow write: if isSuperAdmin();
+    }
+
     match /companies/{companyId}/categories/{categoryId} {
-      allow get: if isMemberOf(companyId) && (resource.data.visibleToEmployees == true || hasRole('admin') || isAppOwner());
-      allow list: if isMemberOf(companyId); // Filtering occurs at query level, but rules require member access.
-      allow create: if canModifyCategories(companyId) && request.resource.data.companyId == companyId;
-      allow update: if canModifyCategories(companyId) && resource != null && request.resource.data.companyId == companyId;
-      allow delete: if canModifyCategories(companyId) && resource != null;
+      allow list: if isSignedIn() && (getUserData().companyId == companyId || isSuperAdmin());
+      allow get: if isSignedIn() && (getUserData().companyId == companyId || isSuperAdmin());
+      allow create: if canModifyCategories(companyId);
+      allow update: if canModifyCategories(companyId) || (isPatron(companyId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['visibleToEmployees', 'badgeCount']));
+      allow delete: if canModifyCategories(companyId);
     }
 
-    /**
-     * @description Rules for documents associated with companies.
-     * @path /companies/{companyId}/documents/{documentId}
-     * @allow Company members to read/write their own company's documents.
-     * @deny Access to data from other companies.
-     * @principle Ensures multi-tenant isolation via denormalized companyId.
-     */
     match /companies/{companyId}/documents/{documentId} {
-      allow get, list: if isMemberOf(companyId);
-      allow create: if isMemberOf(companyId) && request.resource.data.companyId == companyId;
-      allow update: if isMemberOf(companyId) && resource != null && request.resource.data.companyId == companyId;
-      allow delete: if (isMemberOf(companyId) && hasRole('admin')) || isAppOwner();
+      allow read: if isSignedIn() && (getUserData().companyId == companyId || isSuperAdmin());
+      allow write: if isSignedIn() && (getUserData().companyId == companyId || isSuperAdmin());
     }
 
-    /**
-     * @description Rules for global application modules.
-     * @path /modules/{moduleId}
-     * @allow Read access to all signed-in users.
-     * @deny Modification by anyone except the App Owner.
-     * @principle Protects static application configuration data.
-     */
-    match /modules/{moduleId} {
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if isAppOwner();
+    match /companies/{companyId}/events/{eventId} {
+      allow read: if isSignedIn() && (getUserData().companyId == companyId || isSuperAdmin());
+      allow write: if isSignedIn() && (getUserData().companyId == companyId || isSuperAdmin());
     }
   }
 }

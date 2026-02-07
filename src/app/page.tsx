@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -27,46 +28,15 @@ import {
   useDoc, 
   useMemoFirebase, 
   setDocumentNonBlocking, 
-  initiateAnonymousSignIn, 
   useAuth, 
   useCollection 
 } from '@/firebase';
 import { doc, collection, query, where, limit } from 'firebase/firestore';
 import { User, BusinessDocument, CalendarEvent } from '@/lib/types';
-import { useToast } from '@/hooks/use-toast';
-import { signInWithGoogleCalendar } from '@/firebase/non-blocking-login';
-import { getSyncTimeRange, fetchGoogleEvents, mapGoogleEvent, syncEventToFirestore } from '@/services/calendar-sync';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { format, isWithinInterval, addDays, startOfToday, parseISO, isValid } from 'date-fns';
 import { fr } from 'date-fns/locale';
-
-const DEFAULT_CATEGORIES = [
-  { 
-    id: 'finance', 
-    label: 'Finance', 
-    aiInstructions: 'Analyse des factures et trésorerie pour Grow&Go.',
-    subCategories: ['Factures Fournisseurs', 'Factures Clients', 'Bilans', 'Relevés Bancaires']
-  },
-  { 
-    id: 'admin', 
-    label: 'Administration', 
-    aiInstructions: 'Gestion des documents administratifs et juridiques.',
-    subCategories: ['Juridique & Statuts', 'Assurances', 'Contrats', 'Kbis']
-  },
-  { 
-    id: 'rh', 
-    label: 'RH', 
-    aiInstructions: 'Gestion des contrats et documents employés.',
-    subCategories: ['Contrats Travail', 'Fiches de Paie', 'Mutuelle & Prévoyance', 'Candidatures']
-  },
-  { 
-    id: 'signatures', 
-    label: 'Signatures', 
-    aiInstructions: 'Suivi des signatures de contrats.',
-    subCategories: ['Devis', 'Contrats Client', 'PV de Réception']
-  }
-];
 
 const statusConfig: Record<string, { label: string; icon: any; color: string }> = {
   waiting_verification: { label: 'À vérifier', icon: AlertCircle, color: 'text-blue-600 bg-blue-50' },
@@ -77,18 +47,14 @@ const statusConfig: Record<string, { label: string; icon: any; color: string }> 
 
 export default function Home() {
   const { user, isUserLoading } = useUser();
-  const auth = useAuth();
+  const router = useRouter();
   const db = useFirestore();
-  const { toast } = useToast();
-  const [isInitializing, setIsInitializing] = useState(true);
-  const [isCalendarFull, setIsCalendarFull] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
-    if (!isUserLoading && !user && auth) {
-      initiateAnonymousSignIn(auth);
+    if (!isUserLoading && !user) {
+      router.push('/login');
     }
-  }, [user, isUserLoading, auth]);
+  }, [user, isUserLoading, router]);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -128,7 +94,6 @@ export default function Home() {
 
     const tasks: any[] = [];
 
-    // Add documents that have a date in extractedData or are pending
     documents?.forEach(doc => {
       const extractedDate = doc.extractedData?.date || doc.extractedData?.expiryDate || doc.extractedData?.deliveryDate;
       let taskDate = today;
@@ -139,12 +104,9 @@ export default function Home() {
           if (isValid(parsed)) {
             taskDate = parsed;
           }
-        } catch (e) {
-          // Ignore invalid dates
-        }
+        } catch (e) { }
       }
 
-      // We only show it if it's within the week or overdue
       if (taskDate <= endOfWeekDate) {
         tasks.push({
           id: doc.id,
@@ -158,10 +120,8 @@ export default function Home() {
       }
     });
 
-    // Add meetings for the week
     meetings?.forEach(meet => {
       if (!meet.debut) return;
-
       try {
         const meetDate = parseISO(meet.debut);
         if (isValid(meetDate) && isWithinInterval(meetDate, interval)) {
@@ -175,99 +135,37 @@ export default function Home() {
             categoryId: 'agenda'
           });
         }
-      } catch (e) {
-        // Ignore malformed dates
-      }
+      } catch (e) { }
     });
 
     return tasks.sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [documents, meetings]);
 
-  // Automatic Sync Effect
-  useEffect(() => {
-    const triggerAutoSync = async () => {
-      if (!db || !companyId || !user || !auth || isSyncing) return;
-      
-      try {
-        // Background sync logic could be placed here if persistent tokens are used
-      } catch (e) {
-        console.error("Auto-sync failed", e);
-      }
-    };
+  const [isCalendarFull, setIsCalendarFull] = useState(false);
 
-    if (companyId && user) {
-      triggerAutoSync();
-    }
-  }, [companyId, user, db, auth]);
-
-  useEffect(() => {
-    if (user && !isProfileLoading && !profile && db) {
-      const companyId = 'default-company';
-      
-      const userRef = doc(db, 'users', user.uid);
-      setDocumentNonBlocking(userRef, {
-        uid: user.uid,
-        companyId: companyId,
-        role: 'admin',
-        adminMode: true,
-        name: user.displayName || 'Utilisateur Grow&Go',
-        email: user.email || 'demo@growandgo.ai'
-      }, { merge: true });
-
-      const companyRef = doc(db, 'companies', companyId);
-      setDocumentNonBlocking(companyRef, {
-        id: companyId,
-        name: 'Grow&Go Design Studio',
-        subscriptionStatus: 'active',
-        primaryColor: '157 44% 21%',
-        backgroundColor: '43 38% 96%',
-        modulesConfig: {
-          showRh: true,
-          showFinance: true,
-          customLabels: {}
-        }
-      }, { merge: true });
-
-      DEFAULT_CATEGORIES.forEach(cat => {
-        const catRef = doc(db, 'companies', companyId, 'categories', cat.id);
-        setDocumentNonBlocking(catRef, {
-          id: cat.id,
-          label: cat.label,
-          badgeCount: 0,
-          visibleToEmployees: true,
-          type: 'standard',
-          aiInstructions: cat.aiInstructions,
-          companyId: companyId,
-          subCategories: cat.subCategories
-        }, { merge: true });
-      });
-    }
-    
-    if (user && (profile || isProfileLoading === false)) {
-      setIsInitializing(false);
-    }
-  }, [user, isProfileLoading, profile, db]);
-
-  if (isUserLoading || (user && isInitializing)) {
+  if (isUserLoading || isProfileLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="text-center space-y-4">
           <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto" />
-          <p className="text-muted-foreground animate-pulse">Initialisation de votre espace Grow&Go...</p>
+          <p className="text-muted-foreground animate-pulse">Chargement de votre espace Grow&Go...</p>
         </div>
       </div>
     );
   }
 
-  const adminMode = profile?.adminMode || false;
+  if (!user || !profile) return null;
 
   return (
     <DashboardLayout>
       <div className="space-y-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <header>
-          <h1 className="text-3xl font-bold tracking-tight text-primary">Tableau de bord</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold tracking-tight text-primary">Tableau de bord</h1>
+            {profile.role === 'super_admin' && <Badge variant="destructive" className="font-black uppercase text-[10px]">Super Admin</Badge>}
+          </div>
           <p className="text-muted-foreground mt-1">
-            Planning hebdomadaire et suivi des documents.
+            Bienvenue {profile.name}. Planning hebdomadaire et suivi des dossiers.
           </p>
         </header>
 
@@ -278,7 +176,6 @@ export default function Home() {
                 <ListTodo className="w-5 h-5 text-primary" />
                 Tâches de la semaine
               </CardTitle>
-              {isSyncing && <Loader2 className="w-4 h-4 animate-spin text-primary/50" />}
             </CardHeader>
             <CardContent className="p-4 space-y-3 flex-1 overflow-y-auto max-h-[400px]">
               {weeklyTasks.length > 0 ? (
@@ -336,7 +233,7 @@ export default function Home() {
             <FileText className="w-5 h-5 text-primary" />
             Vos Dossiers Grow&Go
           </h2>
-          <CategoryTiles isAdminMode={adminMode} />
+          <CategoryTiles profile={profile} />
         </div>
       </div>
 

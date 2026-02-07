@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -36,7 +37,8 @@ interface CategoryTileProps {
   icon: LucideIcon;
   badgeCount: number;
   isVisible: boolean;
-  isAdminMode: boolean;
+  isAdminMode: boolean; // Si le mode Patron/Admin est activé visuellement
+  canModify: boolean; // Si l'utilisateur a REELLEMENT le droit de modifier (SuperAdmin ou Admin autorisé)
   colorClass: string;
   companyId: string;
   customColor?: string;
@@ -49,6 +51,7 @@ export function CategoryTile({
   badgeCount,
   isVisible,
   isAdminMode,
+  canModify,
   colorClass,
   companyId,
   customColor
@@ -62,21 +65,21 @@ export function CategoryTile({
     e.preventDefault();
     e.stopPropagation();
     if (!db || !companyId || !isAdminMode) return;
-    const categoryRef = doc(db, 'companies', companyId, 'categories', id.toLowerCase());
+    const categoryRef = doc(db, 'companies', companyId, 'categories', id);
     updateDocumentNonBlocking(categoryRef, { visibleToEmployees: !isVisible });
   };
 
   const handleRenameSubmit = () => {
-    if (newLabel && newLabel !== label && db && companyId && isAdminMode) {
-      const categoryRef = doc(db, 'companies', companyId, 'categories', id.toLowerCase());
+    if (newLabel && newLabel !== label && db && companyId && canModify) {
+      const categoryRef = doc(db, 'companies', companyId, 'categories', id);
       updateDocumentNonBlocking(categoryRef, { label: newLabel });
       setIsRenameOpen(false);
     }
   };
 
   const handleDeleteConfirm = () => {
-    if (db && companyId && isAdminMode) {
-      const categoryRef = doc(db, 'companies', companyId, 'categories', id.toLowerCase());
+    if (db && companyId && canModify) {
+      const categoryRef = doc(db, 'companies', companyId, 'categories', id);
       deleteDocumentNonBlocking(categoryRef);
       setIsDeleteOpen(false);
     }
@@ -89,76 +92,82 @@ export function CategoryTile({
       <Card className={cn(
         "relative group overflow-hidden border-none shadow-md transition-all hover:shadow-lg h-full min-h-[220px]",
         !isVisible && !isAdminMode && "hidden",
-        !isVisible && isAdminMode && "opacity-60",
+        !isVisible && isAdminMode && "opacity-60 grayscale-[0.5]",
         isCustomStyle ? customColor : "bg-card"
       )}>
         <CardContent className="p-6 h-full flex flex-col">
           <div className="flex items-start justify-between mb-8">
             <div className={cn(
-              "p-4 rounded-2xl transition-transform group-hover:scale-110", 
+              "p-4 rounded-2xl transition-transform group-hover:scale-110 shadow-sm", 
               isCustomStyle ? "bg-white/20 text-white" : colorClass
             )}>
               <Icon className="w-8 h-8" />
             </div>
             {badgeCount > 0 && (
-              <Badge className="bg-destructive text-destructive-foreground font-bold px-2.5 py-1 rounded-lg animate-in zoom-in">
-                {badgeCount}
+              <Badge className="bg-destructive text-destructive-foreground font-black px-2.5 py-1 rounded-lg animate-in zoom-in uppercase text-[10px]">
+                {badgeCount} ALERTES
               </Badge>
             )}
           </div>
 
           <div className="space-y-1 flex-1">
             <h3 className={cn("text-xl font-bold tracking-tight", isCustomStyle ? "text-white" : "text-foreground")}>{label}</h3>
-            <p className={cn("text-sm", isCustomStyle ? "text-white/80" : "text-muted-foreground")}>
+            <p className={cn("text-xs font-medium uppercase tracking-widest", isCustomStyle ? "text-white/70" : "text-muted-foreground/60")}>
               {badgeCount > 0 
-                ? `${badgeCount} actions en attente` 
-                : "Tout est à jour"}
+                ? `${badgeCount} documents à traiter` 
+                : "Dossier à jour"}
             </p>
           </div>
 
           <div className="mt-8 flex items-center justify-between">
-            <Button asChild variant="link" className={cn("p-0 font-semibold group/link h-auto", isCustomStyle ? "text-white hover:text-white/90" : "text-primary")}>
+            <Button asChild variant="link" className={cn("p-0 font-black uppercase text-[11px] tracking-widest group/link h-auto", isCustomStyle ? "text-white hover:text-white/90" : "text-primary")}>
               <Link href={`/categories/${id}`} className="flex items-center gap-2">
-                Explorer
-                <ArrowRight className="w-4 h-4 group-hover/link:translate-x-1 transition-transform" />
+                Ouvrir
+                <ArrowRight className="w-3.5 h-3.5 group-hover/link:translate-x-1 transition-transform" />
               </Link>
             </Button>
 
             {isAdminMode && (
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5 bg-black/5 p-1 rounded-full">
                 <Button 
                   size="icon" 
                   variant="ghost" 
-                  className={cn("h-8 w-8 rounded-full hover:bg-black/10", isCustomStyle && "text-white hover:bg-white/20")}
+                  className={cn("h-7 w-7 rounded-full hover:bg-black/10", isCustomStyle && "text-white hover:bg-white/20")}
                   onClick={toggleVisibility}
+                  title={isVisible ? "Masquer pour les employés" : "Rendre visible pour les employés"}
                 >
-                  {isVisible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                  {isVisible ? <Eye className="h-3.5 h-3.5" /> : <EyeOff className="h-3.5 h-3.5" />}
                 </Button>
-                <Button 
-                  size="icon" 
-                  variant="ghost" 
-                  className={cn("h-8 w-8 rounded-full hover:bg-black/10", isCustomStyle && "text-white hover:bg-white/20")}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setNewLabel(label);
-                    setIsRenameOpen(true);
-                  }}
-                >
-                  <Edit3 className="h-4 w-4" />
-                </Button>
-                <Button 
-                  size="icon" 
-                  variant="ghost" 
-                  className={cn("h-8 w-8 rounded-full hover:bg-destructive/10 text-destructive", isCustomStyle && "text-white hover:bg-destructive/20")}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setIsDeleteOpen(true);
-                  }}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                
+                {canModify && (
+                  <>
+                    <Button 
+                      size="icon" 
+                      variant="ghost" 
+                      className={cn("h-7 w-7 rounded-full hover:bg-black/10", isCustomStyle && "text-white hover:bg-white/20")}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setNewLabel(label);
+                        setIsRenameOpen(true);
+                      }}
+                    >
+                      <Edit3 className="h-3.5 h-3.5" />
+                    </Button>
+                    <Button 
+                      size="icon" 
+                      variant="ghost" 
+                      className={cn("h-7 w-7 rounded-full hover:bg-destructive/10 text-destructive", isCustomStyle && "text-white hover:bg-destructive/20")}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setIsDeleteOpen(true);
+                      }}
+                    >
+                      <Trash2 className="h-3.5 h-3.5" />
+                    </Button>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -189,7 +198,7 @@ export function CategoryTile({
         <AlertDialogContent onClick={(e) => e.stopPropagation()}>
           <AlertDialogHeader>
             <AlertDialogTitle>Supprimer la catégorie ?</AlertDialogTitle>
-            <AlertDialogDescription>Toutes les données associées seront perdues.</AlertDialogDescription>
+            <AlertDialogDescription>Toutes les données associées seront définitivement supprimées.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Annuler</AlertDialogCancel>

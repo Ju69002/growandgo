@@ -21,12 +21,26 @@ export interface User {
   uid: string;
   companyId: string;
   role: UserRole;
-  adminMode: boolean;
+  adminMode: boolean; // Mode Patron/Admin actif ou non
+  isCategoryModifier: boolean; // Droit accordé par le Super Admin pour modifier les tuiles
   name: string;
   email: string;
   calendarTokens?: {
     google_refresh_token?: string;
   };
+}
+
+export interface Category {
+  id: string;
+  label: string;
+  badgeCount: number;
+  visibleToEmployees: boolean;
+  type: CategoryType;
+  aiInstructions?: string;
+  companyId: string;
+  subCategories?: string[];
+  color?: string; // Classe tailwind ou couleur custom
+  icon?: string;
 }
 
 export interface BusinessDocument {
