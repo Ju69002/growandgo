@@ -114,7 +114,7 @@ export default function Home() {
   // Meetings for the week
   const meetingsQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
-    return query(collection(db, 'companies', companyId, 'events'), limit(10));
+    return query(collection(db, 'companies', companyId, 'events'), limit(20));
   }, [db, companyId]);
 
   const { data: meetings } = useCollection<CalendarEvent>(meetingsQuery);
@@ -135,9 +135,13 @@ export default function Home() {
       let taskDate = today;
       
       if (extractedDate) {
-        const parsed = parseISO(extractedDate);
-        if (isValid(parsed)) {
-          taskDate = parsed;
+        try {
+          const parsed = parseISO(extractedDate);
+          if (isValid(parsed)) {
+            taskDate = parsed;
+          }
+        } catch (e) {
+          // Ignore invalid dates
         }
       }
 
@@ -148,7 +152,7 @@ export default function Home() {
           name: doc.name,
           date: taskDate,
           type: 'document',
-          status: extractedDate ? 'dated' : doc.status,
+          status: (doc.extractedData?.date || doc.extractedData?.expiryDate || doc.extractedData?.deliveryDate) ? 'dated' : doc.status,
           subCategory: doc.subCategory,
           categoryId: doc.categoryId
         });
@@ -157,17 +161,23 @@ export default function Home() {
 
     // Add meetings for the week
     meetings?.forEach(meet => {
-      const meetDate = parseISO(meet.debut);
-      if (isValid(meetDate) && isWithinInterval(meetDate, interval)) {
-        tasks.push({
-          id: meet.id,
-          name: meet.titre,
-          date: meetDate,
-          type: 'meeting',
-          status: 'event',
-          subCategory: 'Réunion',
-          categoryId: 'agenda'
-        });
+      if (!meet.debut) return; // Safety check to prevent .split() error on undefined
+
+      try {
+        const meetDate = parseISO(meet.debut);
+        if (isValid(meetDate) && isWithinInterval(meetDate, interval)) {
+          tasks.push({
+            id: meet.id,
+            name: meet.titre,
+            date: meetDate,
+            type: 'meeting',
+            status: 'event',
+            subCategory: 'Réunion',
+            categoryId: 'agenda'
+          });
+        }
+      } catch (e) {
+        // Ignore malformed dates
       }
     });
 
@@ -179,19 +189,10 @@ export default function Home() {
     const triggerAutoSync = async () => {
       if (!db || !companyId || !user || !auth || isSyncing) return;
       
-      // Auto-sync only once per session or periodically
-      // Here we check if we have a way to sync (session)
       try {
-        setIsSyncing(true);
-        // On essaye de récupérer les événements si l'utilisateur est déjà authentifié avec les scopes
-        // Pour une "constante" synchro, on pourrait stocker le token, mais ici on simule l'automatisme
-        const { timeMin, timeMax } = getSyncTimeRange();
-        // Note: fetchGoogleEvents requires a token. In a real app, we'd use a refresh token stored in Firestore.
-        // For this prototype, we'll skip the popup unless necessary, but the user asked for "constant sync".
+        // Background sync logic could be placed here if persistent tokens are used
       } catch (e) {
         console.error("Auto-sync failed", e);
-      } finally {
-        setIsSyncing(false);
       }
     };
 
