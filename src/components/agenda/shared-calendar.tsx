@@ -287,14 +287,14 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
                 </div>
                 <h3 className={cn("font-black text-primary", isCompact ? "text-xs" : "text-xl")}>{format(day, "d MMM", { locale: fr })}</h3>
               </div>
-              <div className="flex-1 space-y-1.5 overflow-y-auto pr-0.5 custom-scrollbar">
+              <div className="flex-1 space-y-1.5 overflow-y-auto pr-0.5 custom-scrollbar text-foreground">
                 {dayEvents.length > 0 ? dayEvents.map(event => (
                   <div key={event.id} onClick={() => !isCompact && openEditEvent(event)} className={cn("bg-white rounded-lg border-l-4 border-primary shadow-sm hover:border-l-primary/50 transition-colors cursor-pointer", isCompact ? "p-1.5" : "p-3")}>
                     <div className="flex items-center justify-between mb-0.5">
                       <p className="text-[7px] font-black text-primary/70">{event.debut ? format(parseISO(event.debut), "HH:mm") : "--:--"}</p>
                       {event.source === 'google' && <Chrome className="w-2 h-2 text-primary opacity-30" />}
                     </div>
-                    <h4 className={cn("font-bold leading-tight text-foreground line-clamp-2", isCompact ? "text-[8px]" : "text-xs")}>{event.titre}</h4>
+                    <h4 className={cn("font-bold leading-tight line-clamp-2", isCompact ? "text-[8px]" : "text-xs")}>{event.titre}</h4>
                   </div>
                 )) : <div className="h-full flex flex-col items-center justify-center opacity-20 text-center py-4"><p className="text-[7px] font-black uppercase tracking-widest">Aucun RDV</p></div>}
               </div>
@@ -377,58 +377,55 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
           setOpenSelect(null);
         }
       }}>
-        <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none shadow-2xl">
-          <div className="p-6 bg-primary text-primary-foreground">
+        <DialogContent className="sm:max-w-[420px] p-0 overflow-hidden border-none shadow-2xl bg-card">
+          <div className="p-5 bg-primary text-primary-foreground">
             <DialogHeader>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 bg-white/20 rounded-lg">
-                  <CalendarDays className="w-6 h-6" />
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/20 rounded-xl">
+                  <CalendarDays className="w-5 h-5" />
                 </div>
-                <DialogTitle className="text-xl font-bold">
-                  {editingEvent ? "Modifier l'événement" : "Nouvel événement"}
+                <DialogTitle className="text-lg font-bold">
+                  {editingEvent ? "Éditer l'événement" : "Nouvel événement"}
                 </DialogTitle>
               </div>
-              <DialogDescription className="text-primary-foreground/70">
-                Planifiez vos rendez-vous Grow&Go.
-              </DialogDescription>
             </DialogHeader>
           </div>
 
-          <div className="p-6 space-y-6 bg-card">
-            <div className="grid gap-2">
-              <Label htmlFor="titre" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Objet de l'événement</Label>
+          <div className="p-5 space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="titre" className="text-[10px] font-black uppercase tracking-wider text-muted-foreground ml-1">Objet de l'événement</Label>
               <Input 
                 id="titre" 
                 value={formTitre} 
                 onChange={(e) => setFormTitre(e.target.value)} 
-                placeholder="Ex: Signature de contrat..." 
-                className="border-primary/20 focus:ring-primary font-medium"
+                placeholder="Ex: Réunion d'équipe..." 
+                className="border-primary/10 focus:ring-primary font-semibold h-10"
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="date" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Date</Label>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="date" className="text-[10px] font-black uppercase tracking-wider text-muted-foreground ml-1">Date</Label>
                 <Input 
                   id="date" 
                   type="date" 
                   value={formDate} 
                   onChange={(e) => setFormDate(e.target.value)} 
-                  className="border-primary/20"
+                  className="border-primary/10 h-10"
                 />
               </div>
-              <div className="grid gap-2">
-                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Durée prévue</Label>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground ml-1">Durée</Label>
                 <Select 
                   open={openSelect === 'duration'} 
                   onOpenChange={(open) => setOpenSelect(open ? 'duration' : null)}
                   value={selectedDuration} 
                   onValueChange={setSelectedDuration}
                 >
-                  <SelectTrigger className="border-primary/20 bg-background">
+                  <SelectTrigger className="border-primary/10 h-10">
                     <SelectValue placeholder="Choisir" />
                   </SelectTrigger>
-                  <SelectContent className="bg-background border shadow-xl">
+                  <SelectContent className="bg-card border shadow-xl">
                     {durations.map(d => (
                       <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
                     ))}
@@ -437,8 +434,8 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
               </div>
             </div>
             
-            <div className="grid gap-2">
-              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Heure de début</Label>
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground ml-1">Début (Heure & Min)</Label>
               <div className="flex gap-2">
                 <Select 
                   open={openSelect === 'hour'} 
@@ -446,10 +443,10 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
                   value={formHour} 
                   onValueChange={setFormHour}
                 >
-                  <SelectTrigger className="w-full border-primary/20 bg-background">
+                  <SelectTrigger className="w-full border-primary/10 h-10">
                     <SelectValue placeholder="Heure" />
                   </SelectTrigger>
-                  <SelectContent className="max-h-[200px] bg-background border shadow-xl">
+                  <SelectContent className="max-h-[160px] bg-card border shadow-xl">
                     {hoursList.map(h => (
                       <SelectItem key={h} value={h}>{h} h</SelectItem>
                     ))}
@@ -461,10 +458,10 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
                   value={formMinute} 
                   onValueChange={setFormMinute}
                 >
-                  <SelectTrigger className="w-full border-primary/20 bg-background">
+                  <SelectTrigger className="w-full border-primary/10 h-10">
                     <SelectValue placeholder="Min" />
                   </SelectTrigger>
-                  <SelectContent className="bg-background border shadow-xl">
+                  <SelectContent className="bg-card border shadow-xl">
                     {minutesList.map(m => (
                       <SelectItem key={m} value={m}>{m}</SelectItem>
                     ))}
@@ -474,48 +471,44 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
             </div>
 
             {calculatedTimes && (
-              <div className="bg-muted/30 p-4 rounded-xl border border-dashed border-primary/20 space-y-2 animate-in fade-in slide-in-from-top-2">
-                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-primary/60">
-                  <Clock className="w-3 h-3" />
-                  Résumé de l'horaire
-                </div>
+              <div className="bg-primary/5 p-3 rounded-xl border border-dashed border-primary/20 space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <p className="text-[10px] font-medium text-muted-foreground uppercase">Début</p>
-                    <p className="text-sm font-bold text-foreground">{format(calculatedTimes.start, "d MMMM 'à' HH:mm", { locale: fr })}</p>
+                    <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Du</p>
+                    <p className="text-xs font-bold text-foreground">{format(calculatedTimes.start, "d MMM HH:mm", { locale: fr })}</p>
                   </div>
                   <ChevronRight className="w-4 h-4 text-primary/30" />
                   <div className="space-y-0.5 text-right">
-                    <p className="text-[10px] font-medium text-muted-foreground uppercase">Fin</p>
-                    <p className="text-sm font-bold text-foreground">{format(calculatedTimes.end, "HH:mm", { locale: fr })}</p>
+                    <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Au</p>
+                    <p className="text-xs font-bold text-foreground">{format(calculatedTimes.end, "HH:mm", { locale: fr })}</p>
                   </div>
                 </div>
               </div>
             )}
             
-            <div className="grid gap-2">
-              <Label htmlFor="description" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Notes</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="description" className="text-[10px] font-black uppercase tracking-wider text-muted-foreground ml-1">Notes</Label>
               <Textarea 
                 id="description" 
                 value={formDescription} 
                 onChange={(e) => setFormDescription(e.target.value)} 
-                placeholder="Détails optionnels..." 
-                className="min-h-[60px] border-primary/20 resize-none" 
+                placeholder="Précisions sur le rendez-vous..." 
+                className="min-h-[40px] focus:min-h-[100px] transition-all duration-300 border-primary/10 resize-none font-medium text-sm p-3" 
               />
             </div>
           </div>
 
-          <div className="p-6 bg-muted/10 border-t flex items-center justify-between">
+          <div className="p-4 bg-muted/20 border-t flex items-center justify-between">
             {editingEvent ? (
-              <Button variant="ghost" size="sm" onClick={handleDeleteEvent} className="text-destructive hover:bg-destructive/10 font-bold gap-2 rounded-full">
-                <Trash2 className="w-4 h-4" /> Supprimer
+              <Button variant="ghost" size="sm" onClick={handleDeleteEvent} className="text-destructive hover:bg-destructive/10 font-black text-[10px] gap-2 rounded-full uppercase">
+                <Trash2 className="w-3.5 h-3.5" /> Supprimer
               </Button>
             ) : <div />}
-            <div className="flex gap-3">
-              <Button variant="outline" onClick={() => setIsEventDialogOpen(false)} className="rounded-full font-bold px-6">
+            <div className="flex gap-2">
+              <Button variant="ghost" onClick={() => setIsEventDialogOpen(false)} className="rounded-full font-bold text-xs">
                 Annuler
               </Button>
-              <Button onClick={handleSaveEvent} className="bg-primary hover:bg-primary/90 rounded-full font-bold px-8 shadow-lg">
+              <Button onClick={handleSaveEvent} className="bg-primary hover:bg-primary/90 rounded-full font-bold text-xs px-6 shadow-md">
                 Enregistrer
               </Button>
             </div>
