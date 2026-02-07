@@ -22,8 +22,14 @@ import { format, isSameDay, parseISO, addDays, startOfMonth, endOfMonth, eachDay
 import { fr } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
-export function SharedCalendar({ companyId }: { companyId: string }) {
-  const [viewMode, setViewMode] = React.useState<'3day' | 'month'>('3day');
+interface SharedCalendarProps {
+  companyId: string;
+  isCompact?: boolean;
+  defaultView?: '3day' | 'month';
+}
+
+export function SharedCalendar({ companyId, isCompact = false, defaultView = '3day' }: SharedCalendarProps) {
+  const [viewMode, setViewMode] = React.useState<'3day' | 'month'>(defaultView);
   const [currentDate, setCurrentDate] = React.useState(new Date());
   const db = useFirestore();
 
@@ -61,47 +67,47 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
     const days = [currentDate, addDays(currentDate, 1), addDays(currentDate, 2)];
 
     return (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-full min-h-[600px]">
+      <div className={cn(
+        "grid gap-6 h-full",
+        isCompact ? "grid-cols-3 gap-2 p-2" : "grid-cols-1 md:grid-cols-3 p-8 min-h-[600px]"
+      )}>
         {days.map((day, idx) => {
           const dayEvents = getEventsForDay(day);
           const isTday = isToday(day);
 
           return (
             <div key={idx} className={cn(
-              "flex flex-col gap-4 p-6 rounded-[32px] border transition-all",
-              isTday ? "bg-primary/5 border-primary/20 shadow-inner" : "bg-card shadow-sm"
+              "flex flex-col gap-2 rounded-[24px] border transition-all overflow-hidden",
+              isTday ? "bg-primary/5 border-primary/20" : "bg-card shadow-sm",
+              isCompact ? "p-3 border-none" : "p-6"
             )}>
-              <div className="flex items-center justify-between border-b pb-4">
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/60">
-                    {isTday ? "Aujourd'hui" : format(day, "EEEE", { locale: fr })}
-                  </p>
-                  <h3 className="text-2xl font-black">{format(day, "d MMMM", { locale: fr })}</h3>
-                </div>
-                {isTday && <Badge className="bg-primary text-white">Actif</Badge>}
+              <div className={cn("flex flex-col border-b pb-2 mb-2", isCompact && "items-center text-center")}>
+                <p className="text-[9px] font-black uppercase tracking-wider text-primary/60">
+                  {isTday ? "Auj." : format(day, "EEE", { locale: fr })}
+                </p>
+                <h3 className={cn("font-black", isCompact ? "text-sm" : "text-xl")}>
+                  {format(day, "d MMM", { locale: fr })}
+                </h3>
               </div>
               
-              <div className="flex-1 space-y-4 overflow-y-auto pr-2">
+              <div className="flex-1 space-y-2 overflow-y-auto pr-1">
                 {dayEvents.length > 0 ? (
-                  dayEvents.map(event => (
-                    <div key={event.id} className="p-4 bg-background rounded-2xl border shadow-sm group hover:border-primary/50 transition-colors">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-xs font-black text-primary">
-                          {event.debut ? format(parseISO(event.debut), "HH:mm") : "--:--"}
-                        </span>
-                        <Badge variant="outline" className="text-[9px] h-4 uppercase">{event.source}</Badge>
-                      </div>
-                      <h4 className="font-bold text-sm leading-tight line-clamp-2">{event.titre}</h4>
-                      <div className="flex items-center gap-3 mt-3 opacity-60">
-                        <Users className="w-3 h-3" />
-                        <span className="text-[10px] font-bold">{event.attendees?.length || 0} p.</span>
-                      </div>
+                  dayEvents.slice(0, isCompact ? 2 : 10).map(event => (
+                    <div key={event.id} className={cn(
+                      "bg-background rounded-xl border group hover:border-primary/50 transition-colors",
+                      isCompact ? "p-1.5" : "p-3"
+                    )}>
+                      <p className="text-[8px] font-black text-primary truncate">
+                        {event.debut ? format(parseISO(event.debut), "HH:mm") : "--:--"}
+                      </p>
+                      <h4 className={cn("font-bold leading-tight line-clamp-1", isCompact ? "text-[9px]" : "text-xs")}>
+                        {event.titre}
+                      </h4>
                     </div>
                   ))
                 ) : (
-                  <div className="h-full flex flex-col items-center justify-center opacity-30 text-center space-y-2">
-                    <CalendarIcon className="w-8 h-8" />
-                    <p className="text-[10px] font-bold uppercase tracking-widest">Libre</p>
+                  <div className="h-full flex flex-col items-center justify-center opacity-20 text-center">
+                    <p className="text-[8px] font-bold uppercase tracking-widest">Libre</p>
                   </div>
                 )}
               </div>
@@ -123,22 +129,20 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
 
     return (
       <div className="bg-card border rounded-[40px] shadow-2xl overflow-hidden flex flex-col h-full animate-in zoom-in-95 duration-300">
-        <div className="p-8 border-b bg-muted/10 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <h2 className="text-4xl font-black tracking-tighter text-primary">
-              {format(currentDate, "MMMM", { locale: fr }).toUpperCase()}
-              <span className="ml-3 text-muted-foreground/40">{format(currentDate, "yyyy")}</span>
-            </h2>
-            <div className="flex bg-background border rounded-full p-1 shadow-sm">
-              <Button variant="ghost" size="icon" className="rounded-full" onClick={prevMonth}><ChevronLeft /></Button>
-              <Button variant="ghost" size="icon" className="rounded-full" onClick={nextMonth}><ChevronRight /></Button>
+        {!isCompact && (
+          <div className="p-8 border-b bg-muted/10 flex items-center justify-between">
+            <div className="flex items-center gap-6">
+              <h2 className="text-4xl font-black tracking-tighter text-primary">
+                {format(currentDate, "MMMM", { locale: fr }).toUpperCase()}
+                <span className="ml-3 text-muted-foreground/40">{format(currentDate, "yyyy")}</span>
+              </h2>
+              <div className="flex bg-background border rounded-full p-1 shadow-sm">
+                <Button variant="ghost" size="icon" className="rounded-full" onClick={prevMonth}><ChevronLeft /></Button>
+                <Button variant="ghost" size="icon" className="rounded-full" onClick={nextMonth}><ChevronRight /></Button>
+              </div>
             </div>
           </div>
-          <Button variant="outline" size="lg" className="rounded-full gap-2 border-primary/20" onClick={() => setViewMode('3day')}>
-            <Minimize2 className="w-4 h-4" />
-            Quitter le mode plein écran
-          </Button>
-        </div>
+        )}
 
         <div className="grid grid-cols-7 border-b bg-muted/5">
           {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map(d => (
@@ -148,7 +152,7 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
           ))}
         </div>
 
-        <div className="flex-1 grid grid-cols-7 grid-rows-6 min-h-[600px]">
+        <div className="flex-1 grid grid-cols-7 grid-rows-6 min-h-[500px]">
           {days.map((day, idx) => {
             const dayEvents = getEventsForDay(day);
             const isTday = isToday(day);
@@ -174,9 +178,6 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
                       {event.titre}
                     </div>
                   ))}
-                  {dayEvents.length > 3 && (
-                    <p className="text-[8px] font-black text-muted-foreground text-center">+ {dayEvents.length - 3} de plus</p>
-                  )}
                 </div>
               </div>
             );
@@ -185,6 +186,14 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
       </div>
     );
   };
+
+  if (isCompact) {
+    return isLoading ? (
+      <div className="h-full flex items-center justify-center opacity-30">
+        <Loader2 className="animate-spin" />
+      </div>
+    ) : render3DayView();
+  }
 
   return (
     <div className="p-8 space-y-8 max-w-7xl mx-auto h-full flex flex-col">
@@ -222,7 +231,7 @@ export function SharedCalendar({ companyId }: { companyId: string }) {
       {isLoading ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-4 opacity-50">
           <Loader2 className="w-12 h-12 animate-spin text-primary" />
-          <p className="font-bold tracking-widest text-xs uppercase animate-pulse">Chargement de vos rendez-vous...</p>
+          <p className="font-bold tracking-widest text-xs uppercase animate-pulse">Chargement...</p>
         </div>
       ) : (
         <div className="flex-1">

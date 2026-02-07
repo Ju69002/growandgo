@@ -4,11 +4,18 @@
 import { useEffect, useState } from 'react';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { CategoryTiles } from '@/components/dashboard/category-tiles';
-import { ShieldCheck, Info, Loader2 } from 'lucide-react';
+import { SharedCalendar } from '@/components/agenda/shared-calendar';
+import { ShieldCheck, Info, Loader2, ListTodo, Calendar as CalendarIcon, Maximize2, ArrowRight, FileText, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { useUser, useFirestore, useDoc, useMemoFirebase, setDocumentNonBlocking, initiateAnonymousSignIn, useAuth } from '@/firebase';
-import { doc } from 'firebase/firestore';
-import { User, Company } from '@/lib/types';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { useUser, useFirestore, useDoc, useMemoFirebase, setDocumentNonBlocking, initiateAnonymousSignIn, useAuth, useCollection } from '@/firebase';
+import { doc, collection, query, where, limit } from 'firebase/firestore';
+import { User, Company, BusinessDocument, DocumentStatus } from '@/lib/types';
+import Link from 'next/link';
+import { cn } from '@/lib/utils';
 
 const DEFAULT_CATEGORIES = [
   { 
@@ -43,11 +50,18 @@ const DEFAULT_CATEGORIES = [
   }
 ];
 
+const statusConfig: Record<string, { label: string; icon: any; color: string }> = {
+  waiting_verification: { label: 'À vérifier', icon: AlertCircle, color: 'text-blue-600 bg-blue-50' },
+  waiting_validation: { label: 'À valider', icon: Clock, color: 'text-amber-600 bg-amber-50' },
+  pending_analysis: { label: 'Analyse...', icon: Loader2, color: 'text-muted-foreground bg-muted' },
+};
+
 export default function Home() {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
   const db = useFirestore();
   const [isInitializing, setIsInitializing] = useState(true);
+  const [isCalendarFull, setIsCalendarFull] = useState(false);
 
   useEffect(() => {
     if (!isUserLoading && !user && auth) {
@@ -61,6 +75,19 @@ export default function Home() {
   }, [db, user]);
 
   const { data: profile, isLoading: isProfileLoading } = useDoc<User>(userProfileRef);
+  const companyId = profile?.companyId;
+
+  // Fetch pending tasks for the summary
+  const pendingTasksQuery = useMemoFirebase(() => {
+    if (!db || !companyId) return null;
+    return query(
+      collection(db, 'companies', companyId, 'documents'),
+      where('status', 'in', ['waiting_verification', 'waiting_validation']),
+      limit(3)
+    );
+  }, [db, companyId]);
+
+  const { data: tasks } = useCollection<BusinessDocument>(pendingTasksQuery);
 
   useEffect(() => {
     if (user && !isProfileLoading && !profile && db) {
@@ -105,7 +132,6 @@ export default function Home() {
       });
     }
     
-    // On considère l'initialisation terminée si on a un profil ou si on attend encore
     if (user && (profile || isProfileLoading === false)) {
       setIsInitializing(false);
     }
@@ -132,11 +158,14 @@ export default function Home() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-primary">Tableau de bord</h1>
             <p className="text-muted-foreground mt-1">
-              Bienvenue sur Grow&Go. Votre Architecte IA a organisé vos dossiers avec efficacité.
+              Bienvenue sur Grow&Go. Votre Architecte IA a organisé vos dossiers.
             </p>
           </div>
           {userRole !== 'employee' && (
-            <div className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-all duration-300 ${adminMode ? 'bg-primary/10 text-primary border-primary/20 shadow-sm' : 'bg-muted text-muted-foreground border-border'}`}>
+            <div className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-full border transition-all duration-300",
+              adminMode ? 'bg-primary/10 text-primary border-primary/20 shadow-sm' : 'bg-muted text-muted-foreground border-border'
+            )}>
               <ShieldCheck className="w-5 h-5" />
               <span className="text-sm font-semibold">Mode Architecte {adminMode ? 'Activé' : 'Désactivé'}</span>
             </div>
@@ -148,13 +177,92 @@ export default function Home() {
             <Info className="h-4 w-4 text-primary" />
             <AlertTitle className="text-primary font-bold">Mode Architecte de Marque</AlertTitle>
             <AlertDescription className="text-primary/80">
-              Demandez au chatbot : "Change la couleur du site en noir" ou "Renomme Finance en Trésorerie".
+              Transformez votre interface en demandant simplement au chatbot.
             </AlertDescription>
           </Alert>
         )}
 
+        {/* RECAP SECTION */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* TASKS SUMMARY */}
+          <Card className="border-none shadow-md overflow-hidden bg-card h-full">
+            <CardHeader className="pb-4 border-b">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg font-bold flex items-center gap-2">
+                  <ListTodo className="w-5 h-5 text-primary" />
+                  À faire aujourd'hui
+                </CardTitle>
+                <Button variant="ghost" size="sm" asChild className="text-primary hover:text-primary/80 font-bold">
+                  <Link href="/notifications">Voir tout <ArrowRight className="ml-1 w-4 h-4" /></Link>
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-4 space-y-3">
+              {tasks && tasks.length > 0 ? (
+                tasks.map(task => (
+                  <div key={task.id} className="flex items-center justify-between p-3 rounded-xl border bg-muted/5 hover:bg-muted/10 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <FileText className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-sm font-bold truncate max-w-[180px]">{task.name}</span>
+                    </div>
+                    <Badge className={cn("text-[10px] uppercase font-black", statusConfig[task.status]?.color)}>
+                      {statusConfig[task.status]?.label}
+                    </Badge>
+                  </div>
+                ))
+              ) : (
+                <div className="py-12 flex flex-col items-center justify-center text-center opacity-40 grayscale">
+                  <CheckCircle2 className="w-10 h-10 mb-2" />
+                  <p className="text-xs font-bold uppercase tracking-widest">Tout est à jour</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* CALENDAR MINI PREVIEW */}
+          <Card className="border-none shadow-md overflow-hidden bg-card h-full relative group">
+            <div className="absolute top-4 right-4 z-10">
+              <Button 
+                variant="secondary" 
+                size="sm" 
+                className="rounded-full shadow-lg font-bold gap-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={() => setIsCalendarFull(true)}
+              >
+                <Maximize2 className="w-4 h-4" />
+                Agrandir
+              </Button>
+            </div>
+            <div className="h-[280px] overflow-hidden pointer-events-none grayscale-[0.5] group-hover:grayscale-0 transition-all">
+              {companyId && <SharedCalendar companyId={companyId} isCompact />}
+            </div>
+          </Card>
+        </div>
+
         <CategoryTiles isAdminMode={adminMode} />
       </div>
+
+      {/* FULL CALENDAR DIALOG */}
+      <Dialog open={isCalendarFull} onOpenChange={setIsCalendarFull}>
+        <DialogContent className="max-w-[95vw] w-full h-[90vh] p-0 overflow-hidden bg-background border-none">
+          <div className="sr-only">
+            <DialogTitle>Agenda Grow&Go</DialogTitle>
+          </div>
+          <div className="h-full flex flex-col">
+            <div className="p-4 border-b flex justify-between items-center bg-card">
+              <h2 className="font-bold flex items-center gap-2">
+                <CalendarIcon className="w-5 h-5 text-primary" />
+                Agenda de l'équipe
+              </h2>
+              <Button variant="ghost" size="sm" onClick={() => setIsCalendarFull(false)} className="rounded-full">
+                Fermer
+              </Button>
+            </div>
+            <div className="flex-1 overflow-auto">
+              {companyId && <SharedCalendar companyId={companyId} defaultView="month" />}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }
