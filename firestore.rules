@@ -51,7 +51,9 @@ service cloud.firestore {
     }
 
     match /companies/{companyId} {
-      allow get: if belongsToCompany(companyId);
+      // Allow get for any signed-in user if it's the default company (for theme injection)
+      // or if they explicitly belong to it.
+      allow get: if isSignedIn() && (companyId == 'default-company' || belongsToCompany(companyId));
       allow list: if false;
       allow create: if isAdmin();
       allow update: if belongsToCompany(companyId) && isAdmin();

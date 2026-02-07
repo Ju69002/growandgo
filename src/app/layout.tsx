@@ -1,3 +1,4 @@
+
 'use client';
 
 import { FirebaseClientProvider } from '@/firebase';
@@ -20,7 +21,9 @@ function ThemeInjector({ children }: { children: React.ReactNode }) {
   }, [db, user]);
 
   const { data: profile } = useDoc<User>(userRef);
-  const companyId = profile?.companyId;
+  
+  // Utilise l'ID de l'entreprise du profil ou l'ID par défaut pendant l'initialisation
+  const companyId = profile?.companyId || (user ? 'default-company' : null);
 
   const companyRef = useMemoFirebase(() => {
     if (!db || !companyId) return null;
@@ -29,19 +32,19 @@ function ThemeInjector({ children }: { children: React.ReactNode }) {
 
   const { data: company } = useDoc<Company>(companyRef);
 
-  // Valeurs par défaut HSL
-  const primary = company?.primaryColor || '231 48% 48%';
-  const background = company?.backgroundColor || '0 0% 96%';
-  const foreground = company?.foregroundColor || '222 47% 11%';
+  // Valeurs par défaut HSL basées sur la charte Grow&Go
+  const primary = company?.primaryColor || '157 44% 21%';
+  const background = company?.backgroundColor || '43 38% 96%';
+  const foreground = company?.foregroundColor || '157 44% 11%';
   
   const lightnessMatch = background.match(/(\d+)%$/);
   const lightness = lightnessMatch ? parseInt(lightnessMatch[1]) : 96;
   const isDark = lightness < 40;
 
-  const card = isDark ? '222 47% 11%' : '0 0% 100%';
-  const border = isDark ? '222 47% 20%' : '214.3 31.8% 91.4%';
-  const muted = isDark ? '222 47% 15%' : '210 40% 96.1%';
-  const mutedForeground = isDark ? '215 20% 65%' : '215.4 16.3% 46.9%';
+  const card = isDark ? '157 44% 11%' : '0 0% 100%';
+  const border = isDark ? '157 44% 20%' : '157 20% 85%';
+  const muted = isDark ? '157 44% 15%' : '43 38% 90%';
+  const mutedForeground = isDark ? '157 20% 70%' : '157 20% 40%';
 
   const themeStyles = {
     '--primary': primary,

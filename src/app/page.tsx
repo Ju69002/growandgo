@@ -15,7 +15,7 @@ const DEFAULT_CATEGORIES = [
     id: 'finance', 
     label: 'Finance', 
     aiInstructions: 'Analyse des factures et trésorerie pour Grow&Go.',
-    subCategories: ['Factures Fournisseurs', 'Factures Clients', 'Bilans', 'Relevés Bancaires']
+    subCategories: ['Factures Pournisseurs', 'Factures Clients', 'Bilans', 'Relevés Bancaires']
   },
   { 
     id: 'admin', 
@@ -105,7 +105,8 @@ export default function Home() {
       });
     }
     
-    if (user && profile) {
+    // On considère l'initialisation terminée si on a un profil ou si on attend encore
+    if (user && (profile || isProfileLoading === false)) {
       setIsInitializing(false);
     }
   }, [user, isProfileLoading, profile, db]);
