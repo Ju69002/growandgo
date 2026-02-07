@@ -43,7 +43,7 @@ export default function LoginPage() {
     if (!trimmedId) return;
 
     setIsLoading(true);
-    // On utilise l'email pour Firebase Auth (l'email lui-même est insensible à la casse dans Firebase)
+    // L'email est utilisé comme identifiant technique unique (insensible à la casse dans Firebase Auth)
     const email = `${trimmedId.toLowerCase()}@growandgo.ai`;
 
     try {
@@ -51,7 +51,7 @@ export default function LoginPage() {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const newUser = userCredential.user;
         
-        // JSecchi est le seul Super Admin (Sensible à la casse pour la détection du rôle)
+        // JSecchi est le seul Super Admin (vérification stricte de la casse à l'inscription)
         const isSuperAdmin = trimmedId === 'JSecchi';
         const userRef = doc(db, 'users', newUser.uid);
         
@@ -63,7 +63,7 @@ export default function LoginPage() {
           isCategoryModifier: isSuperAdmin,
           name: name || trimmedId,
           email: email,
-          loginId: trimmedId // On stocke l'ID exact pour vérification ultérieure
+          loginId: trimmedId // Stockage de l'ID avec sa casse exacte
         }, { merge: true });
 
         toast({ title: "Compte créé !", description: "Bienvenue dans l'univers Grow&Go." });
@@ -71,14 +71,14 @@ export default function LoginPage() {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         const loggedUser = userCredential.user;
 
-        // Vérification stricte de la casse du loginId stocké dans Firestore
+        // Vérification de sécurité pour JSecchi : on vérifie que le loginId en base correspond exactement
         const userRef = doc(db, 'users', loggedUser.uid);
         const userSnap = await getDoc(userRef);
         
         if (userSnap.exists()) {
           const userData = userSnap.data();
-          if (userData.loginId !== trimmedId) {
-            // Si l'ID saisi ne correspond pas exactement (casse), on déconnecte et on refuse
+          // Si l'utilisateur est JSecchi mais que la casse saisie est mauvaise, on rejette
+          if (userData.loginId === 'JSecchi' && trimmedId !== 'JSecchi') {
             await signOut(auth);
             throw new Error('invalid-case');
           }
@@ -88,7 +88,7 @@ export default function LoginPage() {
       }
       router.push('/');
     } catch (error: any) {
-      // Message unique pour ID ou MDP incorrect
+      // Message d'erreur générique comme demandé
       toast({ 
         variant: "destructive", 
         title: "Échec", 
