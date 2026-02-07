@@ -532,9 +532,6 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
                </DialogTitle>
                <p className="text-[10px] font-bold opacity-70 uppercase tracking-widest">Planning heure par heure</p>
             </div>
-            <Button variant="ghost" size="icon" onClick={() => setIsDayViewOpen(false)} className="rounded-full hover:bg-white/20">
-               <X className="w-5 h-5" />
-            </Button>
           </div>
           
           <ScrollArea className="h-[60vh] p-0">
