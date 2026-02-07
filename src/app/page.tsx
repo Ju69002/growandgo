@@ -161,7 +161,7 @@ export default function Home() {
 
     // Add meetings for the week
     meetings?.forEach(meet => {
-      if (!meet.debut) return; // Safety check to prevent .split() error on undefined
+      if (!meet.debut) return;
 
       try {
         const meetDate = parseISO(meet.debut);
@@ -344,17 +344,14 @@ export default function Home() {
       <Dialog open={isCalendarFull} onOpenChange={setIsCalendarFull}>
         <DialogContent className="max-w-[95vw] w-full h-[90vh] p-0 overflow-hidden bg-background border-none shadow-2xl">
           <div className="sr-only">
-            <DialogTitle>Agenda Mensuel Grow&Go</DialogTitle>
+            <DialogTitle>Agenda Grow&Go</DialogTitle>
           </div>
           <div className="h-full flex flex-col">
-            <div className="p-4 border-b flex justify-between items-center bg-card">
+            <div className="p-4 border-b flex justify-between items-center bg-primary text-primary-foreground">
               <h2 className="font-black text-xl flex items-center gap-3">
-                <CalendarIcon className="w-6 h-6 text-primary" />
-                AGENDA COMPLET
+                <CalendarIcon className="w-6 h-6" />
+                AGENDA
               </h2>
-              <Button variant="ghost" size="sm" onClick={() => setIsCalendarFull(false)} className="rounded-full font-bold">
-                Fermer
-              </Button>
             </div>
             <div className="flex-1 overflow-auto">
               {companyId && <SharedCalendar companyId={companyId} defaultView="month" />}
