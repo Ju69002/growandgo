@@ -6,6 +6,7 @@ import {
   signInWithEmailAndPassword,
   GoogleAuthProvider,
   signInWithPopup,
+  sendPasswordResetEmail,
 } from 'firebase/auth';
 
 /** Initiate anonymous sign-in (non-blocking). */
@@ -38,4 +39,11 @@ export async function signInWithGoogleCalendar(authInstance: Auth) {
   const token = credential?.accessToken;
   
   return { user: result.user, token };
+}
+
+/** 
+ * Envoyer un e-mail de réinitialisation de mot de passe.
+ */
+export async function sendResetEmail(authInstance: Auth, email: string) {
+  return sendPasswordResetEmail(authInstance, email);
 }

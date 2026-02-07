@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -9,19 +8,32 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { useAuth, useFirestore, useUser } from '@/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Lock, UserCircle, UserPlus, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Lock, UserCircle, UserPlus, Eye, EyeOff, Mail, Sparkles } from 'lucide-react';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { sendResetEmail } from '@/firebase/non-blocking-login';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 export default function LoginPage() {
   const [id, setId] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [isResetOpen, setIsResetOpen] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [isResetLoading, setIsResetLoading] = useState(false);
   
   const router = useRouter();
   const auth = useAuth();
@@ -32,7 +44,6 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (!isUserLoading && user) {
-      // On ne redirige que si on n'est pas en train de faire une inscription (pour éviter le flash)
       if (!isSignUp) {
         router.push('/');
       }
@@ -60,6 +71,28 @@ export default function LoginPage() {
     }
   };
 
+  const handleForgotPassword = async () => {
+    if (!auth || !resetEmail.trim()) return;
+    setIsResetLoading(true);
+    try {
+      await sendResetEmail(auth, resetEmail.trim());
+      toast({ 
+        title: "E-mail envoyé", 
+        description: "Si cet e-mail correspond à un compte, vous recevrez un lien de réinitialisation." 
+      });
+      setIsResetOpen(false);
+      setResetEmail('');
+    } catch (error: any) {
+      toast({ 
+        variant: "destructive", 
+        title: "Échec", 
+        description: "Impossible d'envoyer l'e-mail de récupération." 
+      });
+    } finally {
+      setIsResetLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!auth || !db) return;
@@ -68,119 +101,65 @@ export default function LoginPage() {
     if (!trimmedId) return;
 
     setIsLoading(true);
-    const email = `${trimmedId.toLowerCase()}@growandgo.ai`;
 
     try {
       if (isSignUp) {
-        try {
-          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-          const newUser = userCredential.user;
-          
-          const isTargetSuperAdmin = trimmedId === 'JSecchi';
-          const companyId = isTargetSuperAdmin ? 'growandgo-hq' : 'default-company';
-          const companyName = isTargetSuperAdmin ? 'Grow&Go HQ' : 'Default Company';
-
-          // S'assurer que l'entreprise existe
-          await ensureCompanyExists(companyId, companyName);
-          
-          const userRef = doc(db, 'users', newUser.uid);
-          await setDoc(userRef, {
-            uid: newUser.uid,
-            companyId: companyId,
-            role: isTargetSuperAdmin ? 'super_admin' : 'employee',
-            adminMode: isTargetSuperAdmin,
-            isCategoryModifier: isTargetSuperAdmin,
-            name: name || trimmedId,
-            email: email,
-            loginId: trimmedId
-          });
-
-          toast({ title: "Compte créé !", description: "Veuillez maintenant vous connecter." });
-          
-          await signOut(auth);
-          setIsSignUp(false);
-          setPassword('');
-          setId(trimmedId);
-        } catch (authError: any) {
-          if (authError.code === 'auth/email-already-in-use') {
-            toast({ 
-              variant: "destructive", 
-              title: "Échec", 
-              description: "Un compte avec cet identifiant existe déjà dans la base." 
-            });
-          } else {
-            toast({ 
-              variant: "destructive", 
-              title: "Échec", 
-              description: "Erreur lors de la création du compte." 
-            });
-          }
+        if (!email.trim()) {
+          toast({ variant: "destructive", title: "E-mail requis", description: "Veuillez renseigner un e-mail pour la récupération." });
+          setIsLoading(false);
+          return;
         }
+
+        const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+        const newUser = userCredential.user;
+        
+        const isTargetSuperAdmin = trimmedId === 'JSecchi';
+        const companyId = isTargetSuperAdmin ? 'growandgo-hq' : 'Default Studio';
+        const companyName = isTargetSuperAdmin ? 'Grow&Go HQ' : 'Nouveau Studio';
+
+        await ensureCompanyExists(companyId, companyName);
+        
+        const userRef = doc(db, 'users', newUser.uid);
+        await setDoc(userRef, {
+          uid: newUser.uid,
+          companyId: companyId,
+          role: isTargetSuperAdmin ? 'super_admin' : 'employee',
+          adminMode: isTargetSuperAdmin,
+          isCategoryModifier: isTargetSuperAdmin,
+          name: name || trimmedId,
+          email: email.trim(),
+          loginId: trimmedId
+        });
+
+        toast({ title: "Compte créé !", description: "Vous pouvez maintenant vous connecter." });
+        await signOut(auth);
+        setIsSignUp(false);
+        setPassword('');
       } else {
-        try {
-          const userCredential = await signInWithEmailAndPassword(auth, email, password);
-          const loggedUser = userCredential.user;
+        // Recherche de l'e-mail associé à l'ID
+        const usersRef = collection(db, 'users');
+        const q = query(usersRef, where('loginId', '==', trimmedId));
+        const querySnapshot = await getDocs(q);
 
-          const userRef = doc(db, 'users', loggedUser.uid);
-          let userSnap = await getDoc(userRef);
-          
-          // Réparation automatique si le profil Firestore est manquant
-          if (!userSnap.exists()) {
-            const isTargetSuperAdmin = trimmedId === 'JSecchi';
-            const companyId = isTargetSuperAdmin ? 'growandgo-hq' : 'default-company';
-            await ensureCompanyExists(companyId, isTargetSuperAdmin ? 'Grow&Go HQ' : 'Default Company');
-            
-            await setDoc(userRef, {
-              uid: loggedUser.uid,
-              companyId: companyId,
-              role: isTargetSuperAdmin ? 'super_admin' : 'employee',
-              adminMode: isTargetSuperAdmin,
-              isCategoryModifier: isTargetSuperAdmin,
-              name: trimmedId,
-              email: email,
-              loginId: trimmedId
-            });
-            userSnap = await getDoc(userRef);
-          }
-
-          if (userSnap.exists()) {
-            const userData = userSnap.data();
-            const storedId = userData.loginId;
-
-            // Vérification stricte de la casse
-            if (storedId === trimmedId) {
-              const t = toast({ title: "Connexion réussie", description: "Chargement de votre espace..." });
-              setTimeout(() => t.dismiss(), 3000);
-              router.push('/');
-            } else {
-              await signOut(auth);
-              toast({ 
-                variant: "destructive", 
-                title: "Échec", 
-                description: "Identifiant ou mot de passe incorrect." 
-              });
-            }
-          } else {
-            await signOut(auth);
-            toast({ 
-              variant: "destructive", 
-              title: "Échec", 
-              description: "Identifiant non reconnu dans la base." 
-            });
-          }
-        } catch (authError: any) {
-          toast({ 
-            variant: "destructive", 
-            title: "Échec", 
-            description: "Identifiant ou mot de passe incorrect." 
-          });
+        if (querySnapshot.empty) {
+          toast({ variant: "destructive", title: "Échec", description: "Identifiant inconnu." });
+          setIsLoading(false);
+          return;
         }
+
+        const userData = querySnapshot.docs[0].data();
+        const userEmail = userData.email;
+
+        // Connexion avec l'e-mail trouvé
+        await signInWithEmailAndPassword(auth, userEmail, password);
+        toast({ title: "Connexion réussie", description: "Chargement de votre studio..." });
+        router.push('/');
       }
     } catch (error: any) {
       toast({ 
         variant: "destructive", 
-        title: "Échec", 
-        description: "Une erreur est survenue." 
+        title: "Échec d'authentification", 
+        description: "Identifiant ou mot de passe incorrect." 
       });
     } finally {
       setIsLoading(false);
@@ -207,9 +186,9 @@ export default function LoginPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-5">
             {isSignUp && (
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label htmlFor="name" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Nom Complet</Label>
                 <div className="relative">
                   <UserPlus className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
@@ -225,7 +204,7 @@ export default function LoginPage() {
               </div>
             )}
             
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label htmlFor="id" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Identifiant (Respectez la casse)</Label>
               <div className="relative">
                 <UserCircle className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
@@ -240,8 +219,37 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="pass" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Mot de passe</Label>
+            {isSignUp && (
+              <div className="space-y-1.5">
+                <Label htmlFor="email" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">E-mail de récupération</Label>
+                <div className="relative">
+                  <Mail className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
+                  <Input 
+                    id="email" 
+                    type="email"
+                    placeholder="Ex: bertrand@gmail.com" 
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="pl-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-medium"
+                    required={isSignUp}
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="pass" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Mot de passe</Label>
+                {!isSignUp && (
+                  <button 
+                    type="button" 
+                    onClick={() => setIsResetOpen(true)}
+                    className="text-[9px] font-black uppercase tracking-widest text-primary hover:underline"
+                  >
+                    ID ou Mot de passe oublié ?
+                  </button>
+                )}
+              </div>
               <div className="relative">
                 <Lock className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
                 <Input 
@@ -269,7 +277,7 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <div className="space-y-3 pt-2">
+            <div className="space-y-3 pt-4">
               <Button 
                 type="submit" 
                 className="w-full h-14 bg-[#1E4D3B] hover:bg-[#1E4D3B]/90 rounded-2xl font-bold text-lg shadow-xl transition-all active:scale-95"
@@ -286,6 +294,8 @@ export default function LoginPage() {
                   setIsSignUp(!isSignUp);
                   setId('');
                   setPassword('');
+                  setEmail('');
+                  setName('');
                 }}
               >
                 {isSignUp ? "Déjà inscrit ? Se connecter" : "Nouveau ? Créer un compte"}
@@ -297,6 +307,43 @@ export default function LoginPage() {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={isResetOpen} onOpenChange={setIsResetOpen}>
+        <DialogContent className="rounded-[2.5rem] border-none shadow-2xl p-8">
+          <DialogHeader className="space-y-3">
+            <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center text-primary mx-auto">
+              <Sparkles className="w-7 h-7" />
+            </div>
+            <DialogTitle className="text-2xl font-black uppercase text-center tracking-tighter">Récupération</DialogTitle>
+            <DialogDescription className="text-center font-medium">
+              Saisissez l'e-mail renseigné lors de votre inscription pour recevoir un lien de réinitialisation.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-6 space-y-4">
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">E-mail de contact</Label>
+              <Input 
+                value={resetEmail} 
+                onChange={(e) => setResetEmail(e.target.value)}
+                placeholder="Ex: bertrand@gmail.com"
+                className="rounded-xl border-primary/10 h-12 font-bold"
+              />
+            </div>
+          </div>
+          <DialogFooter className="flex-col sm:flex-col gap-3">
+            <Button 
+              onClick={handleForgotPassword} 
+              className="w-full h-12 rounded-full font-bold bg-primary shadow-lg"
+              disabled={isResetLoading || !resetEmail.trim()}
+            >
+              {isResetLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Envoyer le lien"}
+            </Button>
+            <Button variant="ghost" onClick={() => setIsResetOpen(false)} className="w-full font-bold">
+              Annuler
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
