@@ -44,12 +44,11 @@ export default function LoginPage() {
     if (!trimmedId) return;
 
     setIsLoading(true);
-    // On utilise l'id en minuscule pour l'email Firebase Auth pour plus de stabilité technique
+    // On utilise l'id en minuscule pour l'email Firebase Auth (insensible à la casse au niveau technique)
     const email = `${trimmedId.toLowerCase()}@growandgo.ai`;
 
     try {
       if (isSignUp) {
-        // Tentative d'inscription
         try {
           const userCredential = await createUserWithEmailAndPassword(auth, email, password);
           const newUser = userCredential.user;
@@ -66,12 +65,12 @@ export default function LoginPage() {
             isCategoryModifier: isSuperAdmin,
             name: name || trimmedId,
             email: email,
-            loginId: trimmedId // On stocke l'ID avec sa casse originale
+            loginId: trimmedId // Stockage de la casse originale pour vérification stricte
           });
 
           toast({ title: "Compte créé !", description: "Veuillez maintenant vous connecter." });
           
-          // On déconnecte pour forcer l'utilisateur à passer par l'écran de login
+          // Redirection vers l'onglet login
           await signOut(auth);
           setIsSignUp(false);
           setPassword('');
@@ -87,57 +86,45 @@ export default function LoginPage() {
           }
         }
       } else {
-        // Tentative de connexion
         try {
           const userCredential = await signInWithEmailAndPassword(auth, email, password);
           const loggedUser = userCredential.user;
 
-          // Une fois authentifié par Firebase, on vérifie la casse dans Firestore
+          // Vérification du profil dans Firestore
           const userRef = doc(db, 'users', loggedUser.uid);
           const userSnap = await getDoc(userRef);
           
           if (userSnap.exists()) {
             const userData = userSnap.data();
-            // Vérification stricte de la casse de l'ID
-            if (userData.loginId !== trimmedId) {
+            // Vérification stricte de la casse
+            if (userData.loginId === trimmedId) {
+              toast({ title: "Connexion réussie", description: "Chargement de votre espace..." });
+              router.push('/');
+            } else {
+              // Casse incorrecte (ex: Jsecchi au lieu de JSecchi)
               await signOut(auth);
               toast({ 
                 variant: "destructive", 
                 title: "Échec", 
                 description: "Identifiant ou mot de passe incorrect." 
               });
-              setIsLoading(false);
-              return;
             }
           } else {
-            // Document profil manquant
+            // Utilisateur Auth existe mais pas le document Firestore
             await signOut(auth);
             toast({ 
               variant: "destructive", 
               title: "Échec", 
               description: "Identifiant non reconnu dans la base." 
             });
-            setIsLoading(false);
-            return;
           }
-          
-          toast({ title: "Connexion réussie", description: "Chargement de votre espace..." });
-          router.push('/');
         } catch (authError: any) {
-          // Si l'utilisateur n'est pas trouvé dans Auth
-          if (authError.code === 'auth/user-not-found' || authError.code === 'auth/invalid-email') {
-            toast({ 
-              variant: "destructive", 
-              title: "Échec", 
-              description: "Identifiant non reconnu." 
-            });
-          } else {
-            toast({ 
-              variant: "destructive", 
-              title: "Échec", 
-              description: "Identifiant ou mot de passe incorrect." 
-            });
-          }
+          // Erreur de mot de passe ou email non trouvé dans Auth
+          toast({ 
+            variant: "destructive", 
+            title: "Échec", 
+            description: "Identifiant ou mot de passe incorrect." 
+          });
         }
       }
     } catch (error: any) {
