@@ -1,66 +1,108 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { useAuth, useFirestore, setDocumentNonBlocking } from '@/firebase';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { useAuth, useFirestore, setDocumentNonBlocking, useUser } from '@/firebase';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Lock, UserCircle } from 'lucide-react';
+import { Loader2, Lock, UserCircle, UserPlus } from 'lucide-react';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 export default function LoginPage() {
   const [id, setId] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
+  
   const router = useRouter();
   const auth = useAuth();
   const db = useFirestore();
+  const { user, isUserLoading } = useUser();
   const { toast } = useToast();
   const logo = PlaceHolderImages.find(img => img.id === 'app-logo');
 
-  const handleLogin = async (e: React.FormEvent) => {
+  // Redirection automatique si déjà connecté
+  useEffect(() => {
+    if (!isUserLoading && user) {
+      router.push('/');
+    }
+  }, [user, isUserLoading, router]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!auth || !db) return;
 
     setIsLoading(true);
-    // On transforme l'ID en email pour Firebase Auth (convention interne)
     const email = `${id.toLowerCase()}@growandgo.ai`;
 
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
+      if (isSignUp) {
+        // Logique d'inscription
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const newUser = userCredential.user;
+        
+        // Création du profil par défaut (Employé)
+        const userRef = doc(db, 'users', newUser.uid);
+        setDocumentNonBlocking(userRef, {
+          uid: newUser.uid,
+          companyId: 'default-company',
+          role: id.toLowerCase() === 'jsecchi' ? 'super_admin' : 'employee',
+          adminMode: id.toLowerCase() === 'jsecchi',
+          isCategoryModifier: id.toLowerCase() === 'jsecchi',
+          name: name || id,
+          email: email
+        }, { merge: true });
 
-      // Vérification/Initialisation du profil JSecchi si nécessaire
-      if (id.toLowerCase() === 'jsecchi') {
-        const userRef = doc(db, 'users', user.uid);
-        const userSnap = await getDoc(userRef);
-        if (!userSnap.exists()) {
-          setDocumentNonBlocking(userRef, {
-            uid: user.uid,
-            companyId: 'growandgo-hq',
-            role: 'super_admin',
-            adminMode: true,
-            isCategoryModifier: true,
-            name: 'JSecchi (Propriétaire)',
-            email: email
-          }, { merge: true });
+        toast({ title: "Compte créé !", description: "Bienvenue dans l'univers Grow&Go." });
+      } else {
+        // Logique de connexion
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const loggedUser = userCredential.user;
+
+        // Initialisation spécifique pour JSecchi si nécessaire
+        if (id.toLowerCase() === 'jsecchi') {
+          const userRef = doc(db, 'users', loggedUser.uid);
+          const userSnap = await getDoc(userRef);
+          if (!userSnap.exists()) {
+            setDocumentNonBlocking(userRef, {
+              uid: loggedUser.uid,
+              companyId: 'growandgo-hq',
+              role: 'super_admin',
+              adminMode: true,
+              isCategoryModifier: true,
+              name: 'JSecchi (Propriétaire)',
+              email: email
+            }, { merge: true });
+          }
         }
+        toast({ title: "Connexion réussie", description: `Ravi de vous revoir.` });
       }
-
-      toast({ title: "Connexion réussie", description: `Bienvenue dans votre espace Grow&Go.` });
       router.push('/');
     } catch (error: any) {
+      console.error(error);
+      let message = "Une erreur est survenue.";
+      if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+        message = "Mot de passe incorrect. Veuillez réessayer.";
+      } else if (error.code === 'auth/user-not-found') {
+        message = "Identifiant inconnu.";
+      } else if (error.code === 'auth/email-already-in-use') {
+        message = "Cet identifiant est déjà utilisé.";
+      } else if (error.code === 'auth/weak-password') {
+        message = "Le mot de passe est trop court.";
+      }
+      
       toast({ 
         variant: "destructive", 
-        title: "Échec de connexion", 
-        description: "Identifiant ou mot de passe incorrect." 
+        title: isSignUp ? "Échec de l'inscription" : "Échec de connexion", 
+        description: message 
       });
     } finally {
       setIsLoading(false);
@@ -68,62 +110,94 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <Card className="w-full max-w-md shadow-2xl border-none">
+    <div className="min-h-screen bg-[#F5F2EA] flex items-center justify-center p-4">
+      <Card className="w-full max-w-md shadow-2xl border-none p-4 rounded-[2rem] bg-white">
         <CardHeader className="text-center space-y-4">
-          <div className="relative w-20 h-20 mx-auto overflow-hidden rounded-2xl border bg-white shadow-lg">
+          <div className="relative w-24 h-24 mx-auto overflow-hidden rounded-2xl border bg-white shadow-xl">
             <Image 
               src={logo?.imageUrl || ""} 
               alt="Logo" 
               fill 
-              className="object-cover p-1" 
+              className="object-cover p-2" 
             />
           </div>
           <div>
-            <CardTitle className="text-2xl font-black text-primary uppercase tracking-tighter">Grow&Go Design Studio</CardTitle>
-            <CardDescription>Veuillez vous identifier pour accéder à vos dossiers.</CardDescription>
+            <CardTitle className="text-2xl font-black text-[#1E4D3B] uppercase tracking-tighter">Grow&Go Design Studio</CardTitle>
+            <CardDescription className="text-[#1E4D3B]/60 font-medium">
+              {isSignUp ? "Créez votre compte pour commencer." : "Veuillez vous identifier pour accéder à vos dossiers."}
+            </CardDescription>
           </div>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {isSignUp && (
+              <div className="space-y-2">
+                <Label htmlFor="name" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Nom Complet</Label>
+                <div className="relative">
+                  <UserPlus className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
+                  <Input 
+                    id="name" 
+                    placeholder="Votre nom..." 
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="pl-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-medium"
+                    required
+                  />
+                </div>
+              </div>
+            )}
+            
             <div className="space-y-2">
-              <Label htmlFor="id" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Identifiant</Label>
+              <Label htmlFor="id" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Identifiant</Label>
               <div className="relative">
-                <UserCircle className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+                <UserCircle className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
                 <Input 
                   id="id" 
-                  placeholder="Votre ID..." 
+                  placeholder="Ex: JSecchi..." 
                   value={id}
                   onChange={(e) => setId(e.target.value)}
-                  className="pl-10 h-11 border-primary/10"
+                  className="pl-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-medium"
                   required
                 />
               </div>
             </div>
+
             <div className="space-y-2">
-              <Label htmlFor="pass" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Mot de passe</Label>
+              <Label htmlFor="pass" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Mot de passe</Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+                <Lock className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
                 <Input 
                   id="pass" 
                   type="password" 
-                  placeholder="••••••••" 
+                  placeholder="••••••••••••" 
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 h-11 border-primary/10"
+                  className="pl-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-medium"
                   required
                 />
               </div>
             </div>
-            <Button 
-              type="submit" 
-              className="w-full h-12 bg-primary hover:bg-primary/90 rounded-xl font-bold shadow-lg"
-              disabled={isLoading}
-            >
-              {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Se connecter"}
-            </Button>
+
+            <div className="space-y-3 pt-2">
+              <Button 
+                type="submit" 
+                className="w-full h-14 bg-[#1E4D3B] hover:bg-[#1E4D3B]/90 rounded-2xl font-bold text-lg shadow-xl transition-all active:scale-95"
+                disabled={isLoading}
+              >
+                {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (isSignUp ? "Créer un compte" : "Se connecter")}
+              </Button>
+
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full text-xs font-bold uppercase tracking-widest text-[#1E4D3B]/60 hover:bg-[#1E4D3B]/5 rounded-xl"
+                onClick={() => setIsSignUp(!isSignUp)}
+              >
+                {isSignUp ? "Déjà un compte ? Se connecter" : "Pas encore de compte ? S'inscrire"}
+              </Button>
+            </div>
           </form>
-          <div className="mt-6 pt-6 border-t text-center text-[10px] text-muted-foreground uppercase tracking-widest">
+          <div className="mt-8 pt-6 border-t border-[#F5F2EA] text-center text-[10px] text-muted-foreground uppercase tracking-widest font-bold">
             BusinessPilot SaaS - Sécurisé par JSecchi
           </div>
         </CardContent>
