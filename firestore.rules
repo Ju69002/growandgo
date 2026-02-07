@@ -7,8 +7,8 @@ service cloud.firestore {
      * BUSINESS PILOT SECURITY RULES
      * 
      * Roles:
-     * - super_admin (JSecchi): Can manage everything and grant modification rights.
-     * - admin (Patron): Can manage visibility and modify categories IF isCategoryModifier is true.
+     * - super_admin (JSecchi): Can manage everything and access the Accounts tab.
+     * - admin (Patron): Can manage visibility and modify/create categories for their company.
      * - employee: Read-only access to visible categories.
      */
 
@@ -38,19 +38,18 @@ service cloud.firestore {
 
     function canModifyCategories(companyId) {
       let data = getUserData();
-      return isSuperAdmin() || (isPatron(companyId) && data.isCategoryModifier == true);
+      return isSuperAdmin() || isPatron(companyId);
     }
 
     match /users/{userId} {
       allow get: if isSignedIn() && (request.auth.uid == userId || isSuperAdmin());
       allow list: if isSuperAdmin();
       allow create: if isSignedIn();
-      allow update: if isSuperAdmin() || (request.auth.uid == userId && request.resource.data.role == resource.data.role && request.resource.data.isCategoryModifier == resource.data.isCategoryModifier);
+      allow update: if isSuperAdmin() || (request.auth.uid == userId && request.resource.data.role == resource.data.role);
       allow delete: if isSuperAdmin();
     }
 
     match /companies/{companyId} {
-      // Permission de lecture pour le thème et l'identification de l'entreprise
       allow get: if isSignedIn(); 
       allow list: if isSuperAdmin();
       allow write: if isSuperAdmin();
@@ -60,7 +59,7 @@ service cloud.firestore {
       allow list: if isSignedIn() && (isSuperAdmin() || (getUserData() != null && getUserData().companyId == companyId));
       allow get: if isSignedIn() && (isSuperAdmin() || (getUserData() != null && getUserData().companyId == companyId));
       allow create: if canModifyCategories(companyId);
-      allow update: if canModifyCategories(companyId) || (isPatron(companyId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['visibleToEmployees', 'badgeCount']));
+      allow update: if canModifyCategories(companyId);
       allow delete: if canModifyCategories(companyId);
     }
 

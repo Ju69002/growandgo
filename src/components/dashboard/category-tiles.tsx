@@ -70,18 +70,17 @@ export function CategoryTiles({ profile }: CategoryTilesProps) {
     );
   }
 
+  const isAdminOrSuper = profile.role === 'admin' || profile.role === 'super_admin';
+
   // Filtrage selon le rôle et la visibilité
   const displayableCategories = (categories || []).filter(cat => {
-    // L'agenda est traité à part dans le dashboard
     if (cat.id === 'agenda') return false;
     
-    // Si c'est un employé, il ne voit que ce qui est visible
-    if (profile.role === 'employee') {
-      return cat.visibleToEmployees === true;
-    }
+    // Un patron ou super-admin voit tout pour gérer
+    if (isAdminOrSuper) return true;
     
-    // Les admins et super-admins voient tout
-    return true;
+    // Un employé ne voit que ce qui est explicitement marqué comme visible
+    return cat.visibleToEmployees === true;
   });
 
   const sortedCategories = [...displayableCategories].sort((a, b) => {
@@ -89,8 +88,6 @@ export function CategoryTiles({ profile }: CategoryTilesProps) {
     if (a.type !== 'standard' && b.type === 'standard') return 1;
     return a.label.localeCompare(b.label);
   });
-
-  const canModify = profile.role === 'super_admin' || (profile.role === 'admin' && profile.isCategoryModifier && profile.adminMode);
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -106,8 +103,8 @@ export function CategoryTiles({ profile }: CategoryTilesProps) {
             icon={Icon}
             badgeCount={category.badgeCount || 0}
             isVisible={category.visibleToEmployees}
-            isAdminMode={profile.adminMode}
-            canModify={canModify}
+            isAdminMode={isAdminOrSuper}
+            canModify={isAdminOrSuper}
             colorClass={COLOR_MAP[category.id] || COLOR_MAP.default}
             companyId={companyId}
             customColor={category.color}
@@ -115,7 +112,7 @@ export function CategoryTiles({ profile }: CategoryTilesProps) {
         );
       })}
       
-      {canModify && (
+      {isAdminOrSuper && (
         <button 
           onClick={() => {
             window.dispatchEvent(new CustomEvent('open-chat-category-creation'));

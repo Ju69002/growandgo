@@ -21,21 +21,23 @@ import {
   Settings,
   CreditCard,
   Building2,
-  ShieldCheck,
   Briefcase,
   KeyRound,
   UserCheck,
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { usePathname } from 'next/navigation';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { User } from '@/lib/types';
+import { cn } from '@/lib/utils';
 
 export function AppSidebar() {
   const { user } = useUser();
   const db = useFirestore();
+  const pathname = usePathname();
   const logo = PlaceHolderImages.find(img => img.id === 'app-logo');
 
   const userRef = useMemoFirebase(() => {
@@ -48,20 +50,25 @@ export function AppSidebar() {
 
   const mainItems = [
     { title: 'Dashboard', icon: LayoutDashboard, url: '/' },
-    { title: 'Documents', icon: FileText, url: '#' },
-    { title: 'Équipe', icon: Users, url: '#' },
+    { title: 'Documents', icon: FileText, url: '/documents' },
+    { title: 'Équipe', icon: Users, url: '/team' },
   ];
 
   const configItems = [
-    { title: 'Entreprise', icon: Building2, url: '#' },
-    { title: 'Modules', icon: Briefcase, url: '#' },
-    { title: 'Abonnement', icon: CreditCard, url: '#' },
+    { title: 'Entreprise', icon: Building2, url: '/company' },
+    { title: 'Modules', icon: Briefcase, url: '/modules' },
+    { title: 'Abonnement', icon: CreditCard, url: '/billing' },
     { title: 'Sécurité & Sync', icon: KeyRound, url: '/settings/security' },
   ];
 
+  const isItemActive = (url: string) => {
+    if (url === '/' && pathname !== '/') return false;
+    return pathname.startsWith(url);
+  };
+
   return (
-    <Sidebar collapsible="icon">
-      <SidebarHeader className="h-20 flex items-center px-4">
+    <Sidebar collapsible="icon" className="border-r-0">
+      <SidebarHeader className="h-20 flex items-center px-4 bg-sidebar">
         <div className="flex items-center gap-3 font-bold text-sidebar-foreground">
           <div className="relative w-12 h-12 overflow-hidden rounded-lg border border-white/20 shadow-xl bg-white">
             <Image 
@@ -78,16 +85,26 @@ export function AppSidebar() {
           </div>
         </div>
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent className="bg-sidebar">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/50">Principal</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-sidebar-foreground/50 font-bold uppercase text-[10px] tracking-widest px-4 mb-2">Principal</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {mainItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild tooltip={item.title} className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
+                  <SidebarMenuButton 
+                    asChild 
+                    tooltip={item.title} 
+                    isActive={isItemActive(item.url)}
+                    className={cn(
+                      "transition-all duration-200 px-4 h-11",
+                      isItemActive(item.url) 
+                        ? "bg-sidebar-primary text-sidebar-primary-foreground font-bold" 
+                        : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                    )}
+                  >
                     <Link href={item.url}>
-                      <item.icon />
+                      <item.icon className={cn("w-5 h-5", isItemActive(item.url) && "text-white")} />
                       <span>{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
@@ -99,13 +116,23 @@ export function AppSidebar() {
 
         {isSuperAdmin && (
           <SidebarGroup>
-            <SidebarGroupLabel className="text-sidebar-foreground/50">Administration</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-sidebar-foreground/50 font-bold uppercase text-[10px] tracking-widest px-4 mb-2">Administration</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 <SidebarMenuItem>
-                  <SidebarMenuButton asChild tooltip="Comptes" className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground text-emerald-400 font-bold">
+                  <SidebarMenuButton 
+                    asChild 
+                    tooltip="Gestion des Comptes" 
+                    isActive={isItemActive('/accounts')}
+                    className={cn(
+                      "transition-all duration-200 px-4 h-11",
+                      isItemActive('/accounts') 
+                        ? "bg-sidebar-primary text-sidebar-primary-foreground font-bold" 
+                        : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground text-emerald-400"
+                    )}
+                  >
                     <Link href="/accounts">
-                      <UserCheck className="w-5 h-5" />
+                      <UserCheck className={cn("w-5 h-5", isItemActive('/accounts') && "text-white")} />
                       <span>Comptes</span>
                     </Link>
                   </SidebarMenuButton>
@@ -116,14 +143,24 @@ export function AppSidebar() {
         )}
 
         <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/50">Configuration</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-sidebar-foreground/50 font-bold uppercase text-[10px] tracking-widest px-4 mb-2">Configuration</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {configItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild tooltip={item.title} className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
+                  <SidebarMenuButton 
+                    asChild 
+                    tooltip={item.title} 
+                    isActive={isItemActive(item.url)}
+                    className={cn(
+                      "transition-all duration-200 px-4 h-11",
+                      isItemActive(item.url) 
+                        ? "bg-sidebar-primary text-sidebar-primary-foreground font-bold" 
+                        : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                    )}
+                  >
                     <Link href={item.url}>
-                      <item.icon />
+                      <item.icon className={cn("w-5 h-5", isItemActive(item.url) && "text-white")} />
                       <span>{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
@@ -133,12 +170,21 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="p-4">
+      <SidebarFooter className="p-4 bg-sidebar border-t border-sidebar-border/30">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
-              <Link href="#">
-                <Settings />
+            <SidebarMenuButton 
+              asChild 
+              isActive={isItemActive('/settings')}
+              className={cn(
+                "transition-all duration-200 px-4 h-11",
+                isItemActive('/settings') 
+                  ? "bg-sidebar-primary text-sidebar-primary-foreground font-bold" 
+                  : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              )}
+            >
+              <Link href="/settings">
+                <Settings className={cn("w-5 h-5", isItemActive('/settings') && "text-white")} />
                 <span>Paramètres</span>
               </Link>
             </SidebarMenuButton>
