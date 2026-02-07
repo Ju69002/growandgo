@@ -59,7 +59,7 @@ import {
   DialogTitle,
   DialogFooter,
   DialogDescription,
-} from "@/dialog";
+} from "@/components/ui/dialog";
 
 export default function AccountsPage() {
   const { user: currentUser } = useUser();
