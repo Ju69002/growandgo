@@ -73,9 +73,11 @@ export default function AccountsPage() {
   }, [db, currentUser]);
 
   const { data: myProfile, isLoading: isProfileLoading } = useDoc<User>(userProfileRef);
-  const isSuperAdmin = myProfile?.role === 'super_admin';
+  
+  // On ne considère Super Admin que si le profil est chargé ET que le rôle correspond
+  const isSuperAdmin = !isProfileLoading && myProfile?.role === 'super_admin';
 
-  // On ne lance les requêtes globales que si on est certain d'être Super Admin
+  // On attend d'être certain d'être Super Admin pour lancer les requêtes sensibles
   const usersQuery = useMemoFirebase(() => {
     if (!db || !isSuperAdmin) return null;
     return query(collection(db, 'users'));
@@ -261,7 +263,7 @@ export default function AccountsPage() {
                                   <Button 
                                     variant="ghost" 
                                     size="icon" 
-                                    className="h-8 w-8 text-rose-900 hover:bg-rose-100 hover:text-rose-950 rounded-full"
+                                    className="h-8 w-8 text-rose-950 hover:bg-rose-100 hover:text-rose-950 rounded-full"
                                   >
                                     <Trash2 className="w-4 h-4" />
                                   </Button>
@@ -269,7 +271,7 @@ export default function AccountsPage() {
                                 <AlertDialogContent className="rounded-[2rem] border-none shadow-2xl">
                                   <AlertDialogHeader>
                                     <AlertDialogTitle className="text-2xl font-black uppercase flex items-center gap-2">
-                                      <AlertTriangle className="text-rose-900 w-6 h-6" />
+                                      <AlertTriangle className="text-rose-950 w-6 h-6" />
                                       Supprimer le compte ?
                                     </AlertDialogTitle>
                                     <AlertDialogDescription className="text-base">
@@ -280,7 +282,7 @@ export default function AccountsPage() {
                                     <AlertDialogCancel className="rounded-full font-bold h-11 px-8 border-primary/20">Annuler</AlertDialogCancel>
                                     <AlertDialogAction 
                                       onClick={() => handleDeleteUser(u.uid)}
-                                      className="bg-rose-950 hover:bg-rose-950 text-white rounded-full font-bold h-11 px-8 border-none"
+                                      className="bg-rose-950 hover:bg-rose-900 text-white rounded-full font-bold h-11 px-8 border-none"
                                     >
                                       Confirmer
                                     </AlertDialogAction>

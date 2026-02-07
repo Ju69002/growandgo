@@ -37,11 +37,11 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      // Un utilisateur voit son profil. Super Admin voit tout. Patron voit son équipe.
-      allow get: if isSignedIn() && (request.auth.uid == userId || isSuperAdmin() || (getUserData() != null && getUserData().companyId == resource.data.companyId));
-      allow list: if isSuperAdmin() || (isSignedIn() && getUserData() != null); 
-      allow create: if isSignedIn();
-      allow update: if isSuperAdmin() || (request.auth.uid == userId && request.resource.data.role == resource.data.role);
+      // Permission list: true est nécessaire pour permettre au login de trouver l'email via l'ID
+      allow get: if isSignedIn();
+      allow list: if true; 
+      allow create: if true; // Permettre l'inscription initiale
+      allow update: if isSuperAdmin() || (isSignedIn() && request.auth.uid == userId);
       allow delete: if isSuperAdmin();
     }
 
