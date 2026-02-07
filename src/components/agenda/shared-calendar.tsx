@@ -67,6 +67,9 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
   const [isEventDialogOpen, setIsEventDialogOpen] = React.useState(false);
   const [editingEvent, setEditingEvent] = React.useState<CalendarEvent | null>(null);
   
+  // State for controlled selects to avoid multiple menus being open at once
+  const [openSelect, setOpenSelect] = React.useState<'duration' | 'hour' | 'minute' | null>(null);
+
   // Form State
   const [formTitre, setFormTitre] = React.useState('');
   const [formDate, setFormDate] = React.useState(format(new Date(), 'yyyy-MM-dd'));
@@ -368,7 +371,12 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
     <div className="h-full w-full bg-card overflow-hidden flex flex-col">
       <div className="flex-1 overflow-hidden">{viewMode === '3day' ? render3DayView() : renderMonthView()}</div>
       
-      <Dialog open={isEventDialogOpen} onOpenChange={(open) => !open && setIsEventDialogOpen(false)}>
+      <Dialog open={isEventDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setIsEventDialogOpen(false);
+          setOpenSelect(null);
+        }
+      }}>
         <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none shadow-2xl">
           <div className="p-6 bg-primary text-primary-foreground">
             <DialogHeader>
@@ -411,11 +419,16 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
               </div>
               <div className="grid gap-2">
                 <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Durée prévue</Label>
-                <Select value={selectedDuration} onValueChange={setSelectedDuration}>
-                  <SelectTrigger className="border-primary/20">
+                <Select 
+                  open={openSelect === 'duration'} 
+                  onOpenChange={(open) => setOpenSelect(open ? 'duration' : null)}
+                  value={selectedDuration} 
+                  onValueChange={setSelectedDuration}
+                >
+                  <SelectTrigger className="border-primary/20 bg-background">
                     <SelectValue placeholder="Choisir" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-background border shadow-xl">
                     {durations.map(d => (
                       <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
                     ))}
@@ -427,21 +440,31 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
             <div className="grid gap-2">
               <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Heure de début</Label>
               <div className="flex gap-2">
-                <Select value={formHour} onValueChange={setFormHour}>
-                  <SelectTrigger className="w-full border-primary/20">
+                <Select 
+                  open={openSelect === 'hour'} 
+                  onOpenChange={(open) => setOpenSelect(open ? 'hour' : null)}
+                  value={formHour} 
+                  onValueChange={setFormHour}
+                >
+                  <SelectTrigger className="w-full border-primary/20 bg-background">
                     <SelectValue placeholder="Heure" />
                   </SelectTrigger>
-                  <SelectContent className="max-h-[200px]">
+                  <SelectContent className="max-h-[200px] bg-background border shadow-xl">
                     {hoursList.map(h => (
                       <SelectItem key={h} value={h}>{h} h</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                <Select value={formMinute} onValueChange={setFormMinute}>
-                  <SelectTrigger className="w-full border-primary/20">
+                <Select 
+                  open={openSelect === 'minute'} 
+                  onOpenChange={(open) => setOpenSelect(open ? 'minute' : null)}
+                  value={formMinute} 
+                  onValueChange={setFormMinute}
+                >
+                  <SelectTrigger className="w-full border-primary/20 bg-background">
                     <SelectValue placeholder="Min" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-background border shadow-xl">
                     {minutesList.map(m => (
                       <SelectItem key={m} value={m}>{m}</SelectItem>
                     ))}
