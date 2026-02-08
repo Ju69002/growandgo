@@ -7,13 +7,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { useAuth, useFirestore, useUser } from '@/firebase';
+import { useAuth, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Lock, UserCircle, UserPlus, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
+import { Loader2, Lock, UserCircle, UserPlus, Eye, EyeOff, CheckCircle2, ShieldCheck, Users } from 'lucide-react';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { User } from '@/lib/types';
+import { cn } from '@/lib/utils';
 
 export default function LoginPage() {
   const [loginId, setLoginId] = useState('');
@@ -30,7 +32,13 @@ export default function LoginPage() {
   const { toast } = useToast();
   const logo = PlaceHolderImages.find(img => img.id === 'app-logo');
 
-  // Suppression de la redirection automatique au montage pour garantir que le login est la 1ère page
+  // Récupération des IDs existants pour la note informative
+  const usersQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return query(collection(db, 'users'));
+  }, [db]);
+
+  const { data: allUsers } = useCollection<User>(usersQuery);
 
   const ensureCompanyExists = async (companyId: string, companyName: string) => {
     if (!db) return;
@@ -61,15 +69,6 @@ export default function LoginPage() {
       finalRole = 'super_admin';
       finalCompanyId = 'growandgo-hq';
       finalCompanyName = 'Grow&Go HQ';
-    } else if (lowerId === 'adupont') {
-      finalRole = 'admin';
-      finalCompanyId = 'Paul';
-    } else if (lowerId === 'bdupres') {
-      finalRole = 'employee';
-      finalCompanyId = 'Paul';
-    } else if (lowerId === 'lvecchio') {
-      finalRole = 'admin';
-      finalCompanyId = 'Oreal';
     }
 
     await ensureCompanyExists(finalCompanyId, finalCompanyName);
@@ -122,6 +121,7 @@ export default function LoginPage() {
         const userCredential = await createUserWithEmailAndPassword(auth, internalEmail, password);
         await createProfile(userCredential.user.uid, normalizedId, 'employee', name || normalizedId);
 
+        // Déconnexion immédiate après inscription pour forcer le login manuel
         await signOut(auth);
         setSignUpSuccess(true);
         setIsSignUp(false);
@@ -161,113 +161,147 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-[#F5F2EA] flex items-center justify-center p-4">
-      <Card className="w-full max-w-md shadow-2xl border-none p-4 rounded-[2.5rem] bg-white">
-        <CardHeader className="text-center space-y-4">
-          <div className="relative w-24 h-24 mx-auto overflow-hidden rounded-2xl border bg-white shadow-xl">
-            <Image 
-              src={logo?.imageUrl || "https://picsum.photos/seed/growgo/100/100"} 
-              alt="Logo" 
-              fill 
-              className="object-cover p-2" 
-            />
-          </div>
-          <div>
-            <CardTitle className="text-2xl font-bold text-[#1E4D3B] uppercase tracking-tighter">Grow&Go Studio</CardTitle>
-            <CardDescription className="text-[#1E4D3B]/60 font-medium">
-              {signUpSuccess ? "Identification requise" : isSignUp ? "Nouvel identifiant" : "Identification"}
-            </CardDescription>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {signUpSuccess && (
-            <div className="mb-6 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3">
-              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-              <p className="text-xs font-bold text-emerald-800 uppercase tracking-wide">Identifiant prêt. Connectez-vous.</p>
+      <div className="flex flex-col md:flex-row gap-8 items-start max-w-4xl w-full">
+        
+        {/* Panneau latéral - Répertoire des Identifiants */}
+        <div className="w-full md:w-64 space-y-4 md:sticky md:top-10">
+          <div className="bg-white p-6 rounded-[2rem] shadow-xl border-none">
+            <div className="flex items-center gap-2 mb-4 text-[#1E4D3B]">
+              <Users className="w-5 h-5" />
+              <h3 className="font-black uppercase text-[10px] tracking-widest">Identifiants Actifs</h3>
             </div>
-          )}
+            <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-primary/20">
+              {allUsers && allUsers.length > 0 ? (
+                allUsers.map(u => (
+                  <div key={u.uid} className="flex items-center justify-between p-2 rounded-xl bg-muted/30 border border-black/5">
+                    <span className="font-mono text-[10px] font-bold truncate">{u.loginId}</span>
+                    <Badge className={cn(
+                      "text-[8px] font-black uppercase h-4 px-1",
+                      u.role === 'super_admin' ? "bg-rose-950" : "bg-primary"
+                    )}>
+                      {u.role === 'super_admin' ? 'SA' : 'E'}
+                    </Badge>
+                  </div>
+                ))
+              ) : (
+                <p className="text-[10px] text-muted-foreground italic">Aucun ID en base...</p>
+              )}
+            </div>
+            <p className="mt-6 text-[9px] text-[#1E4D3B]/40 leading-relaxed">
+              Note : Utilisez ces identifiants pour tester les différents rôles.
+            </p>
+          </div>
+        </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {isSignUp && (
+        {/* Formulaire de Connexion */}
+        <Card className="flex-1 w-full shadow-2xl border-none p-4 rounded-[2.5rem] bg-white">
+          <CardHeader className="text-center space-y-4">
+            <div className="relative w-20 h-20 mx-auto overflow-hidden rounded-2xl border bg-white shadow-xl">
+              <Image 
+                src={logo?.imageUrl || "https://picsum.photos/seed/growgo/100/100"} 
+                alt="Logo" 
+                fill 
+                className="object-cover p-2" 
+              />
+            </div>
+            <div>
+              <CardTitle className="text-2xl font-bold text-[#1E4D3B] uppercase tracking-tighter">Grow&Go Studio</CardTitle>
+              <CardDescription className="text-[#1E4D3B]/60 font-medium">
+                {signUpSuccess ? "Identification requise" : isSignUp ? "Nouvel identifiant" : "Identification"}
+              </CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {signUpSuccess && (
+              <div className="mb-6 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                <p className="text-xs font-bold text-emerald-800 uppercase tracking-wide">Identifiant prêt. Connectez-vous.</p>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {isSignUp && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="name" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Nom Complet</Label>
+                  <div className="relative">
+                    <UserPlus className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
+                    <Input 
+                      id="name" 
+                      placeholder="Votre Nom..." 
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="pl-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-medium"
+                      required={isSignUp}
+                    />
+                  </div>
+                </div>
+              )}
+              
               <div className="space-y-1.5">
-                <Label htmlFor="name" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Nom Complet</Label>
+                <Label htmlFor="loginId" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Identifiant Studio</Label>
                 <div className="relative">
-                  <UserPlus className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
+                  <UserCircle className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
                   <Input 
-                    id="name" 
-                    placeholder="Votre Nom..." 
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    id="loginId" 
+                    placeholder="Ex: ADupont" 
+                    value={loginId}
+                    onChange={(e) => setLoginId(e.target.value)}
                     className="pl-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-medium"
-                    required={isSignUp}
+                    required
                   />
                 </div>
               </div>
-            )}
-            
-            <div className="space-y-1.5">
-              <Label htmlFor="loginId" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Identifiant Studio</Label>
-              <div className="relative">
-                <UserCircle className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
-                <Input 
-                  id="loginId" 
-                  placeholder="Ex: ADupont" 
-                  value={loginId}
-                  onChange={(e) => setLoginId(e.target.value)}
-                  className="pl-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-medium"
-                  required
-                />
-              </div>
-            </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="pass" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Mot de passe</Label>
-              <div className="relative">
-                <Lock className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
-                <Input 
-                  id="pass" 
-                  type={showPassword ? "text" : "password"}
-                  placeholder="••••••••••••" 
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="pl-11 pr-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-medium"
-                  required
-                />
+              <div className="space-y-1.5">
+                <Label htmlFor="pass" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Mot de passe</Label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
+                  <Input 
+                    id="pass" 
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••••••" 
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pl-11 pr-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-medium"
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-2 top-2 h-8 w-8 p-0 flex items-center justify-center"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-3 pt-4">
+                <Button 
+                  type="submit" 
+                  className="w-full h-14 bg-[#1E4D3B] hover:bg-[#1E4D3B]/90 rounded-2xl font-bold text-lg shadow-xl"
+                  disabled={isLoading}
+                >
+                  {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (isSignUp ? "Créer mon ID" : "Se connecter")}
+                </Button>
+
                 <button
                   type="button"
-                  className="absolute right-2 top-2 h-8 w-8 p-0 flex items-center justify-center"
-                  onClick={() => setShowPassword(!showPassword)}
+                  className="w-full text-xs font-bold uppercase tracking-widest text-[#1E4D3B]/60 hover:bg-[#1E4D3B]/5 py-2 rounded-xl transition-colors"
+                  onClick={() => {
+                    setSignUpSuccess(false);
+                    setIsSignUp(!isSignUp);
+                    setLoginId('');
+                    setPassword('');
+                    setName('');
+                  }}
                 >
-                  {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+                  {isSignUp ? "Déjà un ID ? Connexion" : "Nouvel ID ? Inscription"}
                 </button>
               </div>
-            </div>
-
-            <div className="space-y-3 pt-4">
-              <Button 
-                type="submit" 
-                className="w-full h-14 bg-[#1E4D3B] hover:bg-[#1E4D3B]/90 rounded-2xl font-bold text-lg shadow-xl"
-                disabled={isLoading}
-              >
-                {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (isSignUp ? "Créer mon ID" : "Se connecter")}
-              </Button>
-
-              <button
-                type="button"
-                className="w-full text-xs font-bold uppercase tracking-widest text-[#1E4D3B]/60 hover:bg-[#1E4D3B]/5 py-2 rounded-xl transition-colors"
-                onClick={() => {
-                  setSignUpSuccess(false);
-                  setIsSignUp(!isSignUp);
-                  setLoginId('');
-                  setPassword('');
-                  setName('');
-                }}
-              >
-                {isSignUp ? "Déjà un ID ? Connexion" : "Nouvel ID ? Inscription"}
-              </button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

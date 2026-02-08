@@ -21,7 +21,10 @@ export default function Home() {
   const db = useFirestore();
   const [mounted, setMounted] = useState(false);
 
-  // Groupement des Hooks au sommet (Rules of Hooks)
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const userRef = useMemoFirebase(() => {
     if (!db || !user) return null;
     return doc(db, 'users', user.uid);
@@ -29,11 +32,6 @@ export default function Home() {
 
   const { data: profile, isLoading: isProfileLoading } = useDoc<User>(userRef);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // Redirection si non authentifié
   useEffect(() => {
     if (mounted && !isUserLoading && !user) {
       router.push('/login');
@@ -56,10 +54,8 @@ export default function Home() {
     );
   }
 
-  // Si pas de session Auth
   if (!user) return null;
 
-  // Si session Auth mais profil manquant
   if (!isProfileLoading && !profile) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-[#F5F2EA] p-8 text-center space-y-6">
