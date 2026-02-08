@@ -26,13 +26,14 @@ export async function fetchGoogleEvents(token: string, timeMin: string, timeMax:
 }
 
 /**
- * Mappe un événement externe.
+ * Mappe un événement externe (Google).
  */
 export function mapExternalEvent(event: any, companyId: string, userId: string): Partial<CalendarEvent> {
   const start = event.start?.dateTime || event.start?.date || event.start || new Date().toISOString();
   const end = event.end?.dateTime || event.end?.date || event.end || new Date().toISOString();
   
-  const attendees = event.attendees?.filter((a: any) => a?.email).map((a: any) => a.email) || [];
+  // Sécurisation du mapping des participants
+  const attendees = event.attendees?.map((a: any) => a.email || a.displayName || '').filter(Boolean) || [];
 
   return {
     id_externe: event.id || Math.random().toString(36).substring(7),

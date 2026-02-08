@@ -50,7 +50,7 @@ export default function Home() {
   const router = useRouter();
   const db = useFirestore();
 
-  // Tous les Hooks doivent être appelés avant toute condition de retour précoce
+  // IMPORTANT: All Hooks must be at the top level
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user) return null;
     return doc(db, 'users', user.uid);
@@ -76,16 +76,6 @@ export default function Home() {
   }, [db, companyId]);
 
   const { data: meetings } = useCollection<CalendarEvent>(meetingsQuery);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (mounted && !isUserLoading && !user) {
-      router.push('/login');
-    }
-  }, [user, isUserLoading, router, mounted]);
 
   const weeklyTasks = useMemo(() => {
     if (!mounted || (!documents && !meetings)) return [];
@@ -136,6 +126,17 @@ export default function Home() {
     return tasks.sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [mounted, documents, meetings]);
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (mounted && !isUserLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, isUserLoading, router, mounted]);
+
+  // Loading states must be AFTER all hooks
   if (!mounted || isUserLoading || isProfileLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">

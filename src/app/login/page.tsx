@@ -65,7 +65,7 @@ export default function LoginPage() {
 
     try {
       if (isSignUp) {
-        // Enregistrement : email interne par défaut
+        // Enregistrement : email interne par défaut basé sur l'identifiant
         const internalEmail = `${loginId.toLowerCase().trim()}@studio.internal`;
         const userCredential = await createUserWithEmailAndPassword(auth, internalEmail, password);
         const newUser = userCredential.user;
@@ -89,6 +89,7 @@ export default function LoginPage() {
         });
 
         toast({ title: "Bienvenue !", description: "Votre studio Grow&Go est prêt." });
+        // Redirection sera gérée par l'useEffect
       } else {
         // Connexion : on cherche l'email associé à l'Identifiant Studio
         const usersRef = collection(db, 'users');
@@ -108,12 +109,16 @@ export default function LoginPage() {
       }
     } catch (error: any) {
       console.error("Auth Error:", error);
-      let message = "Identifiant ou mot de passe incorrect.";
+      let message = "Une erreur est survenue.";
+      
       if (error.code === 'auth/email-already-in-use') {
         message = "Cet identifiant est déjà utilisé.";
-      } else if (error.message === "Identifiant inconnu.") {
-        message = "Cet identifiant n'existe pas.";
+      } else if (error.code === 'auth/invalid-credential' || error.message === "Identifiant inconnu.") {
+        message = "Identifiant ou mot de passe incorrect.";
+      } else if (error.code === 'auth/weak-password') {
+        message = "Le mot de passe doit faire au moins 6 caractères.";
       }
+      
       toast({ 
         variant: "destructive", 
         title: "Échec", 
