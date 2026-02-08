@@ -41,7 +41,7 @@ export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [isCalendarFull, setIsCalendarFull] = useState(false);
 
-  // 1. ALL HOOKS MUST BE CALLED AT THE TOP LEVEL
+  // 1. TOUS LES HOOKS DOIVENT ETRE APPELÉS EN HAUT DU COMPOSANT
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user) return null;
     return doc(db, 'users', user.uid);
@@ -72,6 +72,7 @@ export default function Home() {
     setMounted(true);
   }, []);
 
+  // Redirection forcée vers login si non connecté
   useEffect(() => {
     if (mounted && !isUserLoading && !user) {
       router.push('/login');
@@ -125,30 +126,19 @@ export default function Home() {
     return tasks.sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [mounted, documents, meetings]);
 
-  // 2. CONDITIONAL RENDERING AFTER ALL HOOKS
+  // 2. RENDU CONDITIONNEL APRÈS LES HOOKS
   if (!mounted || isUserLoading || isProfileLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="text-center space-y-4">
           <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto" />
-          <p className="text-muted-foreground font-black uppercase text-[10px] tracking-widest">Initialisation Studio...</p>
+          <p className="text-muted-foreground font-black uppercase text-[10px] tracking-widest">Chargement du Studio...</p>
         </div>
       </div>
     );
   }
 
-  if (!user) return null;
-
-  if (!profile) {
-    return (
-      <DashboardLayout>
-        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-          <Loader2 className="w-12 h-12 animate-spin text-primary opacity-30" />
-          <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Chargement du profil...</p>
-        </div>
-      </DashboardLayout>
-    );
-  }
+  if (!user || !profile) return null;
 
   const isSuperAdmin = profile.role === 'super_admin';
 

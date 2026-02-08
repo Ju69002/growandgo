@@ -64,30 +64,36 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const normalizedId = loginId.toLowerCase().trim();
+      const normalizedId = loginId.trim();
+      const lowerId = normalizedId.toLowerCase();
       
+      // LOGIQUE SPECIALE SUPER ADMIN JSECCHI
+      const isTargetSuperAdmin = lowerId === 'jsecchi';
+      if (isTargetSuperAdmin && password !== 'Meqoqo1998') {
+        throw new Error("Mot de passe incorrect pour le compte Super Admin.");
+      }
+
       if (isSignUp) {
-        // 1. Check for duplicates
+        // 1. Verifier les doublons
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('loginId', '==', normalizedId));
         const checkSnap = await getDocs(q);
         
         if (!checkSnap.empty) {
-          throw new Error("Cet identifiant est déjà utilisé par un autre membre.");
+          throw new Error("Cet identifiant est déjà utilisé.");
         }
 
-        // 2. Auth Creation
-        const internalEmail = `${normalizedId}@studio.internal`;
+        // 2. Creation Auth
+        const internalEmail = `${lowerId}@studio.internal`;
         const userCredential = await createUserWithEmailAndPassword(auth, internalEmail, password);
         const newUser = userCredential.user;
         
-        const isTargetSuperAdmin = normalizedId === 'jsecchi';
         const companyId = isTargetSuperAdmin ? 'growandgo-hq' : 'default-studio';
         const companyName = isTargetSuperAdmin ? 'Grow&Go HQ' : 'Mon Studio';
 
         await ensureCompanyExists(companyId, companyName);
         
-        // 3. Firestore Profile Creation (IMMEDIATE)
+        // 3. Creation Profil Firestore
         const userRef = doc(db, 'users', newUser.uid);
         await setDoc(userRef, {
           uid: newUser.uid,
@@ -95,40 +101,42 @@ export default function LoginPage() {
           role: isTargetSuperAdmin ? 'super_admin' : 'employee',
           adminMode: isTargetSuperAdmin,
           isCategoryModifier: isTargetSuperAdmin,
-          name: name || loginId,
+          name: name || normalizedId,
           loginId: normalizedId,
           email: internalEmail,
           createdAt: new Date().toISOString()
         });
 
-        toast({ title: "Bienvenue !", description: "Votre compte studio a été créé avec succès." });
+        toast({ title: "Bienvenue !", description: "Compte Super Admin créé avec succès." });
       } else {
-        // 4. Find technical email via ID
+        // 4. Trouver l'email technique via l'ID
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('loginId', '==', normalizedId));
         const querySnapshot = await getDocs(q);
 
         if (querySnapshot.empty) {
+          // Si JSecchi n'existe pas encore en base, on invite à l'inscription
+          if (isTargetSuperAdmin) {
+            throw new Error("Compte Super Admin non détecté. Veuillez d'abord l'inscrire via l'onglet d'inscription.");
+          }
           throw new Error("Identifiant inconnu dans ce studio.");
         }
 
         const userData = querySnapshot.docs[0].data();
         const emailToUse = userData.email;
 
-        // 5. Auth Login
+        // 5. Connexion Auth
         await signInWithEmailAndPassword(auth, emailToUse, password);
-        toast({ title: "Connexion réussie", description: "Chargement de votre espace..." });
+        toast({ title: "Connexion réussie", description: "Accès au Studio validé." });
       }
     } catch (error: any) {
       console.error("Auth Error:", error);
       let message = error.message || "Une erreur est survenue.";
       
       if (error.code === 'auth/email-already-in-use') {
-        message = "Cet identifiant est déjà associé à un compte.";
+        message = "Cet identifiant possède déjà un accès.";
       } else if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
         message = "Identifiant ou mot de passe incorrect.";
-      } else if (error.code === 'auth/weak-password') {
-        message = "Le mot de passe doit faire au moins 6 caractères.";
       }
       
       toast({ 
@@ -156,7 +164,7 @@ export default function LoginPage() {
           <div>
             <CardTitle className="text-2xl font-bold text-[#1E4D3B] uppercase tracking-tighter">Grow&Go Studio</CardTitle>
             <CardDescription className="text-[#1E4D3B]/60 font-medium">
-              {isSignUp ? "Créer un nouvel accès" : "Connexion par Identifiant"}
+              {isSignUp ? "Créer un accès Super Admin" : "Connexion par Identifiant"}
             </CardDescription>
           </div>
         </CardHeader>
@@ -223,7 +231,7 @@ export default function LoginPage() {
                 className="w-full h-14 bg-[#1E4D3B] hover:bg-[#1E4D3B]/90 rounded-2xl font-bold text-lg shadow-xl"
                 disabled={isLoading}
               >
-                {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (isSignUp ? "Créer l'accès" : "Accéder au Studio")}
+                {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (isSignUp ? "Inscrire Super Admin" : "Accéder au Studio")}
               </Button>
 
               <button
