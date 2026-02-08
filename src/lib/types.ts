@@ -21,14 +21,10 @@ export interface User {
   uid: string;
   companyId: string;
   role: UserRole;
-  adminMode: boolean; // Mode Patron/Admin actif ou non
-  isCategoryModifier: boolean; // Droit accordé par le Super Admin pour modifier les tuiles
+  adminMode: boolean;
+  isCategoryModifier: boolean;
   name: string;
-  email: string;
-  loginId: string; // Identifiant utilisé pour la connexion (sensible à la casse)
-  calendarTokens?: {
-    google_refresh_token?: string;
-  };
+  loginId: string;
 }
 
 export interface Category {
@@ -40,7 +36,7 @@ export interface Category {
   aiInstructions?: string;
   companyId: string;
   subCategories?: string[];
-  color?: string; // Classe tailwind ou couleur custom
+  color?: string;
   icon?: string;
 }
 

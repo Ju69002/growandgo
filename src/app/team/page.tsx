@@ -8,7 +8,7 @@ import { User } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Mail, ShieldCheck, User as UserIcon, Building2 } from 'lucide-react';
+import { Loader2, ShieldCheck, User as UserIcon, Building2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function TeamPage() {
@@ -79,11 +79,7 @@ export default function TeamPage() {
                 </CardHeader>
                 <CardContent className="p-8 pt-0 space-y-4">
                   <div className="flex items-center gap-3 text-sm text-muted-foreground bg-muted/30 p-2 rounded-xl">
-                    <Mail className="w-4 h-4 text-primary/60" />
-                    <span className="truncate">{member.email}</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                    <UserIcon className="w-4 h-4" />
+                    <UserIcon className="w-4 h-4 text-primary/60" />
                     <span className="font-medium text-xs">Identifiant: {member.loginId}</span>
                   </div>
                   {member.role !== 'employee' && (

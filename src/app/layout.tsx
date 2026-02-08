@@ -1,5 +1,7 @@
+
 'use client';
 
+import { useState, useEffect } from 'react';
 import { FirebaseClientProvider } from '@/firebase';
 import { useFirestore, useDoc, useUser, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
@@ -7,13 +9,14 @@ import { User, Company } from '@/lib/types';
 import { Toaster } from '@/components/ui/toaster';
 import './globals.css';
 
-/**
- * ThemeInjector écoute les changements de couleur dans Firestore pour l'entreprise 
- * et les injecte dans les variables CSS de l'application.
- */
 function ThemeInjector({ children }: { children: React.ReactNode }) {
   const { user } = useUser();
   const db = useFirestore();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const userRef = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -21,8 +24,6 @@ function ThemeInjector({ children }: { children: React.ReactNode }) {
   }, [db, user]);
 
   const { data: profile } = useDoc<User>(userRef);
-  
-  // On ne tente de récupérer l'entreprise que si le profil est chargé et contient un ID d'entreprise
   const companyId = profile?.companyId;
 
   const companyRef = useMemoFirebase(() => {
@@ -32,7 +33,10 @@ function ThemeInjector({ children }: { children: React.ReactNode }) {
 
   const { data: company } = useDoc<Company>(companyRef);
 
-  // Valeurs par défaut HSL basées sur la charte Grow&Go
+  if (!mounted) {
+    return <div className="min-h-screen bg-[#F5F2EA]">{children}</div>;
+  }
+
   const primary = company?.primaryColor || '157 44% 21%';
   const background = company?.backgroundColor || '43 38% 96%';
   const foreground = company?.foregroundColor || '157 44% 11%';

@@ -8,7 +8,6 @@ import {
   Save, 
   Loader2, 
   ShieldCheck, 
-  Mail, 
   Fingerprint 
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -35,7 +34,6 @@ export default function SettingsPage() {
   const { toast } = useToast();
 
   const [userName, setUserName] = useState('');
-  const [userEmail, setUserEmail] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
@@ -56,7 +54,6 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (profile?.name) setUserName(profile.name);
-    if (profile?.email) setUserEmail(profile.email);
     if (company?.name) setCompanyName(company.name);
   }, [profile, company]);
 
@@ -64,14 +61,11 @@ export default function SettingsPage() {
     if (!db || !user || !companyId) return;
     setIsSaving(true);
 
-    // Mise à jour du profil utilisateur (Nom et Email de récupération)
     const userDocRef = doc(db, 'users', user.uid);
     updateDocumentNonBlocking(userDocRef, { 
-      name: userName,
-      email: userEmail 
+      name: userName
     });
 
-    // Mise à jour de l'entreprise si le rôle le permet
     const isPatronOrSuper = profile?.role === 'admin' || profile?.role === 'super_admin';
     if (isPatronOrSuper && companyName.trim()) {
       const compDocRef = doc(db, 'companies', companyId);
@@ -114,7 +108,6 @@ export default function SettingsPage() {
         </div>
 
         <div className="grid gap-6">
-          {/* Informations Personnelles */}
           <Card className="border-none shadow-xl rounded-[2rem] overflow-hidden bg-white">
             <CardHeader className="bg-primary text-primary-foreground p-8">
               <div className="flex items-center justify-between">
@@ -156,26 +149,9 @@ export default function SettingsPage() {
                   </div>
                 </div>
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="uemail" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">E-mail de récupération</Label>
-                <div className="relative">
-                  <Mail className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
-                  <Input 
-                    id="uemail"
-                    type="email"
-                    value={userEmail}
-                    onChange={(e) => setUserEmail(e.target.value)}
-                    placeholder="Ex: jean.dupont@gmail.com"
-                    className="rounded-xl border-primary/10 h-12 pl-11 font-bold"
-                  />
-                </div>
-                <p className="text-[9px] text-muted-foreground ml-1">Cet e-mail est utilisé pour réinitialiser votre mot de passe en cas d'oubli.</p>
-              </div>
             </CardContent>
           </Card>
 
-          {/* Informations Entreprise (Si Patron) */}
           {isPatronOrSuper && (
             <Card className="border-none shadow-xl rounded-[2rem] overflow-hidden bg-white">
               <CardHeader className="bg-secondary text-secondary-foreground p-8">
@@ -198,9 +174,6 @@ export default function SettingsPage() {
                     className="rounded-xl border-primary/10 h-12 font-bold"
                   />
                 </div>
-                <p className="text-[10px] text-muted-foreground font-medium bg-muted/30 p-4 rounded-xl">
-                  <strong>INFO :</strong> Ce nom apparaîtra en haut à gauche de l'application pour vous et tous vos employés rattachés.
-                </p>
               </CardContent>
             </Card>
           )}

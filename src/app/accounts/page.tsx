@@ -118,7 +118,6 @@ export default function AccountsPage() {
   const handleUpdateUserAffiliation = () => {
     if (!db || !editingUser) return;
     const userRef = doc(db, 'users', editingUser.uid);
-    // On met à jour l'affiliation individuelle (companyId)
     updateDocumentNonBlocking(userRef, { companyId: editingUser.companyId });
     toast({ 
       title: "Entreprise mise à jour", 
@@ -142,7 +141,7 @@ export default function AccountsPage() {
     return (
       <DashboardLayout>
         <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
-          <ShieldAlert className="w-20 h-20 text-rose-900 opacity-20" />
+          <ShieldAlert className="w-20 h-20 text-rose-950 opacity-20" />
           <h1 className="text-2xl font-black uppercase tracking-tighter">Accès Réservé</h1>
           <p className="text-muted-foreground">Seul le Super Administrateur peut gérer les accès globaux.</p>
         </div>
@@ -183,7 +182,7 @@ export default function AccountsPage() {
               <Table>
                 <TableHeader className="bg-muted/50">
                   <TableRow>
-                    <TableHead className="w-[200px] font-black uppercase text-[10px] tracking-widest pl-8">Utilisateur</TableHead>
+                    <TableHead className="w-[250px] font-black uppercase text-[10px] tracking-widest pl-8">Utilisateur</TableHead>
                     <TableHead className="font-black uppercase text-[10px] tracking-widest">Entreprise</TableHead>
                     <TableHead className="font-black uppercase text-[10px] tracking-widest">Rôle</TableHead>
                     <TableHead className="font-black uppercase text-[10px] tracking-widest">ID Connexion</TableHead>
@@ -202,10 +201,7 @@ export default function AccountsPage() {
                             <div className="p-2 bg-primary/10 rounded-xl text-primary">
                               <UserIcon className="w-4 h-4" />
                             </div>
-                            <div>
-                              <p className="font-bold">{u.name}</p>
-                              <p className="text-[10px] text-muted-foreground truncate max-w-[120px]">{u.email}</p>
-                            </div>
+                            <p className="font-bold">{u.name}</p>
                           </div>
                         </TableCell>
                         <TableCell>

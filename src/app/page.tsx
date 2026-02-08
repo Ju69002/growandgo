@@ -11,13 +11,11 @@ import {
   ListTodo, 
   Calendar as CalendarIcon, 
   Maximize2, 
-  ArrowRight, 
   FileText, 
   CheckCircle2, 
   AlertCircle,
   Clock,
   CalendarDays,
-  User as UserIcon,
   Users,
   X
 } from 'lucide-react';
@@ -36,7 +34,7 @@ import { doc, collection, query, where, limit } from 'firebase/firestore';
 import { User, BusinessDocument, CalendarEvent } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { format, isWithinInterval, addDays, startOfToday, parseISO, isValid } from 'date-fns';
+import { format, startOfToday, addDays, parseISO, isValid, isWithinInterval } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
 const statusConfig: Record<string, { label: string; icon: any; color: string }> = {
@@ -50,6 +48,11 @@ export default function Home() {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
   const db = useFirestore();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!isUserLoading && !user) {
@@ -134,7 +137,7 @@ export default function Home() {
 
   const [isCalendarFull, setIsCalendarFull] = useState(false);
 
-  if (isUserLoading || isProfileLoading) {
+  if (!mounted || isUserLoading || isProfileLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="text-center space-y-4">
