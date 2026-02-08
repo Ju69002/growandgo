@@ -8,7 +8,7 @@ import { User } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, ShieldCheck, User as UserIcon, Building2, Key, Info } from 'lucide-react';
+import { Loader2, ShieldCheck, User as UserIcon, Building2, Key, Info, UserCog } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function TeamPage() {
@@ -23,13 +23,43 @@ export default function TeamPage() {
   const { data: profile } = useDoc<User>(userProfileRef);
   const companyId = profile?.companyId;
   const isParticulier = profile?.role === 'particulier';
+  const isSuperAdmin = profile?.role === 'super_admin';
 
   const teamQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
-    return query(collection(db, 'users'), where('companyId', '==', companyId));
+    // On filtre strictement par isProfile pour éviter les doublons de session
+    return query(
+      collection(db, 'users'), 
+      where('companyId', '==', companyId),
+      where('isProfile', '==', true)
+    );
   }, [db, companyId]);
 
   const { data: teamMembers, isLoading } = useCollection<User>(teamQuery);
+
+  if (isSuperAdmin) {
+    return (
+      <DashboardLayout>
+        <div className="max-w-4xl mx-auto py-20 px-6 text-center space-y-8 flex flex-col items-center">
+          <div className="p-6 bg-primary/5 rounded-[3rem] border-2 border-dashed border-primary/20">
+            <UserCog className="w-20 h-20 text-primary opacity-40 mx-auto" />
+          </div>
+          <div className="space-y-3">
+            <h1 className="text-4xl font-black tracking-tighter text-primary uppercase">Gestion Globale</h1>
+            <p className="text-muted-foreground font-medium max-w-md mx-auto">
+              En tant qu'<strong>Administrateur</strong>, vous gérez l'ensemble des utilisateurs via le <strong>Répertoire</strong>.
+            </p>
+          </div>
+          <div className="bg-primary p-6 rounded-2xl border flex items-start gap-4 text-left max-w-lg text-white shadow-xl">
+            <Info className="w-6 h-6 mt-1 shrink-0" />
+            <p className="text-sm leading-relaxed font-bold">
+              La vue "Équipe" est réservée aux entreprises clientes. Pour gérer les accès, modifier les rôles ou supprimer des comptes, rendez-vous dans l'onglet Administration > Répertoire.
+            </p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   if (isParticulier) {
     return (

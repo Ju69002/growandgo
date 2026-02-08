@@ -55,9 +55,15 @@ export function AppSidebar() {
   if (isJSecchi) displayName = "GrowAndGo";
   if (isParticulier) displayName = "Mon Espace";
 
+  // Configuration dynamique des menus
   const mainItems = [
     { title: 'Tableau de bord', icon: LayoutDashboard, url: '/' },
-    { title: isParticulier ? 'Mes Accès' : 'Équipe', icon: Users, url: '/team' },
+    // On masque "Équipe" pour le super_admin car il a le "Répertoire"
+    ...(!isSuperAdmin ? [{ 
+      title: isParticulier ? 'Mes Accès' : 'Équipe', 
+      icon: Users, 
+      url: '/team' 
+    }] : []),
   ];
 
   const configItems = [
