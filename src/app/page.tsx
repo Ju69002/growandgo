@@ -42,7 +42,7 @@ export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [isCalendarFull, setIsCalendarFull] = useState(false);
 
-  // 1. DÉCLARATION DE TOUS LES HOOKS (Rules of Hooks) - TOUJOURS EN HAUT
+  // 1. DÉCLARATION DE TOUS LES HOOKS (Indispensable au sommet)
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user) return null;
     return doc(db, 'users', user.uid);
@@ -70,13 +70,13 @@ export default function Home() {
 
   const { data: meetings } = useCollection<CalendarEvent>(meetingsQuery);
 
-  // 2. EFFETS DE NAVIGATION ET SYNC
+  // 2. EFFETS DE NAVIGATION
   useEffect(() => {
     setMounted(true);
   }, []);
 
   useEffect(() => {
-    // Redirection forcée vers la connexion si non authentifié ou si le profil est manquant après chargement
+    // Redirection immédiate si non connecté
     if (mounted && !isUserLoading && !user) {
       router.push('/login');
     }
@@ -130,7 +130,7 @@ export default function Home() {
     return tasks.sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [mounted, documents, meetings]);
 
-  // 4. RENDUS CONDITIONNELS SÉCURISÉS (Après les Hooks)
+  // 4. RENDUS CONDITIONNELS SÉCURISÉS
   if (!mounted || isUserLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#F5F2EA]">
@@ -139,10 +139,10 @@ export default function Home() {
     );
   }
 
-  // Redirection gérée par useEffect, mais on sécurise le rendu
-  if (!user) return null;
+  if (!user) {
+    return null; // Redirection gérée par useEffect
+  }
 
-  // Si on a un utilisateur mais pas encore le profil, on attend
   if (isProfileLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#F5F2EA]">
@@ -151,7 +151,6 @@ export default function Home() {
     );
   }
 
-  // Cas critique : Utilisateur authentifié mais profil Firestore manquant
   if (!profile) {
     return (
       <DashboardLayout>
@@ -160,16 +159,16 @@ export default function Home() {
              <AlertTriangle className="w-16 h-16 text-destructive" />
           </div>
           <div className="space-y-2">
-            <h2 className="text-3xl font-black uppercase tracking-tighter text-primary">Profil Inaccessible</h2>
+            <h2 className="text-3xl font-black uppercase tracking-tighter text-primary">Accès Studio en cours</h2>
             <p className="text-muted-foreground max-w-md mx-auto font-medium">
-              Votre identifiant est connecté mais votre profil technique est manquant dans la base de données.
+              Nous préparons votre espace. Si cette page persiste, veuillez vous reconnecter.
             </p>
           </div>
           <Button 
             onClick={() => router.push('/login')}
             className="rounded-full px-12 h-14 bg-primary font-bold shadow-xl text-lg uppercase"
           >
-            Retourner à l'identification
+            Retour à la connexion
           </Button>
         </div>
       </DashboardLayout>
@@ -192,7 +191,7 @@ export default function Home() {
             </Badge>
           </div>
           <p className="text-muted-foreground mt-1 font-medium italic">
-            Bienvenue dans votre espace {profile?.name || profile?.loginId}.
+            Bienvenue, {profile?.name || profile?.loginId}.
           </p>
         </header>
 
@@ -269,7 +268,7 @@ export default function Home() {
               <div className="space-y-2">
                 <h2 className="text-2xl font-black uppercase tracking-tight text-primary">Console Super Administrateur</h2>
                 <p className="text-sm text-muted-foreground font-medium max-w-lg mx-auto">
-                  Gestion globale des accès et des entreprises Studio.
+                  Accès global à tous les identifiants et paramétrages du Studio.
                 </p>
               </div>
             </div>

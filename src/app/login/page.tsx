@@ -33,7 +33,6 @@ export default function LoginPage() {
   // Redirection automatique seulement si le profil est confirmé
   useEffect(() => {
     if (!isUserLoading && user) {
-      // On laisse faire la vérification du profil sur la page Home
       router.push('/');
     }
   }, [user, isUserLoading, router]);
@@ -104,13 +103,12 @@ export default function LoginPage() {
           toast({ title: "Accès Super Admin", description: "Profil synchronisé." });
           return;
         } catch (authError: any) {
-          if (authError.code === 'auth/user-not-found' || authError.code === 'auth/invalid-credential' || authError.code === 'auth/wrong-password') {
-             if (password === 'Meqoqo1998') {
-               const userCredential = await createUserWithEmailAndPassword(auth, internalEmail, password);
-               await createProfile(userCredential.user.uid, 'JSecchi', 'super_admin', 'Julien Secchi');
-               toast({ title: "Initialisation JSecchi", description: "Accès Super Admin créé." });
-               return;
-             }
+          if (authError.code === 'auth/user-not-found' || authError.code === 'auth/invalid-credential') {
+             // Si le compte JSecchi n'existe pas encore techniquement
+             const userCredential = await createUserWithEmailAndPassword(auth, internalEmail, password);
+             await createProfile(userCredential.user.uid, 'JSecchi', 'super_admin', 'Julien Secchi');
+             toast({ title: "Initialisation JSecchi", description: "Accès Super Admin créé." });
+             return;
           }
           throw authError;
         }
@@ -123,24 +121,19 @@ export default function LoginPage() {
         const checkSnap = await getDocs(q);
         
         if (!checkSnap.empty) {
-          throw new Error("Cet identifiant est déjà utilisé dans la base Studio.");
+          throw new Error("Cet identifiant est déjà utilisé.");
         }
 
         // Création technique
         const userCredential = await createUserWithEmailAndPassword(auth, internalEmail, password);
         // Création profil
-        await createProfile(
-          userCredential.user.uid, 
-          normalizedId, 
-          'employee', 
-          name || normalizedId
-        );
+        await createProfile(userCredential.user.uid, normalizedId, 'employee', name || normalizedId);
 
         // REDIRECTION MANUELLE VERS CONNEXION APRÈS INSCRIPTION
         await signOut(auth);
         setIsSignUp(false);
         setPassword('');
-        toast({ title: "Inscription réussie !", description: "Veuillez maintenant saisir vos identifiants pour entrer." });
+        toast({ title: "Inscription réussie !", description: "Veuillez maintenant vous identifier pour entrer." });
         
       } else {
         // CONNEXION NORMALE
@@ -149,7 +142,7 @@ export default function LoginPage() {
         const querySnapshot = await getDocs(q);
 
         if (querySnapshot.empty) {
-          throw new Error("Identifiant inconnu dans le Studio.");
+          throw new Error("Identifiant inconnu.");
         }
 
         const userData = querySnapshot.docs[0].data();
@@ -159,7 +152,7 @@ export default function LoginPage() {
     } catch (error: any) {
       console.error("Auth Error:", error);
       let message = error.message || "Une erreur est survenue.";
-      if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
+      if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
         message = "Identifiant ou mot de passe incorrect.";
       }
       toast({ variant: "destructive", title: "Erreur d'accès", description: message });

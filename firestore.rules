@@ -31,22 +31,19 @@ service cloud.firestore {
       return isSignedIn() && data != null && data.companyId == companyId && data.role == 'admin';
     }
 
-    function isEmployee(companyId) {
-      let data = getUserData();
-      return isSignedIn() && data != null && data.companyId == companyId && data.role == 'employee';
-    }
-
     match /users/{userId} {
-      // Permission list: true est nécessaire pour permettre au login de trouver l'email via l'ID
-      allow get: if isSignedIn();
+      // Un utilisateur peut toujours lire et modifier SON PROPRE profil
+      allow get: if isSignedIn() && request.auth.uid == userId;
+      // Autoriser la liste pour la recherche d'ID au login (filtrée par loginId_lower)
       allow list: if true; 
-      allow create: if true; // Permettre l'inscription initiale
+      // Autoriser la création pour l'inscription
+      allow create: if true;
       allow update: if isSuperAdmin() || (isSignedIn() && request.auth.uid == userId);
       allow delete: if isSuperAdmin();
     }
 
     match /companies/{companyId} {
-      allow get: if isSignedIn(); 
+      allow get: if isSignedIn() && (isSuperAdmin() || getUserData().companyId == companyId); 
       allow list: if isSuperAdmin();
       allow write: if isSuperAdmin();
     }
