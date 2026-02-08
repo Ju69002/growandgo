@@ -28,7 +28,7 @@ import { cn } from '@/lib/utils';
 import { signOut } from 'firebase/auth';
 import Link from 'next/link';
 import { syncBillingTasks } from '@/services/billing-sync';
-import { startOfWeek, endOfWeek, isWithinInterval, parse } from 'date-fns';
+import { startOfWeek, endOfWeek, isWithinInterval, parse, isValid } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
 export default function Home() {
@@ -69,9 +69,10 @@ export default function Home() {
 
   useEffect(() => {
     if (db && user && isSuperAdmin && allUsers && allUsers.length > 0) {
-      if (syncCountRef.current !== allUsers.length) {
-        syncCountRef.current = allUsers.length;
-        syncBillingTasks(db, user.uid, allUsers.filter(u => u.isProfile));
+      const profileCount = allUsers.filter(u => u.isProfile).length;
+      if (syncCountRef.current !== profileCount) {
+        syncCountRef.current = profileCount;
+        syncBillingTasks(db, user.uid, allUsers);
       }
     }
   }, [db, user, isSuperAdmin, allUsers]);
@@ -93,18 +94,24 @@ export default function Home() {
     const start = startOfWeek(now, { locale: fr, weekStartsOn: 1 });
     const end = endOfWeek(now, { locale: fr, weekStartsOn: 1 });
 
-    return pendingTasks.filter(task => {
-      try {
-        const taskDate = parse(task.createdAt, 'dd/MM/yyyy', new Date());
-        return isWithinInterval(taskDate, { start, end });
-      } catch (e) {
-        return false;
-      }
-    }).sort((a, b) => {
-      const dateA = parse(a.createdAt, 'dd/MM/yyyy', new Date()).getTime();
-      const dateB = parse(b.createdAt, 'dd/MM/yyyy', new Date()).getTime();
-      return dateA - dateB;
-    });
+    return pendingTasks
+      .filter(task => {
+        // On ne garde que les tâches de la V3 pour nettoyer visuellement l'interface
+        if (task.isBillingTask && !task.id.startsWith('billing_v3')) return false;
+        
+        try {
+          const taskDate = parse(task.createdAt, 'dd/MM/yyyy', new Date());
+          if (!isValid(taskDate)) return false;
+          return isWithinInterval(taskDate, { start, end });
+        } catch (e) {
+          return false;
+        }
+      })
+      .sort((a, b) => {
+        const dateA = parse(a.createdAt, 'dd/MM/yyyy', new Date()).getTime();
+        const dateB = parse(b.createdAt, 'dd/MM/yyyy', new Date()).getTime();
+        return dateA - dateB;
+      });
   }, [pendingTasks]);
 
   const handleLogout = async () => {
@@ -164,35 +171,43 @@ export default function Home() {
             
             <div className="space-y-3">
               {weeklyTasks.length > 0 ? (
-                weeklyTasks.map((task) => (
-                  <Link 
-                    href={task.isBillingTask 
-                      ? `/categories/agenda?date=${task.createdAt.split('/').reverse().join('-')}` 
-                      : `/categories/${task.categoryId}`} 
-                    key={task.id}
-                  >
-                    <Card className={cn(
-                      "border-none shadow-sm hover:shadow-md transition-all rounded-2xl overflow-hidden group",
-                      task.isBillingTask && "bg-amber-50/50 border border-amber-100"
-                    )}>
-                      <CardContent className="p-4 flex items-center gap-3">
-                        <div className={cn(
-                          "p-2 rounded-lg",
-                          task.isBillingTask ? "bg-amber-100 text-amber-600" : "bg-primary/5 text-primary"
-                        )}>
-                          {task.isBillingTask ? <Zap className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold truncate group-hover:text-primary transition-colors">{task.name}</p>
-                          <p className="text-[10px] font-black uppercase text-muted-foreground opacity-60">
-                            {task.isBillingTask ? "Facturation" : task.status.replace('_', ' ')}
-                          </p>
-                        </div>
-                        <ChevronRight className="w-4 h-4 text-muted-foreground/30 group-hover:translate-x-1 transition-transform" />
-                      </CardContent>
-                    </Card>
-                  </Link>
-                ))
+                weeklyTasks.map((task) => {
+                  const dateParts = task.createdAt.split('/');
+                  const formattedDate = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
+                  
+                  return (
+                    <Link 
+                      href={task.isBillingTask 
+                        ? `/categories/agenda?date=${formattedDate}` 
+                        : `/categories/${task.categoryId}`} 
+                      key={task.id}
+                    >
+                      <Card className={cn(
+                        "border-none shadow-sm hover:shadow-md transition-all rounded-2xl overflow-hidden group",
+                        task.isBillingTask && "bg-amber-50/50 border border-amber-100"
+                      )}>
+                        <CardContent className="p-4 flex items-center gap-3">
+                          <div className={cn(
+                            "p-2 rounded-lg",
+                            task.isBillingTask ? "bg-amber-100 text-amber-600" : "bg-primary/5 text-primary"
+                          )}>
+                            {task.isBillingTask ? <Zap className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold truncate group-hover:text-primary transition-colors">{task.name}</p>
+                            <div className="flex items-center justify-between mt-0.5">
+                              <p className="text-[10px] font-black uppercase text-muted-foreground opacity-60">
+                                {task.isBillingTask ? "Facturation" : task.status.replace('_', ' ')}
+                              </p>
+                              <p className="text-[9px] font-bold text-primary/40">{task.createdAt}</p>
+                            </div>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-muted-foreground/30 group-hover:translate-x-1 transition-transform" />
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  );
+                })
               ) : (
                 <div className="p-10 border-2 border-dashed rounded-[2rem] text-center space-y-2 bg-muted/5">
                   <CheckCircle2 className="w-8 h-8 text-primary/30 mx-auto" />
