@@ -59,12 +59,26 @@ export function ChatAssistant() {
 
   const { data: profile } = useDoc<User>(userProfileRef);
   const companyId = profile?.companyId || 'default-company';
-  const adminMode = profile?.adminMode || false;
+  const adminMode = profile?.role === 'admin' || profile?.role === 'super_admin' || profile?.adminMode === true;
 
   const companyRef = useMemoFirebase(() => {
     if (!db || !companyId) return null;
     return doc(db, 'companies', companyId);
   }, [db, companyId]);
+
+  // Écouter le signal de création de catégorie depuis le dashboard
+  React.useEffect(() => {
+    const handleOpenChat = () => {
+      setIsOpen(true);
+      setMessages(prev => [
+        ...prev,
+        { role: 'assistant', content: "C'est parti ! Quel nom souhaitez-vous donner à ce nouveau dossier ?" }
+      ]);
+    };
+
+    window.addEventListener('open-chat-category-creation', handleOpenChat);
+    return () => window.removeEventListener('open-chat-category-creation', handleOpenChat);
+  }, []);
 
   const executeAction = (action: any) => {
     if (!db || !companyId || !companyRef || !adminMode) return;
@@ -126,7 +140,7 @@ export function ChatAssistant() {
     if (!adminMode) {
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: "Désolé, je ne peux pas agir car le Mode Patron est désactivé." 
+        content: "Désolé, je ne peux pas agir car vous n'avez pas les droits de modification sur ce studio." 
       }]);
       setIsLoading(false);
       return;
@@ -163,11 +177,11 @@ export function ChatAssistant() {
           <Sparkles className="h-6 w-6 text-white" />
         </Button>
       ) : (
-        <Card className="w-[350px] sm:w-[380px] h-[500px] flex flex-col shadow-2xl border-none animate-in slide-in-from-bottom-5">
-          <CardHeader className="bg-primary text-primary-foreground rounded-t-xl p-4 flex flex-row items-center justify-between space-y-0">
+        <Card className="w-[350px] sm:w-[380px] h-[500px] flex flex-col shadow-2xl border-none animate-in slide-in-from-bottom-5 rounded-[2rem]">
+          <CardHeader className="bg-primary text-primary-foreground rounded-t-[2rem] p-5 flex flex-row items-center justify-between space-y-0">
             <div className="flex items-center gap-2">
               <Bot className="h-5 w-5" />
-              <CardTitle className="text-base font-bold">Expert Design Grow&Go</CardTitle>
+              <CardTitle className="text-base font-bold uppercase tracking-tighter">Expert Design IA</CardTitle>
             </div>
             <X className="h-5 w-5 cursor-pointer hover:opacity-80" onClick={() => setIsOpen(false)} />
           </CardHeader>
@@ -186,14 +200,14 @@ export function ChatAssistant() {
                 
                 {pendingAction && !isLoading && (
                   <div className="flex justify-start">
-                    <div className="flex flex-col gap-2 p-3 bg-primary/5 border rounded-2xl max-w-[85%]">
-                      <p className="text-xs font-bold text-primary uppercase">Confirmation Patron</p>
+                    <div className="flex flex-col gap-2 p-4 bg-primary/5 border-2 border-dashed border-primary/20 rounded-2xl max-w-[85%]">
+                      <p className="text-[10px] font-black text-primary uppercase tracking-widest">Confirmation Patron</p>
                       <div className="flex gap-2">
-                        <Button size="sm" onClick={() => executeAction(pendingAction)} className="bg-emerald-600 hover:bg-emerald-700 h-8">
+                        <Button size="sm" onClick={() => executeAction(pendingAction)} className="bg-emerald-600 hover:bg-emerald-700 h-8 rounded-full font-bold px-4">
                           <Check className="w-4 h-4 mr-1" />
                           Appliquer
                         </Button>
-                        <Button size="sm" variant="outline" onClick={() => setPendingAction(null)} className="h-8">
+                        <Button size="sm" variant="outline" onClick={() => setPendingAction(null)} className="h-8 rounded-full font-bold px-4">
                           <Ban className="w-4 h-4 mr-1" />
                           Annuler
                         </Button>
@@ -212,7 +226,7 @@ export function ChatAssistant() {
               </div>
             </ScrollArea>
           </CardContent>
-          <CardFooter className="p-3 border-t">
+          <CardFooter className="p-4 border-t rounded-b-[2rem]">
             <div className="flex w-full items-center gap-2">
               <Input
                 placeholder={pendingAction ? "Action en attente..." : "Ex: site en vert..."}
@@ -220,9 +234,9 @@ export function ChatAssistant() {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                 disabled={isLoading || !!pendingAction}
-                className="flex-1"
+                className="flex-1 rounded-xl h-11"
               />
-              <Button size="icon" onClick={handleSend} disabled={isLoading || !input.trim() || !!pendingAction}>
+              <Button size="icon" className="rounded-xl h-11 w-11" onClick={handleSend} disabled={isLoading || !input.trim() || !!pendingAction}>
                 <Send className="h-4 w-4" />
               </Button>
             </div>
