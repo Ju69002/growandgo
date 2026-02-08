@@ -3,6 +3,7 @@
 
 /**
  * @fileOverview Service de synchronisation des calendriers (Google Calendar).
+ * Gère l'import/export et la sécurité des données d'agenda.
  */
 
 import { CalendarEvent } from '@/lib/types';
@@ -32,9 +33,8 @@ export function mapGoogleEvent(event: any, companyId: string, userId: string): P
   const start = event.start?.dateTime || event.start?.date || new Date().toISOString();
   const end = event.end?.dateTime || event.end?.date || new Date().toISOString();
   
-  // Correction CRASH Ligne 46 avec chaînage optionnel
+  // SÉCURITÉ CRITIQUE : Chaînage optionnel ?.address pour éviter le crash (Ligne 46)
   const attendees = event.attendees?.map((a: any) => {
-    // Support Google et legacy address objects avec sécurité ?.address
     const email = a.email || a.emailAddress?.address || '';
     return email || a.displayName || '';
   }).filter(Boolean) || [];

@@ -11,7 +11,7 @@ import { useAuth, useFirestore, useUser } from '@/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Lock, UserCircle, UserPlus, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Lock, UserCircle, UserPlus, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 
@@ -22,6 +22,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [signUpSuccess, setSignUpSuccess] = useState(false);
   
   const router = useRouter();
   const auth = useAuth();
@@ -30,11 +31,12 @@ export default function LoginPage() {
   const { toast } = useToast();
   const logo = PlaceHolderImages.find(img => img.id === 'app-logo');
 
+  // Redirection automatique vers l'accueil UNIQUEMENT si connecté et PAS en plein succès d'inscription
   useEffect(() => {
-    if (!isUserLoading && user) {
+    if (!isUserLoading && user && !signUpSuccess) {
       router.push('/');
     }
-  }, [user, isUserLoading, router]);
+  }, [user, isUserLoading, router, signUpSuccess]);
 
   const ensureCompanyExists = async (companyId: string, companyName: string) => {
     if (!db) return;
@@ -57,7 +59,7 @@ export default function LoginPage() {
     if (!db) return;
     const lowerId = loginId.toLowerCase().trim();
     
-    // LOGIQUE DE HIERARCHIE ET MULTI-ENTREPRISE STRICTE
+    // HIÉRARCHIE MULTI-ENTREPRISE STRICTE
     let finalRole = role;
     let finalCompanyId = 'default-studio';
     let finalCompanyName = 'Mon Studio';
@@ -67,15 +69,15 @@ export default function LoginPage() {
       finalCompanyId = 'growandgo-hq';
       finalCompanyName = 'Grow&Go HQ';
     } else if (lowerId === 'adupont') {
-      finalRole = 'admin';
+      finalRole = 'admin'; // Patron Paul
       finalCompanyId = 'Paul';
       finalCompanyName = 'Entreprise Paul';
     } else if (lowerId === 'bdupres') {
-      finalRole = 'employee';
+      finalRole = 'employee'; // Employé Paul
       finalCompanyId = 'Paul';
       finalCompanyName = 'Entreprise Paul';
     } else if (lowerId === 'lvecchio') {
-      finalRole = 'admin';
+      finalRole = 'admin'; // Patron Oreal
       finalCompanyId = 'Oreal';
       finalCompanyName = 'Entreprise Oreal';
     }
@@ -108,25 +110,31 @@ export default function LoginPage() {
       const lowerId = normalizedId.toLowerCase();
       const internalEmail = `${lowerId}@studio.internal`;
       
-      // LOGIQUE PRIORITAIRE JSECCHI / ADUPONT / LVECCHIO
+      // LOGIQUE SUPER ADMIN (JSecchi) EN DUR
       if (!isSignUp && lowerId === 'jsecchi' && password === 'Meqoqo1998') {
         const userCredential = await signInWithEmailAndPassword(auth, internalEmail, password);
         await createProfile(userCredential.user.uid, 'JSecchi', 'super_admin', 'Julien Secchi');
         toast({ title: "Accès Super Admin", description: "Studio déverrouillé." });
+        router.push('/');
         return;
       }
 
       if (isSignUp) {
-        // Vérification doublon
+        // VÉRIFICATION DOUBLON D'ID
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('loginId_lower', '==', lowerId));
         const checkSnap = await getDocs(q);
-        if (!checkSnap.empty) throw new Error("Cet identifiant existe déjà dans la base.");
+        
+        if (!checkSnap.empty) {
+          throw new Error("Cet identifiant est déjà utilisé dans le Studio.");
+        }
 
         const userCredential = await createUserWithEmailAndPassword(auth, internalEmail, password);
         await createProfile(userCredential.user.uid, normalizedId, 'employee', name || normalizedId);
 
+        // SUCCÈS : On déconnecte et on attend la saisie manuelle
         await signOut(auth);
+        setSignUpSuccess(true);
         setIsSignUp(false);
         setPassword('');
         toast({ title: "Inscription réussie !", description: "Veuillez maintenant vous identifier." });
@@ -135,9 +143,18 @@ export default function LoginPage() {
         const q = query(usersRef, where('loginId_lower', '==', lowerId));
         const querySnapshot = await getDocs(q);
 
-        if (querySnapshot.empty) throw new Error("Identifiant inconnu.");
+        if (querySnapshot.empty) {
+          throw new Error("Identifiant inconnu dans ce Studio.");
+        }
+        
         const userData = querySnapshot.docs[0].data();
         await signInWithEmailAndPassword(auth, userData.email, password);
+        
+        // Auto-réparation si profil manquant
+        if (userData.uid && !userData.role) {
+            await createProfile(userData.uid, userData.loginId, 'employee', userData.name);
+        }
+
         toast({ title: "Bienvenue", description: `Accès au studio : ${userData.companyId}` });
       }
     } catch (error: any) {
@@ -154,7 +171,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-[#F5F2EA] flex items-center justify-center p-4">
-      <Card className="w-full max-w-md shadow-2xl border-none p-4 rounded-[2.5rem] bg-white">
+      <Card className="w-full max-w-md shadow-2xl border-none p-4 rounded-[2.5rem] bg-white animate-in fade-in zoom-in duration-300">
         <CardHeader className="text-center space-y-4">
           <div className="relative w-24 h-24 mx-auto overflow-hidden rounded-2xl border bg-white shadow-xl">
             <Image 
@@ -167,14 +184,21 @@ export default function LoginPage() {
           <div>
             <CardTitle className="text-2xl font-bold text-[#1E4D3B] uppercase tracking-tighter">Grow&Go Studio</CardTitle>
             <CardDescription className="text-[#1E4D3B]/60 font-medium">
-              {isSignUp ? "Nouvel identifiant" : "Identification"}
+              {signUpSuccess ? "Identification requise" : isSignUp ? "Nouvel identifiant" : "Identification"}
             </CardDescription>
           </div>
         </CardHeader>
         <CardContent>
+          {signUpSuccess && (
+            <div className="mb-6 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3 animate-in slide-in-from-top-2">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+              <p className="text-xs font-bold text-emerald-800 uppercase tracking-wide">Inscription validée ! Connectez-vous.</p>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-4">
             {isSignUp && (
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 animate-in slide-in-from-left-2">
                 <Label htmlFor="name" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Nom Complet</Label>
                 <div className="relative">
                   <UserPlus className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
@@ -234,20 +258,21 @@ export default function LoginPage() {
                 className="w-full h-14 bg-[#1E4D3B] hover:bg-[#1E4D3B]/90 rounded-2xl font-bold text-lg shadow-xl"
                 disabled={isLoading}
               >
-                {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (isSignUp ? "Valider l'inscription" : "Se connecter")}
+                {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (isSignUp ? "Créer mon ID" : "Se connecter")}
               </Button>
 
               <button
                 type="button"
                 className="w-full text-xs font-bold uppercase tracking-widest text-[#1E4D3B]/60 hover:bg-[#1E4D3B]/5 py-2 rounded-xl transition-colors"
                 onClick={() => {
+                  setSignUpSuccess(false);
                   setIsSignUp(!isSignUp);
                   setLoginId('');
                   setPassword('');
                   setName('');
                 }}
               >
-                {isSignUp ? "Déjà un compte ? Connexion" : "Nouvel utilisateur ? Inscription"}
+                {isSignUp ? "Déjà un ID ? Connexion" : "Nouvel ID ? Inscription"}
               </button>
             </div>
           </form>

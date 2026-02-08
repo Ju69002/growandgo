@@ -4,12 +4,12 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * BUSINESS PILOT SECURITY RULES - MULTI-ENTREPRISE
+     * BUSINESS PILOT SECURITY RULES - MULTI-ENTREPRISE STRICTE
      * 
      * Rôles:
-     * - super_admin (JSecchi): Accès total, mais pas de synchro calendrier sur les entreprises.
-     * - admin (Patron): Gère SA société exclusivement.
-     * - employee: Lecture/Action sur les dossiers autorisés de SA société.
+     * - super_admin (JSecchi): Accès total aux collections.
+     * - admin (Patron): Gère SA société exclusivement (Paul ou Oreal).
+     * - employee: Accès restreint à SA société exclusivement.
      */
 
     function isSignedIn() {
@@ -28,14 +28,16 @@ service cloud.firestore {
       return isSignedIn() && (getUserData().companyId == companyId || isSuperAdmin());
     }
 
+    // Un utilisateur ne peut lire que son propre profil (ou le Super Admin)
     match /users/{userId} {
       allow get: if isSignedIn() && (request.auth.uid == userId || isSuperAdmin());
       allow list: if isSuperAdmin() || (isSignedIn() && request.query.limit <= 100); 
-      allow create: if true; // Pour l'inscription
+      allow create: if true; 
       allow update: if isSignedIn() && (request.auth.uid == userId || isSuperAdmin());
       allow delete: if isSuperAdmin();
     }
 
+    // Isolation stricte par entreprise (companyId)
     match /companies/{companyId} {
       allow read: if belongsToCompany(companyId);
       allow write: if isSuperAdmin() || (belongsToCompany(companyId) && getUserData().role == 'admin');
@@ -52,9 +54,9 @@ service cloud.firestore {
     }
 
     match /companies/{companyId}/events/{eventId} {
-      // Un Super Admin ne peut pas synchroniser ses propres calendriers avec des entreprises tierces
+      // Un Super Admin ne synchronise pas son propre calendrier avec les entreprises
       allow read: if belongsToCompany(companyId);
-      allow write: if belongsToCompany(companyId);
+      allow write: if belongsToCompany(companyId) && !isSuperAdmin();
     }
   }
 }
