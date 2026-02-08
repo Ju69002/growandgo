@@ -67,13 +67,13 @@ export default function LoginPage() {
       const normalizedId = loginId.toLowerCase().trim();
       
       if (isSignUp) {
-        // 1. Vérifier si l'identifiant existe déjà
+        // 1. Vérifier si l'identifiant existe déjà (SÉCURITÉ ANTI-DOUBLON)
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('loginId', '==', normalizedId));
         const checkSnap = await getDocs(q);
         
         if (!checkSnap.empty) {
-          throw new Error("Cet identifiant est déjà utilisé.");
+          throw new Error("Cet identifiant est déjà utilisé par un autre membre.");
         }
 
         // 2. Création Auth
@@ -87,7 +87,7 @@ export default function LoginPage() {
 
         await ensureCompanyExists(companyId, companyName);
         
-        // 3. Création Profil Firestore (Immédiate et Cruciale)
+        // 3. Création Profil Firestore (Immédiate)
         const userRef = doc(db, 'users', newUser.uid);
         await setDoc(userRef, {
           uid: newUser.uid,
@@ -101,15 +101,15 @@ export default function LoginPage() {
           createdAt: new Date().toISOString()
         });
 
-        toast({ title: "Bienvenue !", description: "Votre compte studio a été créé." });
+        toast({ title: "Bienvenue !", description: "Votre compte studio a été créé avec succès." });
       } else {
-        // 4. Recherche de l'e-mail technique via l'Identifiant
+        // 4. Recherche de l'e-mail technique via l'Identifiant (LOGIN)
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('loginId', '==', normalizedId));
         const querySnapshot = await getDocs(q);
 
         if (querySnapshot.empty) {
-          throw new Error("Identifiant inconnu.");
+          throw new Error("Identifiant inconnu dans ce studio.");
         }
 
         const userData = querySnapshot.docs[0].data();
@@ -117,7 +117,7 @@ export default function LoginPage() {
 
         // 5. Connexion Firebase Auth
         await signInWithEmailAndPassword(auth, emailToUse, password);
-        toast({ title: "Connexion réussie", description: "Chargement de votre studio..." });
+        toast({ title: "Connexion réussie", description: "Chargement de votre espace..." });
       }
     } catch (error: any) {
       console.error("Auth Error:", error);
@@ -156,7 +156,7 @@ export default function LoginPage() {
           <div>
             <CardTitle className="text-2xl font-bold text-[#1E4D3B] uppercase tracking-tighter">Grow&Go Studio</CardTitle>
             <CardDescription className="text-[#1E4D3B]/60 font-medium">
-              {isSignUp ? "Créez votre accès studio" : "Identifiant requis pour l'accès"}
+              {isSignUp ? "Créer un nouvel accès" : "Connexion par Identifiant"}
             </CardDescription>
           </div>
         </CardHeader>
@@ -223,7 +223,7 @@ export default function LoginPage() {
                 className="w-full h-14 bg-[#1E4D3B] hover:bg-[#1E4D3B]/90 rounded-2xl font-bold text-lg shadow-xl"
                 disabled={isLoading}
               >
-                {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (isSignUp ? "Créer un compte" : "Se connecter")}
+                {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (isSignUp ? "Créer l'accès" : "Accéder au Studio")}
               </Button>
 
               <button
@@ -236,7 +236,7 @@ export default function LoginPage() {
                   setName('');
                 }}
               >
-                {isSignUp ? "Déjà membre ? Se connecter" : "Nouveau ? Créer un compte"}
+                {isSignUp ? "Déjà membre ? Se connecter" : "Nouveau membre ? S'inscrire"}
               </button>
             </div>
           </form>

@@ -34,6 +34,7 @@ import { format, startOfToday, addDays, parseISO, isValid, isWithinInterval } fr
 import { fr } from 'date-fns/locale';
 
 export default function Home() {
+  // --- 1. DECLARE ALL HOOKS AT THE TOP (RULES OF HOOKS) ---
   const router = useRouter();
   const { user, isUserLoading } = useUser();
   const db = useFirestore();
@@ -41,7 +42,6 @@ export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [isCalendarFull, setIsCalendarFull] = useState(false);
 
-  // 1. ALL HOOKS MUST BE DECLARED AT THE TOP (Rules of Hooks)
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user) return null;
     return doc(db, 'users', user.uid);
@@ -67,6 +67,17 @@ export default function Home() {
   }, [db, companyId]);
 
   const { data: meetings } = useCollection<CalendarEvent>(meetingsQuery);
+
+  // --- 2. LOGIC & EFFECTS ---
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (mounted && !isUserLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, isUserLoading, router, mounted]);
 
   const weeklyTasks = useMemo(() => {
     if (!mounted || (!documents && !meetings)) return [];
@@ -115,23 +126,13 @@ export default function Home() {
     return tasks.sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [mounted, documents, meetings]);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (mounted && !isUserLoading && !user) {
-      router.push('/login');
-    }
-  }, [user, isUserLoading, router, mounted]);
-
-  // 2. RENDER LOGIC AFTER ALL HOOKS
+  // --- 3. RENDER CONDITIONS (AFTER HOOKS) ---
   if (!mounted || isUserLoading || isProfileLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="text-center space-y-4">
           <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto" />
-          <p className="text-muted-foreground font-black uppercase text-[10px] tracking-widest">Initialisation...</p>
+          <p className="text-muted-foreground font-black uppercase text-[10px] tracking-widest">Initialisation Studio...</p>
         </div>
       </div>
     );
@@ -139,7 +140,6 @@ export default function Home() {
 
   if (!user) return null;
 
-  // Si le profil n'est pas trouvé (nouvel inscrit pas encore prêt)
   if (!profile) {
     return (
       <DashboardLayout>

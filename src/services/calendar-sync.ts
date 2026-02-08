@@ -2,7 +2,7 @@
 'use client';
 
 /**
- * @fileOverview Service de synchronisation des calendriers (Focus Google uniquement).
+ * @fileOverview Service de synchronisation des calendriers (Focus Google Calendar).
  */
 
 import { CalendarEvent } from '@/lib/types';
@@ -32,7 +32,6 @@ export function mapGoogleEvent(event: any, companyId: string, userId: string): P
   const start = event.start?.dateTime || event.start?.date || new Date().toISOString();
   const end = event.end?.dateTime || event.end?.date || new Date().toISOString();
   
-  // Sécurisation de l'extraction des participants (chaînage optionnel)
   const attendees = event.attendees?.map((a: any) => a.email || a.displayName || '').filter(Boolean) || [];
 
   return {
@@ -80,7 +79,7 @@ export async function syncEventToFirestore(db: Firestore, eventData: Partial<Cal
 }
 
 /**
- * Définit la plage de temps pour la synchronisation (15 jours passé, 45 jours futur).
+ * Définit la plage de temps pour la synchronisation.
  */
 export function getSyncTimeRange() {
   const now = new Date();
