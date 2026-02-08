@@ -4,12 +4,8 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * BUSINESS PILOT SECURITY RULES - MULTI-ENTREPRISE STRICTE
-     * 
-     * Rôles:
-     * - super_admin (JSecchi): Accès total aux collections.
-     * - admin (Patron): Gère SA société exclusivement (Paul ou Oreal).
-     * - employee: Accès restreint à SA société exclusivement.
+     * BUSINESS PILOT SECURITY RULES
+     * Isolation stricte par entreprise.
      */
 
     function isSignedIn() {
@@ -28,16 +24,18 @@ service cloud.firestore {
       return isSignedIn() && (getUserData().companyId == companyId || isSuperAdmin());
     }
 
-    // Un utilisateur ne peut lire que son propre profil (ou le Super Admin)
+    // Gestion des profils utilisateurs
     match /users/{userId} {
+      // Un utilisateur peut lire son propre profil
       allow get: if isSignedIn() && (request.auth.uid == userId || isSuperAdmin());
-      allow list: if isSuperAdmin() || (isSignedIn() && request.query.limit <= 100); 
+      // On autorise le list pour la recherche d'identifiant Studio à la connexion
+      allow list: if true; 
       allow create: if true; 
       allow update: if isSignedIn() && (request.auth.uid == userId || isSuperAdmin());
       allow delete: if isSuperAdmin();
     }
 
-    // Isolation stricte par entreprise (companyId)
+    // Isolation stricte par entreprise
     match /companies/{companyId} {
       allow read: if belongsToCompany(companyId);
       allow write: if isSuperAdmin() || (belongsToCompany(companyId) && getUserData().role == 'admin');
@@ -54,7 +52,6 @@ service cloud.firestore {
     }
 
     match /companies/{companyId}/events/{eventId} {
-      // Un Super Admin ne synchronise pas son propre calendrier avec les entreprises
       allow read: if belongsToCompany(companyId);
       allow write: if belongsToCompany(companyId) && !isSuperAdmin();
     }

@@ -31,12 +31,12 @@ export default function LoginPage() {
   const { toast } = useToast();
   const logo = PlaceHolderImages.find(img => img.id === 'app-logo');
 
-  // Redirection automatique si déjà connecté (et pas en train de confirmer une inscription)
+  // Redirection automatique seulement si on a déjà un profil valide
   useEffect(() => {
-    if (!isUserLoading && user && !signUpSuccess) {
+    if (!isUserLoading && user && !signUpSuccess && !isSignUp) {
       router.push('/');
     }
-  }, [user, isUserLoading, router, signUpSuccess]);
+  }, [user, isUserLoading, router, signUpSuccess, isSignUp]);
 
   const ensureCompanyExists = async (companyId: string, companyName: string) => {
     if (!db) return;
@@ -114,13 +114,13 @@ export default function LoginPage() {
       if (!isSignUp && lowerId === 'jsecchi' && password === 'Meqoqo1998') {
         const userCredential = await signInWithEmailAndPassword(auth, internalEmail, password);
         await createProfile(userCredential.user.uid, 'JSecchi', 'super_admin', 'Julien Secchi');
-        toast({ title: "Accès Super Admin", description: "Studio déverrouillé." });
+        toast({ title: "Accès Super Admin", description: "Profil restauré." });
         router.push('/');
         return;
       }
 
       if (isSignUp) {
-        // Vérification des doublons dans Firestore avant création Auth
+        // Vérification des doublons dans Firestore
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('loginId_lower', '==', lowerId));
         const checkSnap = await getDocs(q);
@@ -134,21 +134,20 @@ export default function LoginPage() {
         // Création du profil
         await createProfile(userCredential.user.uid, normalizedId, 'employee', name || normalizedId);
 
-        // Déconnexion immédiate pour forcer la saisie manuelle
+        // Déconnexion pour forcer la saisie manuelle
         await signOut(auth);
         setSignUpSuccess(true);
         setIsSignUp(false);
         setPassword('');
         toast({ title: "Inscription réussie !", description: "Veuillez maintenant vous identifier." });
       } else {
-        // Connexion standard
-        // On vérifie d'abord si l'identifiant existe dans notre base
+        // Connexion standard : On cherche l'e-mail correspondant à l'ID
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('loginId_lower', '==', lowerId));
         const querySnapshot = await getDocs(q);
 
         if (querySnapshot.empty) {
-          throw new Error("Identifiant inconnu dans ce Studio.");
+          throw new Error("Identifiant inconnu.");
         }
         
         const userData = querySnapshot.docs[0].data();
@@ -162,7 +161,8 @@ export default function LoginPage() {
           await createProfile(userCredential.user.uid, userData.loginId, userData.role || 'employee', userData.name);
         }
 
-        toast({ title: "Bienvenue", description: `Accès au studio : ${userData.companyId}` });
+        toast({ title: "Bienvenue", description: "Accès au studio validé." });
+        router.push('/');
       }
     } catch (error: any) {
       console.error("Auth Error:", error);
@@ -197,7 +197,7 @@ export default function LoginPage() {
         </CardHeader>
         <CardContent>
           {signUpSuccess && (
-            <div className="mb-6 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3 animate-in slide-in-from-top-2">
+            <div className="mb-6 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3">
               <CheckCircle2 className="w-5 h-5 text-emerald-600" />
               <p className="text-xs font-bold text-emerald-800 uppercase tracking-wide">Inscription validée ! Connectez-vous.</p>
             </div>

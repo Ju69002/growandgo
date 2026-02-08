@@ -59,26 +59,36 @@ export default function Home() {
     );
   }
 
-  // Si on est encore là mais pas de user, on attend la redirection du useEffect
+  // Si pas de session Auth, on ne fait rien (le useEffect redirige)
   if (!user) return null;
 
-  // Gestion de l'erreur "Profil introuvable" pour briser les boucles
-  if (!profile && !isProfileLoading) {
+  // Si la session Auth existe mais que le profil Firestore est introuvable après chargement
+  if (!isProfileLoading && !profile) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-[#F5F2EA] p-8 text-center space-y-6">
         <div className="p-4 bg-rose-100 rounded-full">
            <AlertTriangle className="w-12 h-12 text-rose-600" />
         </div>
         <div className="space-y-2">
-          <h2 className="text-2xl font-black text-primary uppercase tracking-tighter">Profil Inaccessible</h2>
-          <p className="text-muted-foreground max-w-sm mx-auto">
-            Votre session est active mais votre profil Studio n'a pas pu être chargé.
+          <h2 className="text-2xl font-black text-primary uppercase tracking-tighter">Accès refusé</h2>
+          <p className="text-muted-foreground max-w-sm mx-auto font-medium">
+            Votre compte est actif mais aucun profil Studio n'est rattaché à votre session.
           </p>
         </div>
         <Button onClick={handleLogout} variant="outline" className="rounded-full px-8 h-12 font-bold gap-2">
           <LogOut className="w-4 h-4" />
-          Se déconnecter (Reset)
+          Retourner à la connexion
         </Button>
+      </div>
+    );
+  }
+
+  // Pendant que le profil charge
+  if (isProfileLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-[#F5F2EA] gap-4">
+        <Loader2 className="w-10 h-10 animate-spin text-primary opacity-50" />
+        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Chargement du profil...</p>
       </div>
     );
   }
