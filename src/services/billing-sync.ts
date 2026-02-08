@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Firestore, collection, doc } from 'firebase/firestore';
@@ -15,14 +14,20 @@ export async function syncBillingTasks(db: Firestore, adminUid: string, allUsers
   const adminCompanyId = "GrowAndGo";
   const now = new Date();
 
-  // 1. On identifie les profils uniques (clients réels)
-  const uniqueClients = Array.from(
-    new Map(
-      allUsers
-        .filter(u => u.isProfile && u.role !== 'super_admin')
-        .map(u => [u.loginId?.toLowerCase(), u])
-    ).values()
-  ).sort((a, b) => (a.loginId || '').localeCompare(b.loginId || ''));
+  // 1. Groupement robuste par identifiant (comme dans le répertoire)
+  const userGroups = new Map<string, User[]>();
+  allUsers.forEach(u => {
+    const id = (u.loginId_lower || u.loginId?.toLowerCase() || '').trim();
+    if (!id || u.role === 'super_admin') return;
+    if (!userGroups.has(id)) userGroups.set(id, []);
+    userGroups.get(id)!.push(u);
+  });
+
+  const uniqueClients = Array.from(userGroups.entries()).map(([id, docs]) => {
+    const profileDoc = docs.find(d => d.isProfile === true);
+    const baseDoc = profileDoc || docs[0];
+    return baseDoc;
+  }).sort((a, b) => (a.loginId || '').localeCompare(b.loginId || ''));
 
   // Plage : 3 mois en arrière et 12 mois en avant
   const rangeStart = addMonths(now, -3);
@@ -35,7 +40,7 @@ export async function syncBillingTasks(db: Firestore, adminUid: string, allUsers
     if (!isValid(startDate)) startDate = new Date(2026, 1, 8);
 
     let checkDate = startDate;
-    // Répartition horaire (9h, 10h, 11h...)
+    // Répartition horaire (9h, 10h, 11h...) pour éviter les chevauchements
     const hourOffset = index % 8; 
 
     while (isBefore(checkDate, rangeEnd)) {
@@ -89,7 +94,7 @@ export async function syncBillingTasks(db: Firestore, adminUid: string, allUsers
             description: `Générer la facture pour ${client.companyName || 'Espace Privé'}. Période : ${monthLabel}.`,
             debut: eventDate.toISOString(),
             fin: new Date(eventDate.getTime() + 45 * 60000).toISOString(),
-            attendees: [client.email],
+            attendees: [client.email || ''],
             source: 'local',
             type: 'event',
             derniere_maj: now.toISOString(),

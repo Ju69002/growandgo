@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useRef, useMemo } from 'react';
@@ -69,9 +68,13 @@ export default function Home() {
 
   useEffect(() => {
     if (db && user && isSuperAdmin && allUsers && allUsers.length > 0) {
-      const profileCount = allUsers.filter(u => u.isProfile).length;
-      if (syncCountRef.current !== profileCount) {
-        syncCountRef.current = profileCount;
+      // Déclenchement basé sur le nombre d'identifiants uniques pour ne rater personne
+      const uniqueIdCount = new Set(
+        allUsers.map(u => (u.loginId_lower || u.loginId?.toLowerCase() || '').trim()).filter(Boolean)
+      ).size;
+
+      if (syncCountRef.current !== uniqueIdCount) {
+        syncCountRef.current = uniqueIdCount;
         syncBillingTasks(db, user.uid, allUsers);
       }
     }
