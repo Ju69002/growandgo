@@ -35,10 +35,11 @@ import {
   Edit2,
   Building,
   Ban,
-  CheckCircle2
+  CheckCircle2,
+  Calendar
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -88,7 +89,19 @@ export default function AccountsPage() {
 
   const { data: allProfiles, isLoading: isUsersLoading } = useCollection<User>(profilesQuery);
 
-  // Mémoïsation de la liste unique pour éviter des calculs lourds à chaque render
+  // Migration silencieuse pour les dates manquantes
+  useEffect(() => {
+    if (isSuperAdmin && allProfiles && db) {
+      allProfiles.forEach(u => {
+        if (u.isProfile && !u.createdAt) {
+          const ref = doc(db, 'users', u.uid);
+          updateDocumentNonBlocking(ref, { createdAt: '2026-02-08T10:00:00.000Z' });
+        }
+      });
+    }
+  }, [allProfiles, isSuperAdmin, db]);
+
+  // Mémoïsation de la liste unique
   const uniqueUsers = useMemo(() => {
     if (!allProfiles) return [];
     return Array.from(
@@ -98,7 +111,6 @@ export default function AccountsPage() {
           .sort((a, b) => (a.isProfile ? 1 : -1))
           .map(u => {
             const lowerId = (u.loginId_lower || u.loginId?.toLowerCase());
-            // Force GrowAndGo pour JSecchi dans le répertoire
             if (lowerId === 'jsecchi') {
               return [lowerId, { ...u, companyName: "GrowAndGo", companyId: "GrowAndGo" }];
             }
@@ -114,7 +126,7 @@ export default function AccountsPage() {
     const related = allProfiles.filter(u => (u.loginId_lower === lowerId) || (u.loginId?.toLowerCase() === lowerId));
     related.forEach(uDoc => {
       const ref = doc(db, 'users', uDoc.uid);
-      updateDocumentNonBlocking(ref, updates);
+      updateDocumentNonBlocking(ref, { ...updates });
     });
   };
 
@@ -180,7 +192,7 @@ export default function AccountsPage() {
               <TableHeader className="bg-muted/50">
                 <TableRow>
                   <TableHead className="pl-8">Utilisateur</TableHead>
-                  <TableHead>Entreprise / ID</TableHead>
+                  <TableHead>Entreprise / Créé le</TableHead>
                   <TableHead>Rôle</TableHead>
                   <TableHead>Abonnement</TableHead>
                   <TableHead>Identifiant</TableHead>
@@ -209,7 +221,10 @@ export default function AccountsPage() {
                             </Button>
                           )}
                         </div>
-                        <span className="text-[9px] font-mono text-muted-foreground uppercase tracking-widest">{u.companyId}</span>
+                        <div className="flex items-center gap-1.5 text-[9px] font-black uppercase text-muted-foreground">
+                          <Calendar className="w-3 h-3 opacity-30" />
+                          {new Date(u.createdAt || '2026-02-08T10:00:00.000Z').toLocaleDateString('fr-FR')}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell>

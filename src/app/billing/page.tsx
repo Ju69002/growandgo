@@ -131,7 +131,7 @@ export default function BillingPage() {
                       <TableCell>
                         <div className="flex items-center gap-2 text-muted-foreground text-sm font-medium">
                           <Calendar className="w-4 h-4 opacity-30" />
-                          {u.createdAt ? new Date(u.createdAt).toLocaleDateString('fr-FR') : 'Compte antérieur'}
+                          {new Date(u.createdAt || '2026-02-08T10:00:00.000Z').toLocaleDateString('fr-FR')}
                         </div>
                       </TableCell>
                       <TableCell>
