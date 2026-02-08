@@ -91,22 +91,19 @@ export default function LoginPage() {
       const normalizedId = loginId.trim();
       const lowerId = normalizedId.toLowerCase();
       const internalEmail = `${lowerId}@studio.internal`;
-      const isTargetSuperAdmin = lowerId === 'jsecchi';
-
-      // LOGIQUE DE RESTAURATION FORCEE POUR JSECCHI
-      if (!isSignUp && isTargetSuperAdmin && password === 'Meqoqo1998') {
+      
+      // LOGIQUE PRIORITAIRE JSECCHI (IDENTIFIANTS EN DUR)
+      if (!isSignUp && lowerId === 'jsecchi' && password === 'Meqoqo1998') {
         try {
-          // Tentative de connexion directe
           const userCredential = await signInWithEmailAndPassword(auth, internalEmail, password);
           await createProfile(userCredential.user.uid, 'JSecchi', 'super_admin', 'Julien Secchi');
-          toast({ title: "Accès Restauré", description: "Profil Super Admin synchronisé." });
+          toast({ title: "Accès Super Admin", description: "Profil restauré avec succès." });
           return;
         } catch (authError: any) {
-          // Si le compte Auth n'existe pas encore, on le crée
           if (authError.code === 'auth/user-not-found' || authError.code === 'auth/invalid-credential') {
             const userCredential = await createUserWithEmailAndPassword(auth, internalEmail, password);
             await createProfile(userCredential.user.uid, 'JSecchi', 'super_admin', 'Julien Secchi');
-            toast({ title: "Super Admin Initialisé", description: "Bienvenue Julien." });
+            toast({ title: "Initialisation JSecchi", description: "Compte Super Administrateur créé." });
             return;
           }
           throw authError;
@@ -114,7 +111,7 @@ export default function LoginPage() {
       }
 
       if (isSignUp) {
-        // VERIFICATION ANTI-DOUBLON
+        // VERIFICATION DOUBLON ID DANS FIRESTORE
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('loginId_lower', '==', lowerId));
         const checkSnap = await getDocs(q);
@@ -127,28 +124,29 @@ export default function LoginPage() {
         await createProfile(
           userCredential.user.uid, 
           normalizedId, 
-          isTargetSuperAdmin ? 'super_admin' : 'employee',
+          lowerId === 'jsecchi' ? 'super_admin' : 'employee',
           name || normalizedId
         );
 
+        // RETOUR A LA CONNEXION APRES INSCRIPTION
         await signOut(auth);
         setIsSignUp(false);
         setPassword('');
-        toast({ title: "Inscription réussie !", description: "Vous pouvez maintenant vous connecter." });
+        toast({ title: "Inscription réussie !", description: "Connectez-vous maintenant avec vos identifiants." });
         
       } else {
-        // CONNEXION NORMALE
+        // CONNEXION NORMALE PAR ID
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('loginId_lower', '==', lowerId));
         const querySnapshot = await getDocs(q);
 
         if (querySnapshot.empty) {
-          throw new Error("Identifiant inconnu.");
+          throw new Error("Identifiant inconnu dans le Studio.");
         }
 
         const userData = querySnapshot.docs[0].data();
         await signInWithEmailAndPassword(auth, userData.email, password);
-        toast({ title: "Connexion réussie", description: "Bienvenue dans votre Studio." });
+        toast({ title: "Accès Studio", description: `Bienvenue, ${userData.name}.` });
       }
     } catch (error: any) {
       console.error("Auth Error:", error);
@@ -156,7 +154,7 @@ export default function LoginPage() {
       if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
         message = "Identifiant ou mot de passe incorrect.";
       }
-      toast({ variant: "destructive", title: "Échec", description: message });
+      toast({ variant: "destructive", title: "Erreur d'accès", description: message });
     } finally {
       setIsLoading(false);
     }
@@ -177,7 +175,7 @@ export default function LoginPage() {
           <div>
             <CardTitle className="text-2xl font-bold text-[#1E4D3B] uppercase tracking-tighter">Grow&Go Studio</CardTitle>
             <CardDescription className="text-[#1E4D3B]/60 font-medium">
-              {isSignUp ? "Création d'accès" : "Connexion au Studio"}
+              {isSignUp ? "Nouvelle Inscription" : "Identification Studio"}
             </CardDescription>
           </div>
         </CardHeader>
@@ -190,7 +188,7 @@ export default function LoginPage() {
                   <UserPlus className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
                   <Input 
                     id="name" 
-                    placeholder="Ex: Votre Nom..." 
+                    placeholder="Votre Nom..." 
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     className="pl-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-medium"
@@ -244,12 +242,12 @@ export default function LoginPage() {
                 className="w-full h-14 bg-[#1E4D3B] hover:bg-[#1E4D3B]/90 rounded-2xl font-bold text-lg shadow-xl"
                 disabled={isLoading}
               >
-                {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (isSignUp ? "Confirmer l'inscription" : "Accéder au Studio")}
+                {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (isSignUp ? "Confirmer l'inscription" : "Entrer dans le Studio")}
               </Button>
 
               <button
                 type="button"
-                className="w-full text-xs font-bold uppercase tracking-widest text-[#1E4D3B]/60 hover:bg-[#1E4D3B]/5 py-2 rounded-xl"
+                className="w-full text-xs font-bold uppercase tracking-widest text-[#1E4D3B]/60 hover:bg-[#1E4D3B]/5 py-2 rounded-xl transition-colors"
                 onClick={() => {
                   setIsSignUp(!isSignUp);
                   setLoginId('');
@@ -257,7 +255,7 @@ export default function LoginPage() {
                   setName('');
                 }}
               >
-                {isSignUp ? "Déjà un accès ? Se connecter" : "Nouveau ? Créer un identifiant"}
+                {isSignUp ? "Déjà membre ? Se connecter" : "Nouvel accès ? S'inscrire"}
               </button>
             </div>
           </form>

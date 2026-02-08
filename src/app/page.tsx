@@ -42,7 +42,7 @@ export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [isCalendarFull, setIsCalendarFull] = useState(false);
 
-  // DECLARATION DE TOUS LES HOOKS AU SOMMET POUR RESPECTER LES RULES OF HOOKS
+  // DECLARATION DE TOUS LES HOOKS AU SOMMET (RULES OF HOOKS)
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user) return null;
     return doc(db, 'users', user.uid);
@@ -74,6 +74,7 @@ export default function Home() {
     setMounted(true);
   }, []);
 
+  // REDIRECTION PRIORITAIRE VERS LOGIN
   useEffect(() => {
     if (mounted && !isUserLoading && !user) {
       router.push('/login');
@@ -127,7 +128,7 @@ export default function Home() {
     return tasks.sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [mounted, documents, meetings]);
 
-  // AFFICHAGE DU CHARGEMENT
+  // RENDU SECURISE
   if (!mounted || isUserLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#F5F2EA]">
@@ -136,39 +137,31 @@ export default function Home() {
     );
   }
 
-  // REDIRECTION SI NON AUTHENTIFIE
-  if (!user) return null;
+  if (!user) {
+    return null; // Le useEffect gère la redirection vers /login
+  }
 
-  // CAS DU PROFIL MANQUANT (AUTO-REPARATION EN COURS VIA LOGIN)
   if (!isProfileLoading && !profile) {
     return (
       <DashboardLayout>
         <div className="flex flex-col items-center justify-center min-h-[60vh] p-8 text-center space-y-6">
-          <div className="p-6 bg-destructive/10 rounded-[2.5rem] shadow-inner">
+          <div className="p-6 bg-destructive/10 rounded-[2.5rem]">
              <AlertTriangle className="w-16 h-16 text-destructive" />
           </div>
           <div className="space-y-2">
-            <h2 className="text-3xl font-black uppercase tracking-tighter">Profil Introuvable</h2>
+            <h2 className="text-3xl font-black uppercase tracking-tighter text-primary">Profil Inaccessible</h2>
             <p className="text-muted-foreground max-w-md mx-auto font-medium">
-              Nous n'avons pas pu charger votre profil Studio. Cela peut arriver si votre compte vient d'être créé.
+              Votre identifiant est connecté mais nous n'avons pas pu charger votre profil Studio.
             </p>
           </div>
           <Button 
             onClick={() => router.push('/login')}
-            className="rounded-full px-12 h-14 bg-primary font-bold shadow-xl text-lg uppercase tracking-tighter"
+            className="rounded-full px-12 h-14 bg-primary font-bold shadow-xl text-lg uppercase"
           >
-            Retour à la connexion
+            Retourner à l'accueil
           </Button>
         </div>
       </DashboardLayout>
-    );
-  }
-
-  if (isProfileLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-[#F5F2EA]">
-        <Loader2 className="w-10 h-10 animate-spin text-primary" />
-      </div>
     );
   }
 
@@ -176,97 +169,83 @@ export default function Home() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <header className="animate-in fade-in slide-in-from-top-4 duration-500">
+      <div className="space-y-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-500">
+        <header>
           <div className="flex items-center gap-3">
             <h1 className="text-4xl font-black tracking-tighter text-primary uppercase">Tableau de bord</h1>
             <Badge className={cn(
-              "font-black uppercase text-[10px] h-5 px-2 shadow-sm",
-              profile?.role === 'super_admin' ? "bg-rose-950 text-white" : 
-              profile?.role === 'admin' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+              "font-black uppercase text-[10px] h-5 px-2",
+              profile?.role === 'super_admin' ? "bg-rose-950 text-white" : "bg-primary text-primary-foreground"
             )}>
               {profile?.role === 'super_admin' ? 'Super Admin' : profile?.role === 'admin' ? 'Patron' : 'Employé'}
             </Badge>
           </div>
-          <p className="text-muted-foreground mt-1 flex items-center gap-2 font-medium">
+          <p className="text-muted-foreground mt-1 font-medium italic">
             Bienvenue dans votre espace {profile?.name || profile?.loginId}.
           </p>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <Card className="border-none shadow-xl rounded-[2rem] overflow-hidden bg-white h-full flex flex-col">
+          <Card className="border-none shadow-xl rounded-[2rem] overflow-hidden bg-white">
             <CardHeader className="pb-6 border-b border-muted/50 flex flex-row items-center justify-between space-y-0 bg-muted/5">
               <CardTitle className="text-xl font-black uppercase tracking-tighter flex items-center gap-3">
-                <div className="p-2 bg-primary/10 rounded-xl text-primary">
-                  <ListTodo className="w-5 h-5" />
-                </div>
-                Tâches Hebdo
+                <ListTodo className="w-5 h-5 text-primary" />
+                Actions Hebdo
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-6 space-y-3 flex-1 overflow-y-auto max-h-[450px]">
+            <CardContent className="p-6 space-y-3 max-h-[400px] overflow-y-auto">
               {weeklyTasks.length > 0 ? (
                 weeklyTasks.map(task => (
-                  <div key={task.id} className="flex items-center justify-between p-4 rounded-2xl border border-muted bg-muted/[0.02] hover:bg-muted/10 transition-all group">
+                  <div key={task.id} className="flex items-center justify-between p-4 rounded-2xl border bg-muted/5 hover:bg-muted/10 transition-all">
                     <div className="flex items-center gap-4">
-                      <div className={cn(
-                        "p-2 rounded-xl group-hover:scale-110 transition-transform",
-                        task.type === 'meeting' ? "bg-amber-100 text-amber-600" : "bg-primary/5 text-primary"
-                      )}>
-                        {task.type === 'meeting' ? <CalendarIcon className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
-                      </div>
+                      {task.type === 'meeting' ? <CalendarIcon className="w-4 h-4 text-amber-500" /> : <FileText className="w-4 h-4 text-primary" />}
                       <div className="flex flex-col">
-                        <span className="text-sm font-bold truncate max-w-[200px]">{task.name}</span>
+                        <span className="text-sm font-bold truncate max-w-[180px]">{task.name}</span>
                         <span className="text-[10px] text-muted-foreground uppercase font-black">
                           {format(task.date, "EEEE d MMMM", { locale: fr })}
                         </span>
                       </div>
                     </div>
-                    <Badge className={cn("text-[10px] uppercase font-black")}>
-                      {task.subCategory || 'Action'}
+                    <Badge variant="outline" className="text-[9px] uppercase font-black border-primary/20">
+                      {task.subCategory || 'Studio'}
                     </Badge>
                   </div>
                 ))
               ) : (
                 <div className="py-20 flex flex-col items-center justify-center text-center opacity-30 gap-4">
-                  <CheckCircle2 className="w-16 h-16 text-primary" />
-                  <p className="text-[10px] font-black uppercase tracking-widest">Studio à jour</p>
+                  <CheckCircle2 className="w-12 h-12 text-primary" />
+                  <p className="text-[10px] font-black uppercase tracking-widest">Tout est à jour</p>
                 </div>
               )}
             </CardContent>
           </Card>
 
-          <Card className="border-none shadow-xl rounded-[2rem] overflow-hidden bg-white h-full relative group flex flex-col">
+          <Card className="border-none shadow-xl rounded-[2rem] overflow-hidden bg-white">
             <CardHeader className="pb-4 border-b border-muted/50 flex flex-row items-center justify-between space-y-0 bg-muted/5">
               <CardTitle className="text-xl font-black uppercase tracking-tighter flex items-center gap-3">
-                <div className="p-2 bg-primary/10 rounded-xl text-primary">
-                  <CalendarIcon className="w-5 h-5" />
-                </div>
-                Agenda Studio
+                <CalendarIcon className="w-5 h-5 text-primary" />
+                Aperçu Agenda
               </CardTitle>
               <Button 
-                variant="outline" 
+                variant="ghost" 
                 size="sm" 
-                className="rounded-full font-black uppercase text-[9px] h-8 px-4 border-primary/20"
+                className="rounded-full font-black uppercase text-[10px]"
                 onClick={() => setIsCalendarFull(true)}
               >
-                <Maximize2 className="w-3.5 h-3.5" />
+                <Maximize2 className="w-4 h-4 mr-2" /> Plein Écran
               </Button>
             </CardHeader>
-            <CardContent className="p-0 flex-1">
-              <div className="h-full min-h-[400px]">
-                {companyId && <SharedCalendar companyId={companyId} isCompact />}
-              </div>
+            <CardContent className="p-0 h-[400px]">
+              {companyId && <SharedCalendar companyId={companyId} isCompact />}
             </CardContent>
           </Card>
         </div>
 
         {!isSuperAdmin && profile && (
-          <div className="pt-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
+          <div className="pt-8">
             <h2 className="text-2xl font-black uppercase tracking-tighter mb-8 flex items-center gap-3">
-              <div className="p-2 bg-primary text-white rounded-xl shadow-lg">
-                <FileText className="w-6 h-6" />
-              </div>
-              Dossiers Studio
+               <FileText className="w-6 h-6 text-primary" />
+               Dossiers Studio
             </h2>
             <CategoryTiles profile={profile} />
           </div>
@@ -275,11 +254,11 @@ export default function Home() {
         {isSuperAdmin && (
           <div className="pt-12 border-t border-dashed border-primary/10">
             <div className="bg-primary/5 p-12 rounded-[3rem] border-2 border-dashed border-primary/20 flex flex-col items-center text-center gap-6">
-              <ShieldCheck className="w-16 h-16 text-primary/20" />
+              <ShieldCheck className="w-16 h-16 text-primary/30" />
               <div className="space-y-2">
                 <h2 className="text-2xl font-black uppercase tracking-tight text-primary">Console Super Administrateur</h2>
                 <p className="text-sm text-muted-foreground font-medium max-w-lg mx-auto">
-                  Accès global à la gestion des comptes et des entreprises du Studio.
+                  Gestion globale des accès et des entreprises.
                 </p>
               </div>
             </div>
