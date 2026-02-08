@@ -33,7 +33,7 @@ export default function LoginPage() {
   const { toast } = useToast();
   const logo = PlaceHolderImages.find(img => img.id === 'app-logo');
 
-  // Récupération en temps réel des identifiants (Triés par rôle pour le SA en haut)
+  // Récupération en temps réel des identifiants pour le répertoire de test
   const usersQuery = useMemoFirebase(() => {
     if (!db) return null;
     return query(collection(db, 'users'));
@@ -60,12 +60,12 @@ export default function LoginPage() {
     }
   };
 
-  // Crée ou met à jour le profil Firestore de manière unique
+  // Crée ou met à jour le profil Firestore
   const createProfile = async (uid: string, loginId: string, role: string, displayName: string, pass: string, cName?: string) => {
     if (!db) return;
     const lowerId = loginId.toLowerCase().trim();
     
-    // NETTOYAGE DES DOUBLONS : Supprime tout autre document ayant le même loginId_lower mais un UID différent
+    // NETTOYAGE AGRESSIF DES DOUBLONS : Supprime tout autre document ayant le même loginId_lower mais un UID différent
     const usersRef = collection(db, 'users');
     const q = query(usersRef, where('loginId_lower', '==', lowerId));
     const snap = await getDocs(q);
@@ -84,7 +84,14 @@ export default function LoginPage() {
       finalCompanyId = 'growandgo-hq';
       finalCompanyName = 'Grow&Go HQ';
     } else {
-      finalCompanyId = finalCompanyName.toLowerCase().trim().replace(/[^a-z0-9]/g, '-');
+      // Pour les autres, on essaie de garder l'entreprise actuelle si elle existe déjà
+      const existingDoc = snap.docs.find(d => d.id === uid);
+      if (existingDoc?.exists()) {
+        const data = existingDoc.data();
+        finalCompanyId = data.companyId || finalCompanyId;
+      } else {
+        finalCompanyId = finalCompanyName.toLowerCase().trim().replace(/[^a-z0-9]/g, '-');
+      }
     }
 
     await ensureCompanyExists(finalCompanyId, finalCompanyName);
@@ -99,9 +106,9 @@ export default function LoginPage() {
       name: displayName || loginId,
       loginId: loginId.trim(),
       loginId_lower: lowerId,
-      password: pass, // Stockage en clair pour les tests
+      password: pass, 
       email: `${lowerId}@studio.internal`,
-      createdAt: new Date().toISOString()
+      updatedAt: new Date().toISOString()
     }, { merge: true });
   };
 
@@ -119,7 +126,6 @@ export default function LoginPage() {
       if (isSignUp) {
         if (!companyName.trim()) throw new Error("Le nom de l'entreprise est requis.");
         
-        // VERIFICATION DE DOUBLON AVANT INSCRIPTION
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('loginId_lower', '==', lowerId));
         const checkSnap = await getDocs(q);
@@ -137,21 +143,18 @@ export default function LoginPage() {
         toast({ title: "Compte créé avec succès !" });
       } else {
         // CONNEXION
-        if (lowerId === 'jsecchi' && password === 'Meqoqo1998') {
-          try {
-            await signInWithEmailAndPassword(auth, internalEmail, password);
-          } catch (e: any) {
-            if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential') {
-              await createUserWithEmailAndPassword(auth, internalEmail, password);
-            } else throw e;
-          }
-          await createProfile(auth.currentUser!.uid, 'JSecchi', 'super_admin', 'Julien Secchi', password);
-        } else {
-          const userCredential = await signInWithEmailAndPassword(auth, internalEmail, password);
-          // Mise à jour du mot de passe dans Firestore pour l'affichage en clair
-          const userDocRef = doc(db, 'users', userCredential.user.uid);
-          await setDoc(userDocRef, { password: password }, { merge: true });
-        }
+        const userCredential = await signInWithEmailAndPassword(auth, internalEmail, password);
+        
+        // RESTAURATION / MISE À JOUR DU PROFIL FIRESTORE SYSTÉMATIQUE
+        // Cela garantit que ADupont ou BDupres sont recréés s'ils manquent dans Firestore
+        const isSA = lowerId === 'jsecchi';
+        await createProfile(
+          userCredential.user.uid, 
+          normalizedId, 
+          isSA ? 'super_admin' : 'employee', 
+          normalizedId, 
+          password
+        );
 
         toast({ title: "Connexion réussie" });
         router.push('/');
@@ -166,11 +169,23 @@ export default function LoginPage() {
     }
   };
 
+  // Dédoublonnage visuel ultra-strict pour le répertoire
+  const uniqueDisplayUsers = Array.from(
+    new Map(
+      (allUsers || [])
+        .filter(u => u.loginId_lower)
+        .map(u => [u.loginId_lower.trim().toLowerCase(), u])
+    ).values()
+  ).sort((a, b) => {
+    if (a.role === 'super_admin') return -1;
+    if (b.role === 'super_admin') return 1;
+    return a.loginId.localeCompare(b.loginId);
+  });
+
   return (
     <div className="min-h-screen bg-[#F5F2EA] flex items-center justify-center p-4">
       <div className="flex flex-col md:flex-row gap-8 items-start max-w-5xl w-full">
         
-        {/* REPERTOIRE LATERAL DES ACCÈS (EN CLAIR POUR TESTS) */}
         <div className="w-full md:w-80 space-y-4 md:sticky md:top-10">
           <div className="bg-white p-6 rounded-[2rem] shadow-xl border-none">
             <div className="flex items-center gap-2 mb-4 text-[#1E4D3B]">
@@ -178,12 +193,11 @@ export default function LoginPage() {
               <h3 className="font-black uppercase text-[10px] tracking-widest">Identifiants en base</h3>
             </div>
             <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2 scrollbar-thin">
-              {allUsers && allUsers.length > 0 ? (
-                // On dédoublonne visuellement au cas où Firestore contiendrait encore des restes
-                Array.from(new Map(allUsers.map(u => [u.loginId_lower, u])).values()).map(u => (
+              {uniqueDisplayUsers.length > 0 ? (
+                uniqueDisplayUsers.map(u => (
                   <div key={u.uid} className="flex flex-col p-3 rounded-xl bg-muted/30 border border-black/5 gap-1.5 animate-in fade-in duration-300">
                     <div className="flex items-center justify-between">
-                      <span className="font-mono text-[10px] font-bold truncate text-primary uppercase">{u.loginId}</span>
+                      <span className="font-mono text-[10px] font-bold truncate text-primary">{u.loginId}</span>
                       <Badge className={cn(
                         "text-[8px] font-black uppercase h-4 px-1 shrink-0",
                         u.role === 'super_admin' ? "bg-rose-950" : u.role === 'admin' ? "bg-primary" : "bg-muted text-muted-foreground"
@@ -193,7 +207,7 @@ export default function LoginPage() {
                     </div>
                     <div className="flex items-center gap-1.5 text-rose-950">
                       <Key className="w-3 h-3 opacity-50" />
-                      <span className="text-[10px] font-mono font-black">{u.password || 'Meqoqo1998'}</span>
+                      <span className="text-[10px] font-mono font-black">{u.password || '••••••'}</span>
                     </div>
                     <span className="text-[8px] text-muted-foreground truncate opacity-70 italic">{u.name}</span>
                   </div>
@@ -205,7 +219,6 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* FORMULAIRE DE CONNEXION */}
         <Card className="flex-1 w-full shadow-2xl border-none p-4 rounded-[2.5rem] bg-white">
           <CardHeader className="text-center space-y-4">
             <div className="relative w-20 h-20 mx-auto overflow-hidden rounded-2xl border bg-white shadow-xl">

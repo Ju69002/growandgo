@@ -1,4 +1,3 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -9,20 +8,18 @@ service cloud.firestore {
 
     // Gestion des profils utilisateurs
     match /users/{userId} {
-      // Autoriser la lecture publique des IDs pour le répertoire (facilite les tests du prototype)
-      allow list: if true;
+      // Autoriser la lecture publique de la liste pour le répertoire de test du prototype
+      allow list: if isSignedIn();
       // Un utilisateur peut lire et modifier son propre profil
       allow get, update: if isSignedIn() && request.auth.uid == userId;
       // Autoriser la création de son propre profil
-      allow create: if isSignedIn() && request.auth.uid == userId;
-      // Les super admins peuvent tout faire
-      allow read, write: if isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin';
+      allow create: if isSignedIn();
     }
 
     match /companies/{companyId} {
-      // Tout le monde peut lire le nom d'une entreprise pour l'affichage
-      allow read: if true;
-      // Autoriser la création d'entreprise pour les nouveaux inscrits (Patrons)
+      // Lecture autorisée pour les membres ou pour l'initialisation
+      allow read: if isSignedIn();
+      // Autoriser la création d'entreprise pour les nouveaux inscrits
       allow create: if isSignedIn();
       // Seul le super admin ou les membres peuvent modifier
       allow update: if isSignedIn();
