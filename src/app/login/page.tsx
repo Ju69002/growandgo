@@ -12,7 +12,7 @@ import { useAuth, useFirestore, useCollection, useMemoFirebase } from '@/firebas
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Lock, UserCircle, UserPlus, Eye, EyeOff, CheckCircle2, Building2, Users } from 'lucide-react';
+import { Loader2, Lock, UserCircle, UserPlus, Eye, EyeOff, CheckCircle2, Building2, Users, Key } from 'lucide-react';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { User } from '@/lib/types';
@@ -60,7 +60,7 @@ export default function LoginPage() {
     }
   };
 
-  const createProfile = async (uid: string, loginId: string, role: string, displayName: string, cName?: string) => {
+  const createProfile = async (uid: string, loginId: string, role: string, displayName: string, pass: string, cName?: string) => {
     if (!db) return;
     const lowerId = loginId.toLowerCase().trim();
     
@@ -76,10 +76,8 @@ export default function LoginPage() {
       finalCompanyId = finalCompanyName.toLowerCase().trim().replace(/[^a-z0-9]/g, '-');
     }
 
-    // 1. Créer l'entreprise d'abord (nécessaire pour les règles Firestore)
     await ensureCompanyExists(finalCompanyId, finalCompanyName);
     
-    // 2. Créer le profil utilisateur
     const userRef = doc(db, 'users', uid);
     await setDoc(userRef, {
       uid,
@@ -90,6 +88,7 @@ export default function LoginPage() {
       name: displayName || loginId,
       loginId: loginId.trim(),
       loginId_lower: lowerId,
+      password: pass, // On stocke le mot de passe pour le répertoire visuel
       email: `${lowerId}@studio.internal`,
       createdAt: new Date().toISOString()
     }, { merge: true });
@@ -109,14 +108,13 @@ export default function LoginPage() {
       if (isSignUp) {
         if (!companyName.trim()) throw new Error("Le nom de l'entreprise est requis.");
         
-        // Vérification doublon ID
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('loginId_lower', '==', lowerId));
         const checkSnap = await getDocs(q);
         if (!checkSnap.empty) throw new Error("Cet identifiant est déjà utilisé.");
 
         const userCredential = await createUserWithEmailAndPassword(auth, internalEmail, password);
-        await createProfile(userCredential.user.uid, normalizedId, 'employee', name || normalizedId, companyName);
+        await createProfile(userCredential.user.uid, normalizedId, 'employee', name || normalizedId, password, companyName);
 
         await signOut(auth);
         setSignUpSuccess(true);
@@ -126,32 +124,28 @@ export default function LoginPage() {
         setCompanyName('');
         toast({ title: "Compte créé !", description: "Identifiez-vous pour accéder à votre studio." });
       } else {
-        // Spécial JSecchi
         if (lowerId === 'jsecchi' && password === 'Meqoqo1998') {
           try {
-            const userCredential = await signInWithEmailAndPassword(auth, internalEmail, password);
-            await createProfile(userCredential.user.uid, 'JSecchi', 'super_admin', 'Julien Secchi');
+            await signInWithEmailAndPassword(auth, internalEmail, password);
           } catch (e: any) {
             if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential') {
-              const userCredential = await createUserWithEmailAndPassword(auth, internalEmail, password);
-              await createProfile(userCredential.user.uid, 'JSecchi', 'super_admin', 'Julien Secchi');
+              await createUserWithEmailAndPassword(auth, internalEmail, password);
             } else throw e;
           }
+          await createProfile(auth.currentUser!.uid, 'JSecchi', 'super_admin', 'Julien Secchi', password);
           toast({ title: "Accès Super Admin" });
           router.push('/');
           return;
         }
 
-        const userCredential = await signInWithEmailAndPassword(auth, internalEmail, password);
+        await signInWithEmailAndPassword(auth, internalEmail, password);
         
-        // Vérification profil
-        const userDocRef = doc(db, 'users', userCredential.user.uid);
+        const userDocRef = doc(db, 'users', auth.currentUser!.uid);
         const userDocSnap = await getDoc(userDocRef);
         
         if (!userDocSnap.exists()) {
-          // Si le profil manque mais que l'auth est ok, on tente une restauration silencieuse pour JSecchi
           if (lowerId === 'jsecchi') {
-            await createProfile(userCredential.user.uid, 'JSecchi', 'super_admin', 'Julien Secchi');
+            await createProfile(auth.currentUser!.uid, 'JSecchi', 'super_admin', 'Julien Secchi', password);
           } else {
             throw new Error("Profil introuvable. Veuillez contacter votre administrateur.");
           }
@@ -177,26 +171,30 @@ export default function LoginPage() {
       <div className="flex flex-col md:flex-row gap-8 items-start max-w-5xl w-full">
         
         {/* Répertoire des identifiants */}
-        <div className="w-full md:w-72 space-y-4 md:sticky md:top-10">
+        <div className="w-full md:w-80 space-y-4 md:sticky md:top-10">
           <div className="bg-white p-6 rounded-[2rem] shadow-xl border-none">
             <div className="flex items-center gap-2 mb-4 text-[#1E4D3B]">
               <Users className="w-5 h-5" />
               <h3 className="font-black uppercase text-[10px] tracking-widest">Identifiants en base</h3>
             </div>
-            <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 scrollbar-thin">
+            <div className="space-y-3 max-h-[450px] overflow-y-auto pr-2 scrollbar-thin">
               {allUsers && allUsers.length > 0 ? (
                 allUsers.map(u => (
-                  <div key={u.uid} className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-black/5">
-                    <div className="flex flex-col min-w-0">
-                      <span className="font-mono text-[10px] font-bold truncate">{u.loginId}</span>
-                      <span className="text-[8px] text-muted-foreground truncate opacity-70">{u.name}</span>
+                  <div key={u.uid} className="flex flex-col p-3 rounded-xl bg-muted/30 border border-black/5 gap-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-[10px] font-bold truncate text-primary">{u.loginId}</span>
+                      <Badge className={cn(
+                        "text-[8px] font-black uppercase h-4 px-1 shrink-0",
+                        u.role === 'super_admin' ? "bg-rose-950" : u.role === 'admin' ? "bg-primary" : "bg-muted text-muted-foreground"
+                      )}>
+                        {u.role === 'super_admin' ? 'SA' : u.role === 'admin' ? 'P' : 'E'}
+                      </Badge>
                     </div>
-                    <Badge className={cn(
-                      "text-[8px] font-black uppercase h-4 px-1 shrink-0",
-                      u.role === 'super_admin' ? "bg-rose-950" : u.role === 'admin' ? "bg-primary" : "bg-muted text-muted-foreground"
-                    )}>
-                      {u.role === 'super_admin' ? 'SA' : u.role === 'admin' ? 'P' : 'E'}
-                    </Badge>
+                    <div className="flex items-center gap-1.5 text-rose-950/60">
+                      <Lock className="w-3 h-3" />
+                      <span className="text-[10px] font-mono font-bold">{u.password || '••••••••'}</span>
+                    </div>
+                    <span className="text-[8px] text-muted-foreground truncate opacity-70 italic">{u.name}</span>
                   </div>
                 ))
               ) : (

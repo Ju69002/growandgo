@@ -25,6 +25,7 @@ export interface User {
   isCategoryModifier: boolean;
   name: string;
   loginId: string;
+  password?: string;
   email: string;
 }
 

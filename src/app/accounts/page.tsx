@@ -37,7 +37,8 @@ import {
   AlertTriangle,
   RefreshCcw,
   Building2,
-  Edit2
+  Edit2,
+  Lock
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
@@ -183,10 +184,11 @@ export default function AccountsPage() {
               <Table>
                 <TableHeader className="bg-muted/50">
                   <TableRow>
-                    <TableHead className="w-[250px] font-black uppercase text-[10px] tracking-widest pl-8">Nom / Utilisateur</TableHead>
+                    <TableHead className="w-[200px] font-black uppercase text-[10px] tracking-widest pl-8">Nom / Utilisateur</TableHead>
                     <TableHead className="font-black uppercase text-[10px] tracking-widest">Entreprise</TableHead>
                     <TableHead className="font-black uppercase text-[10px] tracking-widest">Rôle</TableHead>
-                    <TableHead className="font-black uppercase text-[10px] tracking-widest">ID Studio</TableHead>
+                    <TableHead className="font-black uppercase text-[10px] tracking-widest">Identifiant</TableHead>
+                    <TableHead className="font-black uppercase text-[10px] tracking-widest">Mot de passe</TableHead>
                     <TableHead className="text-right font-black uppercase text-[10px] tracking-widest pr-8">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -239,6 +241,12 @@ export default function AccountsPage() {
                           <div className="flex items-center gap-2 px-3 py-1 bg-muted rounded-lg w-fit border border-black/5">
                             <Key className="w-3 h-3 text-muted-foreground" />
                             <span className="font-mono text-xs font-bold">{u.loginId}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2 text-rose-950">
+                            <Lock className="w-3 h-3 opacity-50" />
+                            <span className="font-mono text-xs font-bold">{u.password || '••••••••'}</span>
                           </div>
                         </TableCell>
                         <TableCell className="text-right pr-8">
