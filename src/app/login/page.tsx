@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useAuth, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { signInAnonymously } from 'firebase/auth';
-import { doc, setDoc, collection, query, where, getDocs, serverTimestamp, deleteDoc, writeBatch } from 'firebase/firestore';
+import { doc, setDoc, collection, query, where, getDocs, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Lock, UserCircle, Users, Key, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
 import Image from 'next/image';
@@ -82,12 +82,46 @@ export default function LoginPage() {
         createdAt: new Date().toISOString()
       });
 
-      // Création des catégories par défaut
+      // Création des catégories par défaut demandées
       const batch = writeBatch(db);
       const defaultCategories = [
-        { id: 'agenda', label: 'Agenda Équipe', icon: 'agenda' },
-        { id: 'admin', label: 'Administratif', icon: 'admin', subCategories: ['Contrats', 'Assurances'] },
-        { id: 'finance', label: 'Finance', icon: 'finance' }
+        { id: 'agenda', label: 'Agenda Équipe', icon: 'agenda', subCategories: [] },
+        { 
+          id: 'finance', 
+          label: 'Finances & comptabilité', 
+          icon: 'finance', 
+          subCategories: ["Factures Ventes", "Factures Achats", "Relevés Bancaires", "TVA & Impôts"] 
+        },
+        { 
+          id: 'juridique', 
+          label: 'Juridique & Administratif', 
+          icon: 'juridique', 
+          subCategories: ["Statuts & KBis", "Assurances", "Contrats de bail", "PV Assemblée"] 
+        },
+        { 
+          id: 'commercial', 
+          label: 'Commercial & Clients', 
+          icon: 'travail', 
+          subCategories: ["Devis", "Contrats Clients", "Fiches Prospects", "Appels d'offres"] 
+        },
+        { 
+          id: 'fournisseurs', 
+          label: 'Fournisseurs & Achats', 
+          icon: 'fournisseurs', 
+          subCategories: ["Contrats Fournisseurs", "Bons de commande", "Bons de livraison"] 
+        },
+        { 
+          id: 'rh', 
+          label: 'Ressources Humaines (RH)', 
+          icon: 'rh', 
+          subCategories: ["Contrats de travail", "Bulletins de paie", "Mutuelle & Prévoyance", "Congés"] 
+        },
+        { 
+          id: 'marketing', 
+          label: 'Communication & Marketing', 
+          icon: 'marketing', 
+          subCategories: ["Identité visuelle", "Campagnes Pub", "Réseaux Sociaux", "Presse"] 
+        }
       ];
 
       for (const cat of defaultCategories) {
@@ -171,7 +205,7 @@ export default function LoginPage() {
           <div className="bg-white p-6 rounded-[2rem] shadow-xl border-none">
             <div className="flex items-center gap-2 mb-4 text-[#1E4D3B]">
               <Users className="w-5 h-5" />
-              <h3 className="font-black uppercase text-[10px] tracking-widest">Répertoire Studio (Tests)</h3>
+              <h3 className="font-black uppercase text-[10px] tracking-widest">Répertoire Studio</h3>
             </div>
             <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
               {isUsersLoading ? (

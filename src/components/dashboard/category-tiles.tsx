@@ -7,18 +7,15 @@ import {
   FileText, 
   Users, 
   Calendar, 
-  PenTool, 
   Plus, 
   LayoutGrid,
-  Home,
   Briefcase,
-  Settings,
-  Bell,
+  Megaphone,
+  Package,
   Scale,
-  HardHat,
   ShieldCheck
 } from 'lucide-react';
-import { useFirestore, useCollection, useUser, useMemoFirebase } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
 import { Category, User } from '@/lib/types';
 
@@ -31,30 +28,23 @@ const ICON_MAP: Record<string, any> = {
   admin: FileText,
   rh: Users,
   agenda: Calendar,
-  signatures: PenTool,
-  maison: Home,
-  home: Home,
-  travail: Briefcase,
-  work: Briefcase,
   juridique: Scale,
-  legal: Scale,
-  chantier: HardHat,
-  construction: HardHat,
+  marketing: Megaphone,
+  fournisseurs: Package,
+  travail: Briefcase,
+  commercial: Briefcase,
   securite: ShieldCheck,
-  parametres: Settings,
-  settings: Settings,
-  notifications: Bell,
   default: LayoutGrid
 };
 
 const COLOR_MAP: Record<string, string> = {
   finance: 'text-emerald-600 bg-emerald-50',
-  admin: 'text-blue-600 bg-blue-50',
+  juridique: 'text-blue-600 bg-blue-50',
   rh: 'text-indigo-600 bg-indigo-50',
   agenda: 'text-amber-600 bg-amber-50',
-  signatures: 'text-purple-600 bg-purple-50',
-  juridique: 'text-slate-600 bg-slate-50',
-  travail: 'text-orange-600 bg-orange-50',
+  marketing: 'text-purple-600 bg-purple-50',
+  fournisseurs: 'text-orange-600 bg-orange-50',
+  commercial: 'text-slate-600 bg-slate-50',
   default: 'text-gray-600 bg-gray-50'
 };
 

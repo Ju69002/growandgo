@@ -2,16 +2,18 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useUser, useFirestore, useDoc, useMemoFirebase, useAuth } from '@/firebase';
-import { doc } from 'firebase/firestore';
-import { User } from '@/lib/types';
+import { useUser, useFirestore, useDoc, useMemoFirebase, useAuth, useCollection } from '@/firebase';
+import { doc, collection, query, where, limit } from 'firebase/firestore';
+import { User, BusinessDocument } from '@/lib/types';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { CategoryTiles } from '@/components/dashboard/category-tiles';
-import { Loader2, ShieldCheck, FileText, LogOut, AlertTriangle } from 'lucide-react';
+import { Loader2, ShieldCheck, FileText, LogOut, AlertTriangle, ListTodo, Clock, ChevronRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { signOut } from 'firebase/auth';
+import Link from 'next/link';
 
 export default function Home() {
   const router = useRouter();
@@ -36,6 +38,19 @@ export default function Home() {
   }, [db, user]);
 
   const { data: profile, isLoading: isProfileLoading } = useDoc<User>(userRef);
+  const companyId = profile?.companyId;
+
+  // Récupération des tâches (documents en attente)
+  const pendingDocsQuery = useMemoFirebase(() => {
+    if (!db || !companyId) return null;
+    return query(
+      collection(db, 'companies', companyId, 'documents'),
+      where('status', '!=', 'archived'),
+      limit(5)
+    );
+  }, [db, companyId]);
+
+  const { data: pendingTasks } = useCollection<BusinessDocument>(pendingDocsQuery);
 
   const handleLogout = async () => {
     if (auth) {
@@ -55,7 +70,6 @@ export default function Home() {
 
   if (!user) return null;
 
-  // Si le chargement est terminé mais qu'aucun profil n'est trouvé, on affiche une alerte
   if (!isProfileLoading && !profile && mounted) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-[#F5F2EA] p-8 text-center space-y-6">
@@ -90,45 +104,79 @@ export default function Home() {
   return (
     <DashboardLayout>
       <div className="space-y-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-500">
-        <header>
-          <div className="flex items-center gap-3">
-            <h1 className="text-4xl font-black tracking-tighter text-primary uppercase">Tableau de bord</h1>
-            {profile && (
-              <Badge className={cn(
-                "font-black uppercase text-[10px] h-5 px-2",
-                isSuperAdmin ? "bg-rose-950 text-white" : profile.role === 'admin' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-              )}>
-                {isSuperAdmin ? 'Super Admin' : profile.role === 'admin' ? 'Patron' : 'Employé'}
-              </Badge>
-            )}
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-3">
+              <h1 className="text-4xl font-black tracking-tighter text-primary uppercase">Tableau de bord</h1>
+              {profile && (
+                <Badge className={cn(
+                  "font-black uppercase text-[10px] h-5 px-2",
+                  isSuperAdmin ? "bg-rose-950 text-white" : profile.role === 'admin' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                )}>
+                  {isSuperAdmin ? 'Super Admin' : profile.role === 'admin' ? 'Patron' : 'Employé'}
+                </Badge>
+              )}
+            </div>
+            <p className="text-muted-foreground font-medium italic">
+              Studio {profile?.companyName || "Grow&Go"}, Bienvenue {profile?.name}.
+            </p>
           </div>
-          <p className="text-muted-foreground mt-1 font-medium italic">
-            Bienvenue dans le Studio {profile?.companyName || "Grow&Go"}, {profile?.name}.
-          </p>
         </header>
 
-        {isSuperAdmin ? (
-          <div className="pt-12">
-            <div className="bg-primary/5 p-12 rounded-[3rem] border-2 border-dashed border-primary/20 flex flex-col items-center text-center gap-6">
-              <ShieldCheck className="w-16 h-16 text-primary/30" />
-              <div className="space-y-2">
-                <h2 className="text-2xl font-black uppercase tracking-tight text-primary">Répertoire Global Activé</h2>
-                <p className="text-sm text-muted-foreground font-medium max-w-lg mx-auto">
-                  Utilisez le menu latéral pour gérer les comptes et les accès de tous les studios.
-                </p>
-              </div>
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          <div className="lg:col-span-3 space-y-8">
+            <section>
+              <h2 className="text-2xl font-black uppercase tracking-tighter mb-6 flex items-center gap-3">
+                <FileText className="w-6 h-6 text-primary" />
+                Dossiers du Studio
+              </h2>
+              {profile && <CategoryTiles profile={profile} />}
+            </section>
+          </div>
+
+          <aside className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-black uppercase tracking-tighter flex items-center gap-2">
+                <ListTodo className="w-5 h-5 text-primary" />
+                Tâches de la semaine
+              </h2>
             </div>
-          </div>
-        ) : (
-          <div className="pt-8">
-            <h2 className="text-2xl font-black uppercase tracking-tighter mb-8 flex items-center gap-3">
-               <FileText className="w-6 h-6 text-primary" />
-               Dossiers du Studio
-            </h2>
-            {profile && <CategoryTiles profile={profile} />}
-          </div>
-        )}
+            
+            <div className="space-y-3">
+              {pendingTasks && pendingTasks.length > 0 ? (
+                pendingTasks.map((task) => (
+                  <Link href={`/categories/${task.categoryId}`} key={task.id}>
+                    <Card className="border-none shadow-sm hover:shadow-md transition-all rounded-2xl overflow-hidden group">
+                      <CardContent className="p-4 flex items-center gap-3">
+                        <div className="p-2 bg-primary/5 rounded-lg text-primary">
+                          <Clock className="w-4 h-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold truncate group-hover:text-primary transition-colors">{task.name}</p>
+                          <p className="text-[10px] font-black uppercase text-muted-foreground opacity-60">{task.status.replace('_', ' ')}</p>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-muted-foreground/30 group-hover:translate-x-1 transition-transform" />
+                      </CardContent>
+                    </Card>
+                  </Link>
+                ))
+              ) : (
+                <div className="p-8 border-2 border-dashed rounded-[2rem] text-center space-y-2 opacity-50">
+                  <CheckCircle2 className="w-8 h-8 text-primary/30 mx-auto" />
+                  <p className="text-[10px] font-black uppercase tracking-widest">Tout est à jour</p>
+                </div>
+              )}
+              {pendingTasks && pendingTasks.length > 0 && (
+                <Button asChild variant="ghost" className="w-full font-black uppercase text-[10px] tracking-widest h-10 rounded-xl">
+                  <Link href="/notifications">Voir toutes les tâches</Link>
+                </Button>
+              )}
+            </div>
+          </aside>
+        </div>
       </div>
     </DashboardLayout>
   );
 }
+
+import { CheckCircle2 } from 'lucide-react';
