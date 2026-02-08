@@ -47,6 +47,7 @@ export default function LoginPage() {
 
     try {
       const lowerId = loginId.trim().toLowerCase();
+      const profileId = `profile_${lowerId}`;
       
       const q = query(collection(db, 'users'), where('loginId_lower', '==', lowerId));
       const snap = await getDocs(q);
@@ -54,7 +55,7 @@ export default function LoginPage() {
         throw new Error("Cet identifiant existe déjà.");
       }
 
-      let finalRole = 'admin'; // Par défaut, le créateur est Patron
+      let finalRole = 'admin';
       let finalCompanyId = companyName.toLowerCase().trim().replace(/[^a-z0-9]/g, '-');
       let finalCompanyName = companyName;
 
@@ -64,15 +65,7 @@ export default function LoginPage() {
         finalCompanyName = 'Grow&Go HQ';
       }
 
-      // 1. Création de l'entreprise
-      await setDoc(doc(db, 'companies', finalCompanyId), {
-        id: finalCompanyId,
-        name: finalCompanyName,
-        subscriptionStatus: 'active'
-      }, { merge: true });
-      
-      // 2. Création du profil Maître
-      const profileId = `profile_${lowerId}`;
+      // Création du profil UNIQUE
       await setDoc(doc(db, 'users', profileId), {
         uid: profileId,
         isProfile: true,
@@ -89,13 +82,12 @@ export default function LoginPage() {
         createdAt: new Date().toISOString()
       });
 
-      // 3. Création des catégories par défaut (Agenda, Finance, Administratif)
+      // Création des catégories par défaut
       const batch = writeBatch(db);
-      
       const defaultCategories = [
-        { id: 'agenda', label: 'Agenda Équipe', icon: 'agenda', color: 'text-amber-600 bg-amber-50' },
-        { id: 'admin', label: 'Administratif', icon: 'admin', color: 'text-blue-600 bg-blue-50' },
-        { id: 'finance', label: 'Finance', icon: 'finance', color: 'text-emerald-600 bg-emerald-50' }
+        { id: 'agenda', label: 'Agenda Équipe', icon: 'agenda' },
+        { id: 'admin', label: 'Administratif', icon: 'admin', subCategories: ['Contrats', 'Assurances'] },
+        { id: 'finance', label: 'Finance', icon: 'finance' }
       ];
 
       for (const cat of defaultCategories) {
@@ -108,14 +100,14 @@ export default function LoginPage() {
           type: 'standard',
           companyId: finalCompanyId,
           icon: cat.icon,
-          subCategories: cat.id === 'admin' ? ['Contrats', 'Assurances'] : []
+          subCategories: cat.subCategories || []
         });
       }
       await batch.commit();
 
       setSignUpSuccess(true);
       setIsSignUp(false);
-      toast({ title: "Studio créé !", description: "Vous pouvez maintenant vous connecter." });
+      toast({ title: "Studio créé !" });
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erreur", description: error.message });
     } finally {
@@ -130,27 +122,12 @@ export default function LoginPage() {
 
     try {
       const lowerId = loginId.trim().toLowerCase();
-      
       const q = query(collection(db, 'users'), where('loginId_lower', '==', lowerId));
       const querySnap = await getDocs(q);
       
       let profileData: User | null = null;
       if (!querySnap.empty) {
         profileData = querySnap.docs[0].data() as User;
-      }
-
-      if (!profileData && lowerId === 'jsecchi') {
-        profileData = {
-          uid: 'profile_jsecchi',
-          isProfile: true,
-          companyId: 'growandgo-hq',
-          companyName: 'Grow&Go HQ',
-          role: 'super_admin',
-          name: 'JSecchi',
-          loginId: 'JSecchi',
-          loginId_lower: 'jsecchi',
-          password: 'Meqoqo1998'
-        } as User;
       }
 
       if (!profileData) throw new Error("Identifiant inconnu.");
@@ -167,7 +144,6 @@ export default function LoginPage() {
         lastLogin: serverTimestamp()
       });
 
-      toast({ title: "Accès autorisé", description: `Bienvenue dans le studio ${profileData.companyName}` });
       router.push('/');
     } catch (error: any) {
       toast({ variant: "destructive", title: "Accès refusé", description: error.message });
@@ -191,8 +167,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-[#F5F2EA] flex items-center justify-center p-4">
       <div className="flex flex-col md:flex-row gap-8 items-start max-w-5xl w-full">
-        
-        <div className="w-full md:w-80 space-y-4 md:sticky md:top-10">
+        <div className="w-full md:w-80 space-y-4">
           <div className="bg-white p-6 rounded-[2rem] shadow-xl border-none">
             <div className="flex items-center gap-2 mb-4 text-[#1E4D3B]">
               <Users className="w-5 h-5" />
@@ -201,26 +176,21 @@ export default function LoginPage() {
             <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
               {isUsersLoading ? (
                 <div className="py-8 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-primary/20" /></div>
-              ) : displayUsers.length > 0 ? (
-                displayUsers.map(u => (
-                  <div key={u.uid} className="flex flex-col p-3 rounded-xl bg-muted/30 border border-black/5 gap-1.5 hover:bg-muted/50 transition-colors">
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono text-[12px] font-black text-primary">{u.loginId}</span>
-                      <Badge className={cn(
-                        "text-[8px] font-black uppercase h-4 px-1",
-                        u.role === 'super_admin' ? "bg-rose-950" : u.role === 'admin' ? "bg-primary" : "bg-muted text-muted-foreground"
-                      )}>
-                        {u.role === 'super_admin' ? 'SA' : u.role === 'admin' ? 'P' : 'E'}
-                      </Badge>
-                    </div>
-                    <p className="text-[8px] font-black uppercase text-muted-foreground/60 truncate">{u.companyName || u.companyId}</p>
-                    <div className="flex items-center gap-1.5 text-rose-950 bg-rose-50/50 p-1.5 rounded border border-rose-100">
-                      <Key className="w-3 h-3 opacity-50" />
-                      <span className="text-[11px] font-mono font-black tracking-tight">{u.password || '••••••'}</span>
-                    </div>
+              ) : displayUsers.map(u => (
+                <div key={u.uid} className="flex flex-col p-3 rounded-xl bg-muted/30 border border-black/5 gap-1.5 hover:bg-muted/50 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-[12px] font-black text-primary">{u.loginId}</span>
+                    <Badge className={cn("text-[8px] font-black uppercase h-4 px-1", u.role === 'super_admin' ? "bg-rose-950" : u.role === 'admin' ? "bg-primary" : "bg-muted text-muted-foreground")}>
+                      {u.role === 'super_admin' ? 'SA' : u.role === 'admin' ? 'P' : 'E'}
+                    </Badge>
                   </div>
-                ))
-              ) : <p className="text-center text-[10px] uppercase font-bold text-muted-foreground">Aucun compte</p>}
+                  <p className="text-[8px] font-black uppercase text-muted-foreground/60 truncate">{u.companyName || u.companyId}</p>
+                  <div className="flex items-center gap-1.5 text-rose-950 bg-rose-50/50 p-1.5 rounded border border-rose-100">
+                    <Key className="w-3 h-3 opacity-50" />
+                    <span className="text-[11px] font-mono font-black tracking-tight">{u.password || '••••••'}</span>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -244,48 +214,27 @@ export default function LoginPage() {
                 <p className="text-xs font-bold text-emerald-800 uppercase">Votre espace est prêt. Connectez-vous.</p>
               </div>
             )}
-
             <form onSubmit={isSignUp ? handleSignUp : handleLogin} className="space-y-4">
               {isSignUp && (
                 <>
-                  <div className="space-y-1.5">
-                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Nom Complet</Label>
-                    <Input placeholder="Prénom Nom" value={name} onChange={(e) => setName(e.target.value)} className="h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Nom du Studio (Entreprise)</Label>
-                    <Input placeholder="Ex: Studio Carrefour" value={companyName} onChange={(e) => setCompanyName(e.target.value)} className="h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
-                  </div>
+                  <Input placeholder="Prénom Nom" value={name} onChange={(e) => setName(e.target.value)} className="h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
+                  <Input placeholder="Nom du Studio (Entreprise)" value={companyName} onChange={(e) => setCompanyName(e.target.value)} className="h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
                 </>
               )}
-              
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Identifiant Unique</Label>
-                <div className="relative">
-                  <UserCircle className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
-                  <Input placeholder="Votre ID" value={loginId} onChange={(e) => setLoginId(e.target.value)} className="pl-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
-                </div>
+              <div className="relative">
+                <UserCircle className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
+                <Input placeholder="Identifiant Unique" value={loginId} onChange={(e) => setLoginId(e.target.value)} className="pl-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
               </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Mot de passe</Label>
-                <div className="relative">
-                  <Lock className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
-                  <Input type={showPassword ? "text" : "password"} placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} className="pl-11 pr-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
-                  <button type="button" className="absolute right-2 top-2 h-8 w-8 p-0 flex items-center justify-center" onClick={() => setShowPassword(!showPassword)}>
-                    {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
-                  </button>
-                </div>
+              <div className="relative">
+                <Lock className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
+                <Input type={showPassword ? "text" : "password"} placeholder="Mot de passe" value={password} onChange={(e) => setPassword(e.target.value)} className="pl-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
               </div>
-
-              <div className="space-y-3 pt-4">
-                <Button type="submit" className="w-full h-14 bg-[#1E4D3B] hover:bg-[#1E4D3B]/90 rounded-2xl font-bold text-lg shadow-xl" disabled={isLoading}>
-                  {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (isSignUp ? "Créer mon Studio" : "Se connecter")}
-                </Button>
-                <button type="button" className="w-full text-xs font-black uppercase tracking-widest text-[#1E4D3B]/60 py-2" onClick={() => { setSignUpSuccess(false); setIsSignUp(!isSignUp); }}>
-                  {isSignUp ? "Déjà un compte ? Connexion" : "Nouveau ? Créer un studio"}
-                </button>
-              </div>
+              <Button type="submit" className="w-full h-14 bg-[#1E4D3B] hover:bg-[#1E4D3B]/90 rounded-2xl font-bold text-lg shadow-xl" disabled={isLoading}>
+                {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (isSignUp ? "Créer mon Studio" : "Se connecter")}
+              </Button>
+              <button type="button" className="w-full text-xs font-black uppercase tracking-widest text-[#1E4D3B]/60 py-2" onClick={() => { setSignUpSuccess(false); setIsSignUp(!isSignUp); }}>
+                {isSignUp ? "Déjà un compte ? Connexion" : "Nouveau ? Créer un studio"}
+              </button>
             </form>
           </CardContent>
         </Card>

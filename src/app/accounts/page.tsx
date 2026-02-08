@@ -85,37 +85,17 @@ export default function AccountsPage() {
   const updateAllUserDocs = async (loginId: string, updates: Partial<User>) => {
     if (!db || !allProfiles) return;
     const lowerId = loginId.toLowerCase();
-    
-    const related = allProfiles.filter(u => 
-      (u.loginId_lower === lowerId) || 
-      (u.loginId?.toLowerCase() === lowerId)
-    );
-    
+    const related = allProfiles.filter(u => (u.loginId_lower === lowerId) || (u.loginId?.toLowerCase() === lowerId));
     related.forEach(uDoc => {
       const ref = doc(db, 'users', uDoc.uid);
       updateDocumentNonBlocking(ref, updates);
     });
   };
 
-  const handleRoleChange = (userId: string, loginId: string, currentRole: UserRole) => {
-    if (!db) return;
-    const newRole: UserRole = currentRole === 'admin' ? 'employee' : 'admin';
-    updateAllUserDocs(loginId, { 
-      role: newRole,
-      adminMode: newRole === 'admin',
-      isCategoryModifier: newRole === 'admin'
-    });
-    toast({ title: "Rôle mis à jour" });
-  };
-
   const handleDeleteUser = (loginId: string) => {
     if (!db || !allProfiles) return;
     const lowerId = loginId.toLowerCase();
-    const related = allProfiles.filter(u => 
-      (u.loginId_lower === lowerId) || 
-      (u.loginId?.toLowerCase() === lowerId)
-    );
-    
+    const related = allProfiles.filter(u => (u.loginId_lower === lowerId) || (u.loginId?.toLowerCase() === lowerId));
     related.forEach(uDoc => {
       const ref = doc(db, 'users', uDoc.uid);
       deleteDocumentNonBlocking(ref);
@@ -128,7 +108,6 @@ export default function AccountsPage() {
     updateAllUserDocs(editingPasswordUser.loginId, { password: newPassword.trim() });
     toast({ title: "Mot de passe modifié" });
     setEditingPasswordUser(null);
-    setNewPassword('');
   };
 
   const handleUpdateCompany = () => {
@@ -136,195 +115,101 @@ export default function AccountsPage() {
     updateAllUserDocs(editingCompanyUser.loginId, { companyName: newCompanyName.trim() });
     toast({ title: "Entreprise mise à jour" });
     setEditingCompanyUser(null);
-    setNewCompanyName('');
   };
 
-  if (isProfileLoading) {
-    return (
-      <DashboardLayout>
-        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-          <Loader2 className="w-12 h-12 animate-spin text-primary opacity-30" />
-          <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Vérification Admin...</p>
-        </div>
-      </DashboardLayout>
-    );
-  }
+  if (isProfileLoading) return <div className="flex items-center justify-center min-h-screen"><Loader2 className="animate-spin" /></div>;
 
-  if (!isSuperAdmin) {
-    return (
-      <DashboardLayout>
-        <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
-          <ShieldAlert className="w-20 h-20 text-rose-950 opacity-20" />
-          <h1 className="text-2xl font-black uppercase tracking-tighter">Accès Super Admin</h1>
-        </div>
-      </DashboardLayout>
-    );
-  }
+  if (!isSuperAdmin) return <div className="flex flex-col items-center justify-center min-h-screen"><ShieldAlert className="w-20 h-20 opacity-20" /><h1 className="text-2xl font-black uppercase">Accès Super Admin</h1></div>;
 
-  // Logique de dédoublonnage : On privilégie les documents 'isProfile: true'
   const uniqueUsers = Array.from(
     new Map(
       (allProfiles || [])
         .filter(u => u.loginId || u.loginId_lower)
-        .sort((a, b) => (a.isProfile ? 1 : -1)) // Le profil (true) vient après la session (false) et l'écrase dans la Map
+        .sort((a, b) => (a.isProfile ? 1 : -1))
         .map(u => [u.loginId_lower || u.loginId?.toLowerCase(), u])
     ).values()
-  ).sort((a, b) => {
-    if (a.role === 'super_admin') return -1;
-    if (b.role === 'super_admin') return 1;
-    return (a.loginId || '').localeCompare(b.loginId || '');
-  });
+  ).sort((a, b) => (a.role === 'super_admin' ? -1 : 1));
 
   return (
     <DashboardLayout>
       <div className="max-w-6xl mx-auto py-10 px-6 space-y-8">
         <div className="flex items-center justify-between">
-          <h1 className="text-4xl font-black tracking-tighter text-primary uppercase flex items-center gap-3">
-            <UserCog className="w-10 h-10" />
-            Répertoire des Accès
-          </h1>
-          <Badge variant="outline" className="px-4 py-1 border-primary/20 text-primary font-bold">
-            {uniqueUsers.length} UTILISATEURS UNIQUES
-          </Badge>
+          <h1 className="text-4xl font-black tracking-tighter text-primary uppercase flex items-center gap-3"><UserCog className="w-10 h-10" />Répertoire</h1>
+          <Badge variant="outline" className="px-4 py-1 border-primary/20 text-primary font-bold">{uniqueUsers.length} UTILISATEURS</Badge>
         </div>
 
         <Card className="border-none shadow-xl rounded-[2rem] overflow-hidden bg-white">
-          <CardHeader className="bg-primary text-primary-foreground p-8">
-            <CardTitle className="text-xl flex items-center gap-2">
-              <ShieldCheck className="w-6 h-6" />
-              Gestion des Studios
-            </CardTitle>
-          </CardHeader>
+          <CardHeader className="bg-primary text-primary-foreground p-8"><CardTitle className="text-xl flex items-center gap-2"><ShieldCheck className="w-6 h-6" />Gestion des Studios</CardTitle></CardHeader>
           <CardContent className="p-0">
-            {isUsersLoading ? (
-              <div className="p-20 flex flex-col items-center justify-center gap-4">
-                <Loader2 className="w-12 h-12 animate-spin text-primary opacity-30" />
-              </div>
-            ) : (
-              <Table>
-                <TableHeader className="bg-muted/50">
-                  <TableRow>
-                    <TableHead className="w-[200px] pl-8">Utilisateur</TableHead>
-                    <TableHead>Entreprise</TableHead>
-                    <TableHead>Rôle</TableHead>
-                    <TableHead>Identifiant</TableHead>
-                    <TableHead>Mot de passe</TableHead>
-                    <TableHead className="text-right pr-8">Actions</TableHead>
+            <Table>
+              <TableHeader className="bg-muted/50">
+                <TableRow>
+                  <TableHead className="pl-8">Utilisateur</TableHead>
+                  <TableHead>Entreprise</TableHead>
+                  <TableHead>Rôle</TableHead>
+                  <TableHead>Identifiant</TableHead>
+                  <TableHead>Mot de passe</TableHead>
+                  <TableHead className="text-right pr-8">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {uniqueUsers.map((u) => (
+                  <TableRow key={u.uid} className="hover:bg-primary/5 border-b-primary/5">
+                    <TableCell className="pl-8 py-6 font-bold">{u.name}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2 group">
+                        <span className="text-sm font-semibold">{u.companyName || u.companyId}</span>
+                        {u.role !== 'super_admin' && (
+                          <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 text-primary" onClick={() => { setEditingCompanyUser({ uid: u.uid, loginId: u.loginId, companyName: u.companyName || u.companyId }); setNewCompanyName(u.companyName || u.companyId); }}>
+                            <Edit2 className="w-3 h-3" />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell><Badge className={u.role === 'super_admin' ? "bg-rose-950" : "bg-primary"}>{u.role.toUpperCase()}</Badge></TableCell>
+                    <TableCell><span className="font-mono text-xs font-black text-primary">{u.loginId}</span></TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2 text-rose-950 font-black group">
+                        <span className="font-mono text-sm">{u.password || "••••••••"}</span>
+                        {u.role !== 'super_admin' && (
+                          <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 text-primary" onClick={() => { setEditingPasswordUser({ uid: u.uid, loginId: u.loginId, password: u.password }); setNewPassword(u.password || ''); }}>
+                            <Key className="w-3 h-3" />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right pr-8">
+                      {u.role !== 'super_admin' && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-rose-950"><Trash2 className="w-4 h-4" /></Button></AlertDialogTrigger>
+                          <AlertDialogContent className="rounded-[2rem]">
+                            <AlertDialogHeader><AlertDialogTitle>Supprimer ?</AlertDialogTitle><AlertDialogDescription>Action irréversible pour <strong>{u.loginId}</strong>.</AlertDialogDescription></AlertDialogHeader>
+                            <AlertDialogFooter><AlertDialogCancel className="rounded-full">Annuler</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteUser(u.loginId)} className="bg-rose-950 rounded-full">Supprimer</AlertDialogAction></AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {uniqueUsers.map((u) => {
-                    return (
-                      <TableRow key={u.uid} className="hover:bg-primary/5 border-b-primary/5">
-                        <TableCell className="pl-8 py-6">
-                          <div className="flex items-center gap-3 font-bold">{u.name}</div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2 group">
-                            <span className="text-sm font-semibold">{u.companyName || u.companyId}</span>
-                            {u.role !== 'super_admin' && (
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-6 w-6 opacity-0 group-hover:opacity-100 text-primary"
-                                onClick={() => {
-                                  setEditingCompanyUser({ uid: u.uid, loginId: u.loginId, companyName: u.companyName || u.companyId });
-                                  setNewCompanyName(u.companyName || u.companyId);
-                                }}
-                              >
-                                <Edit2 className="w-3 h-3" />
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={u.role === 'super_admin' ? "bg-rose-950" : u.role === 'admin' ? "bg-primary" : "bg-muted text-muted-foreground"}>
-                            {u.role.toUpperCase()}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <span className="font-mono text-xs font-black text-primary">{u.loginId}</span>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2 text-rose-950 font-black group">
-                            <Lock className="w-3 h-3 opacity-50" />
-                            <span className="font-mono text-sm">{u.password || "••••••••"}</span>
-                            {u.role !== 'super_admin' && (
-                              <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 text-primary" onClick={() => { setEditingPasswordUser({ uid: u.uid, loginId: u.loginId, password: u.password }); setNewPassword(u.password || ''); }}>
-                                <Key className="w-3 h-3" />
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right pr-8">
-                          {u.role !== 'super_admin' && (
-                            <div className="flex items-center justify-end gap-2">
-                              <Button variant="outline" size="sm" className="rounded-full font-bold text-[9px] uppercase h-8 px-3 gap-1.5" onClick={() => handleRoleChange(u.uid, u.loginId, u.role)}>
-                                <RefreshCcw className="w-3 h-3" />
-                                {u.role === 'admin' ? 'Passer Employé' : 'Passer Patron'}
-                              </Button>
-                              <AlertDialog>
-                                <Button asChild variant="ghost" size="icon" className="h-8 w-8 text-rose-950 cursor-pointer">
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                                <AlertDialogContent className="rounded-[2rem]">
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Supprimer le compte ?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Cette action supprimera définitivement l'identifiant <strong>{u.loginId}</strong> et toutes ses sessions.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel className="rounded-full">Annuler</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleDeleteUser(u.loginId)} className="bg-rose-950 rounded-full">Supprimer</AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            </div>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            )}
+                ))}
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
       </div>
 
       <Dialog open={!!editingPasswordUser} onOpenChange={(open) => !open && setEditingPasswordUser(null)}>
         <DialogContent className="rounded-[2rem]">
-          <DialogHeader>
-            <DialogTitle>Modifier le mot de passe</DialogTitle>
-            <DialogDesc>Changer l'accès pour {editingPasswordUser?.loginId}.</DialogDesc>
-          </DialogHeader>
-          <div className="py-4">
-            <Input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="rounded-xl h-12 font-bold text-rose-900" placeholder="Nouveau mot de passe..." />
-          </div>
-          <DialogFooter>
-            <Button onClick={handleUpdatePassword} disabled={!newPassword.trim()} className="rounded-full font-bold px-8 bg-primary">Enregistrer</Button>
-          </DialogFooter>
+          <DialogHeader><DialogTitle>Modifier le mot de passe</DialogTitle></DialogHeader>
+          <div className="py-4"><Input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="rounded-xl h-12 font-bold" /></div>
+          <DialogFooter><Button onClick={handleUpdatePassword} className="rounded-full bg-primary">Enregistrer</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={!!editingCompanyUser} onOpenChange={(open) => !open && setEditingCompanyUser(null)}>
         <DialogContent className="rounded-[2rem]">
-          <DialogHeader>
-            <DialogTitle>Modifier l'entreprise</DialogTitle>
-            <DialogDesc>Nouveau studio pour {editingCompanyUser?.loginId}.</DialogDesc>
-          </DialogHeader>
-          <div className="py-4">
-            <Input 
-              value={newCompanyName} 
-              onChange={(e) => setNewCompanyName(e.target.value)} 
-              className="rounded-xl h-12 font-bold" 
-              placeholder="Nom de l'entreprise..." 
-            />
-          </div>
-          <DialogFooter>
-            <Button onClick={handleUpdateCompany} disabled={!newCompanyName.trim()} className="rounded-full font-bold px-8 bg-primary">Mettre à jour</Button>
-          </DialogFooter>
+          <DialogHeader><DialogTitle>Modifier l'entreprise</DialogTitle></DialogHeader>
+          <div className="py-4"><Input value={newCompanyName} onChange={(e) => setNewCompanyName(e.target.value)} className="rounded-xl h-12 font-bold" /></div>
+          <DialogFooter><Button onClick={handleUpdateCompany} className="rounded-full bg-primary">Mettre à jour</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </DashboardLayout>
