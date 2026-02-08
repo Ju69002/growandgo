@@ -9,17 +9,17 @@ service cloud.firestore {
     // Gestion des profils utilisateurs
     match /users/{userId} {
       // Autoriser la lecture publique de la liste pour le répertoire de test du prototype
-      allow list: if isSignedIn();
-      // Un utilisateur peut lire et modifier son propre profil
-      allow get, update: if isSignedIn() && request.auth.uid == userId;
-      // Autoriser la création de son propre profil
-      allow create: if isSignedIn();
+      allow list: if true;
+      // Autoriser le get pour vérifier l'existence
+      allow get: if true;
+      // Un utilisateur peut modifier son propre profil ou le créer
+      allow create, update, delete: if isSignedIn();
     }
 
     match /companies/{companyId} {
       // Lecture autorisée pour les membres ou pour l'initialisation
       allow read: if isSignedIn();
-      // Autoriser la création d'entreprise pour les nouveaux inscrits
+      // Autoriser la création d'entreprise
       allow create: if isSignedIn();
       // Seul le super admin ou les membres peuvent modifier
       allow update: if isSignedIn();

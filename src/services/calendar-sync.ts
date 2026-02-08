@@ -32,8 +32,8 @@ export function mapGoogleEvent(event: any, companyId: string, userId: string): P
   const start = event.start?.dateTime || event.start?.date || new Date().toISOString();
   const end = event.end?.dateTime || event.end?.date || new Date().toISOString();
   
+  // Correction sécurisée ligne 46 : Utilisation de chaînage optionnel et fallback vide
   const attendees = event.attendees?.map((a: any) => {
-    // Sécurisation maximale avec chaînage optionnel et fallback
     const email = a.email || a.emailAddress?.address || '';
     return email || a.displayName || '';
   }).filter(Boolean) || [];

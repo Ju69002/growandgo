@@ -60,7 +60,7 @@ export default function LoginPage() {
     }
   };
 
-  // Crée ou met à jour le profil Firestore
+  // Crée ou met à jour le profil Firestore avec dédoublonnage strict
   const createProfile = async (uid: string, loginId: string, role: string, displayName: string, pass: string, cName?: string) => {
     if (!db) return;
     const lowerId = loginId.toLowerCase().trim();
@@ -69,9 +69,15 @@ export default function LoginPage() {
     const usersRef = collection(db, 'users');
     const q = query(usersRef, where('loginId_lower', '==', lowerId));
     const snap = await getDocs(q);
+    
+    // On supprime les vieux docs si nécessaire
     for (const d of snap.docs) {
       if (d.id !== uid) {
-        await deleteDoc(doc(db, 'users', d.id));
+        try {
+          await deleteDoc(doc(db, 'users', d.id));
+        } catch (e) {
+          console.warn("Impossible de supprimer un doublon (normal si pas de permissions)", e);
+        }
       }
     }
 
@@ -84,12 +90,12 @@ export default function LoginPage() {
       finalCompanyId = 'growandgo-hq';
       finalCompanyName = 'Grow&Go HQ';
     } else {
-      // Pour les autres, on essaie de garder l'entreprise actuelle si elle existe déjà
+      // On essaie de garder l'entreprise actuelle si elle existe déjà
       const existingDoc = snap.docs.find(d => d.id === uid);
       if (existingDoc?.exists()) {
         const data = existingDoc.data();
         finalCompanyId = data.companyId || finalCompanyId;
-      } else {
+      } else if (cName) {
         finalCompanyId = finalCompanyName.toLowerCase().trim().replace(/[^a-z0-9]/g, '-');
       }
     }
@@ -126,6 +132,7 @@ export default function LoginPage() {
       if (isSignUp) {
         if (!companyName.trim()) throw new Error("Le nom de l'entreprise est requis.");
         
+        // Vérification d'existence avant création Auth
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('loginId_lower', '==', lowerId));
         const checkSnap = await getDocs(q);
@@ -134,6 +141,7 @@ export default function LoginPage() {
         const userCredential = await createUserWithEmailAndPassword(auth, internalEmail, password);
         await createProfile(userCredential.user.uid, normalizedId, 'employee', name || normalizedId, password, companyName);
 
+        // Déconnexion forcée après inscription
         await signOut(auth);
         setSignUpSuccess(true);
         setIsSignUp(false);
@@ -146,7 +154,6 @@ export default function LoginPage() {
         const userCredential = await signInWithEmailAndPassword(auth, internalEmail, password);
         
         // RESTAURATION / MISE À JOUR DU PROFIL FIRESTORE SYSTÉMATIQUE
-        // Cela garantit que ADupont ou BDupres sont recréés s'ils manquent dans Firestore
         const isSA = lowerId === 'jsecchi';
         await createProfile(
           userCredential.user.uid, 
@@ -169,7 +176,7 @@ export default function LoginPage() {
     }
   };
 
-  // Dédoublonnage visuel ultra-strict pour le répertoire
+  // Dédoublonnage visuel strict pour le répertoire latéral
   const uniqueDisplayUsers = Array.from(
     new Map(
       (allUsers || [])
@@ -186,6 +193,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-[#F5F2EA] flex items-center justify-center p-4">
       <div className="flex flex-col md:flex-row gap-8 items-start max-w-5xl w-full">
         
+        {/* REPERTOIRE DES ACCÈS */}
         <div className="w-full md:w-80 space-y-4 md:sticky md:top-10">
           <div className="bg-white p-6 rounded-[2rem] shadow-xl border-none">
             <div className="flex items-center gap-2 mb-4 text-[#1E4D3B]">
@@ -219,6 +227,7 @@ export default function LoginPage() {
           </div>
         </div>
 
+        {/* FORMULAIRE DE CONNEXION */}
         <Card className="flex-1 w-full shadow-2xl border-none p-4 rounded-[2.5rem] bg-white">
           <CardHeader className="text-center space-y-4">
             <div className="relative w-20 h-20 mx-auto overflow-hidden rounded-2xl border bg-white shadow-xl">

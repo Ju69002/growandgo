@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -57,7 +56,7 @@ export default function Home() {
 
   if (!user) return null;
 
-  // Gestion du cas "Profil inexistant"
+  // Gestion du cas "Profil inexistant" : Affichage d'un écran d'erreur avec déconnexion possible
   if (!isProfileLoading && !profile) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-[#F5F2EA] p-8 text-center space-y-6">
