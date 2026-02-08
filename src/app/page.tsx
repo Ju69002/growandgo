@@ -87,7 +87,7 @@ export default function Home() {
 
   const { data: pendingTasks } = useCollection<BusinessDocument>(pendingDocsQuery);
 
-  // Filtrage STRICT des tâches pour la semaine en cours uniquement
+  // Filtrage STRICT des tâches pour la semaine en cours et la version stable v4
   const weeklyTasks = useMemo(() => {
     if (!pendingTasks) return [];
     const now = new Date();
@@ -96,8 +96,8 @@ export default function Home() {
 
     return pendingTasks
       .filter(task => {
-        // On ne garde que les tâches de la V3 pour nettoyer visuellement l'interface
-        if (task.isBillingTask && !task.id.startsWith('billing_v3')) return false;
+        // Uniquement les tâches Billing de la version v4 pour éliminer les doublons visuels
+        if (task.isBillingTask && !task.id.startsWith('billing_v4')) return false;
         
         try {
           const taskDate = parse(task.createdAt, 'dd/MM/yyyy', new Date());

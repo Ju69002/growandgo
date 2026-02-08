@@ -114,7 +114,6 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
   const db = useFirestore();
   const { toast } = useToast();
 
-  // Gestion du focus sur une date via l'URL (ex: depuis le tableau de bord)
   React.useEffect(() => {
     const dateParam = searchParams.get('date');
     if (dateParam) {
@@ -170,6 +169,9 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
     return events
       .filter(e => {
         if (!e.debut) return false;
+        // FILTRAGE CRITIQUE : Uniquement les Billing Events de version v4
+        if (e.isBillingEvent && !e.id.startsWith('event_v4')) return false;
+        
         try {
           const eventDate = parseISO(e.debut);
           return isValid(eventDate) && isSameDay(eventDate, day);
