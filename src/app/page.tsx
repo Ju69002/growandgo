@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, useDoc, useMemoFirebase, useAuth } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { User } from '@/lib/types';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
@@ -13,7 +13,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { signOut } from 'firebase/auth';
-import { useAuth } from '@/firebase';
 
 export default function Home() {
   const router = useRouter();
@@ -22,7 +21,7 @@ export default function Home() {
   const db = useFirestore();
   const [mounted, setMounted] = useState(false);
 
-  // Tous les Hooks doivent être déclarés au début, sans exception.
+  // Groupement des Hooks au sommet (Rules of Hooks)
   const userRef = useMemoFirebase(() => {
     if (!db || !user) return null;
     return doc(db, 'users', user.uid);
@@ -34,7 +33,7 @@ export default function Home() {
     setMounted(true);
   }, []);
 
-  // Redirection immédiate si non connecté
+  // Redirection si non authentifié
   useEffect(() => {
     if (mounted && !isUserLoading && !user) {
       router.push('/login');
@@ -52,17 +51,15 @@ export default function Home() {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-[#F5F2EA] gap-4">
         <Loader2 className="w-10 h-10 animate-spin text-primary opacity-50" />
-        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground animate-pulse">
-          Initialisation...
-        </p>
+        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground animate-pulse">Initialisation...</p>
       </div>
     );
   }
 
-  // Si pas de session Auth, on ne fait rien (le useEffect redirige)
+  // Si pas de session Auth
   if (!user) return null;
 
-  // Si la session Auth existe mais que le profil Firestore est introuvable après chargement
+  // Si session Auth mais profil manquant
   if (!isProfileLoading && !profile) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-[#F5F2EA] p-8 text-center space-y-6">
@@ -70,7 +67,7 @@ export default function Home() {
            <AlertTriangle className="w-12 h-12 text-rose-600" />
         </div>
         <div className="space-y-2">
-          <h2 className="text-2xl font-black text-primary uppercase tracking-tighter">Accès refusé</h2>
+          <h2 className="text-2xl font-black text-primary uppercase tracking-tighter">Profil introuvable</h2>
           <p className="text-muted-foreground max-w-sm mx-auto font-medium">
             Votre compte est actif mais aucun profil Studio n'est rattaché à votre session.
           </p>
@@ -83,12 +80,11 @@ export default function Home() {
     );
   }
 
-  // Pendant que le profil charge
   if (isProfileLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-[#F5F2EA] gap-4">
         <Loader2 className="w-10 h-10 animate-spin text-primary opacity-50" />
-        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Chargement du profil...</p>
+        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Chargement...</p>
       </div>
     );
   }

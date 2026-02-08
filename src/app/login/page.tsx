@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -27,16 +27,10 @@ export default function LoginPage() {
   const router = useRouter();
   const auth = useAuth();
   const db = useFirestore();
-  const { user, isUserLoading } = useUser();
   const { toast } = useToast();
   const logo = PlaceHolderImages.find(img => img.id === 'app-logo');
 
-  // Redirection automatique seulement si on a déjà un profil valide
-  useEffect(() => {
-    if (!isUserLoading && user && !signUpSuccess && !isSignUp) {
-      router.push('/');
-    }
-  }, [user, isUserLoading, router, signUpSuccess, isSignUp]);
+  // Suppression de la redirection automatique au montage pour garantir que le login est la 1ère page
 
   const ensureCompanyExists = async (companyId: string, companyName: string) => {
     if (!db) return;
@@ -63,7 +57,6 @@ export default function LoginPage() {
     let finalCompanyId = 'default-studio';
     let finalCompanyName = 'Mon Studio';
 
-    // Logique multi-entreprise prédéfinie
     if (lowerId === 'jsecchi') {
       finalRole = 'super_admin';
       finalCompanyId = 'growandgo-hq';
@@ -71,15 +64,12 @@ export default function LoginPage() {
     } else if (lowerId === 'adupont') {
       finalRole = 'admin';
       finalCompanyId = 'Paul';
-      finalCompanyName = 'Entreprise Paul';
     } else if (lowerId === 'bdupres') {
       finalRole = 'employee';
       finalCompanyId = 'Paul';
-      finalCompanyName = 'Entreprise Paul';
     } else if (lowerId === 'lvecchio') {
       finalRole = 'admin';
       finalCompanyId = 'Oreal';
-      finalCompanyName = 'Entreprise Oreal';
     }
 
     await ensureCompanyExists(finalCompanyId, finalCompanyName);
@@ -120,28 +110,24 @@ export default function LoginPage() {
       }
 
       if (isSignUp) {
-        // Vérification des doublons dans Firestore
+        // Vérification des doublons
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('loginId_lower', '==', lowerId));
         const checkSnap = await getDocs(q);
         
         if (!checkSnap.empty) {
-          throw new Error("Cet identifiant est déjà utilisé dans le Studio.");
+          throw new Error("Cet identifiant est déjà utilisé.");
         }
 
-        // Création dans Auth
         const userCredential = await createUserWithEmailAndPassword(auth, internalEmail, password);
-        // Création du profil
         await createProfile(userCredential.user.uid, normalizedId, 'employee', name || normalizedId);
 
-        // Déconnexion pour forcer la saisie manuelle
         await signOut(auth);
         setSignUpSuccess(true);
         setIsSignUp(false);
         setPassword('');
-        toast({ title: "Inscription réussie !", description: "Veuillez maintenant vous identifier." });
+        toast({ title: "Inscription réussie !", description: "Vous pouvez maintenant vous identifier." });
       } else {
-        // Connexion standard : On cherche l'e-mail correspondant à l'ID
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('loginId_lower', '==', lowerId));
         const querySnapshot = await getDocs(q);
@@ -153,23 +139,20 @@ export default function LoginPage() {
         const userData = querySnapshot.docs[0].data();
         const userCredential = await signInWithEmailAndPassword(auth, userData.email, password);
         
-        // Auto-réparation du profil si manquant
+        // Réparation automatique du profil si manquant
         const userDocRef = doc(db, 'users', userCredential.user.uid);
         const userDocSnap = await getDoc(userDocRef);
-        
         if (!userDocSnap.exists()) {
           await createProfile(userCredential.user.uid, userData.loginId, userData.role || 'employee', userData.name);
         }
 
-        toast({ title: "Bienvenue", description: "Accès au studio validé." });
+        toast({ title: "Bienvenue", description: "Accès validé." });
         router.push('/');
       }
     } catch (error: any) {
       console.error("Auth Error:", error);
-      let message = error.message || "Erreur de connexion.";
-      if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
-        message = "Identifiant ou mot de passe incorrect.";
-      }
+      let message = error.message || "Erreur d'accès.";
+      if (error.code === 'auth/invalid-credential') message = "Identifiant ou mot de passe incorrect.";
       toast({ variant: "destructive", title: "Accès refusé", description: message });
     } finally {
       setIsLoading(false);
@@ -178,7 +161,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-[#F5F2EA] flex items-center justify-center p-4">
-      <Card className="w-full max-w-md shadow-2xl border-none p-4 rounded-[2.5rem] bg-white animate-in fade-in zoom-in duration-300">
+      <Card className="w-full max-w-md shadow-2xl border-none p-4 rounded-[2.5rem] bg-white">
         <CardHeader className="text-center space-y-4">
           <div className="relative w-24 h-24 mx-auto overflow-hidden rounded-2xl border bg-white shadow-xl">
             <Image 
@@ -199,13 +182,13 @@ export default function LoginPage() {
           {signUpSuccess && (
             <div className="mb-6 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3">
               <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-              <p className="text-xs font-bold text-emerald-800 uppercase tracking-wide">Inscription validée ! Connectez-vous.</p>
+              <p className="text-xs font-bold text-emerald-800 uppercase tracking-wide">Identifiant prêt. Connectez-vous.</p>
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {isSignUp && (
-              <div className="space-y-1.5 animate-in slide-in-from-left-2">
+              <div className="space-y-1.5">
                 <Label htmlFor="name" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Nom Complet</Label>
                 <div className="relative">
                   <UserPlus className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
