@@ -14,7 +14,8 @@ import {
   FileText, 
   CheckCircle2, 
   X,
-  AlertTriangle
+  AlertTriangle,
+  UserCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -49,6 +50,7 @@ export default function Home() {
   }, [db, user]);
 
   const { data: profile, isLoading: isProfileLoading } = useDoc<User>(userProfileRef);
+  
   const companyId = profile?.companyId;
 
   const documentsQuery = useMemoFirebase(() => {
@@ -143,15 +145,22 @@ export default function Home() {
   if (!profile) {
     return (
       <DashboardLayout>
-        <div className="flex flex-col items-center justify-center min-h-[60vh] p-8 text-center space-y-4">
-          <AlertTriangle className="w-16 h-16 text-destructive opacity-50" />
-          <h2 className="text-2xl font-black uppercase tracking-tighter">Profil Introuvable</h2>
-          <p className="text-muted-foreground max-w-md">Nous n'avons pas pu charger votre profil Studio. Tentez de vous reconnecter.</p>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] p-8 text-center space-y-6">
+          <div className="p-6 bg-destructive/10 rounded-[2.5rem] shadow-inner">
+             <AlertTriangle className="w-16 h-16 text-destructive" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-3xl font-black uppercase tracking-tighter">Profil Introuvable</h2>
+            <p className="text-muted-foreground max-w-md mx-auto font-medium">
+              Nous n'avons pas pu charger votre profil Studio. 
+              Cela arrive parfois lors de la première création. Tentez de vous reconnecter pour forcer la synchronisation.
+            </p>
+          </div>
           <Button 
             onClick={() => {
               window.location.href = '/login';
             }}
-            className="rounded-full px-8 bg-primary font-bold"
+            className="rounded-full px-12 h-14 bg-primary font-bold shadow-xl text-lg uppercase tracking-tighter"
           >
             Retour à la connexion
           </Button>

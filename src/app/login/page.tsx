@@ -78,7 +78,7 @@ export default function LoginPage() {
       loginId_lower: lowerId,
       email: `${lowerId}@studio.internal`,
       createdAt: new Date().toISOString()
-    });
+    }, { merge: true });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -99,7 +99,7 @@ export default function LoginPage() {
       }
 
       if (isSignUp) {
-        // 1. Verifier si le profil existe déjà
+        // Vérification anti-doublon Firestore
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('loginId_lower', '==', lowerId));
         const checkSnap = await getDocs(q);
@@ -119,7 +119,7 @@ export default function LoginPage() {
           toast({ title: "Bienvenue !", description: "Votre accès Studio a été créé." });
         } catch (authError: any) {
           if (authError.code === 'auth/email-already-in-use') {
-            // Auto-réparation : Le compte Auth existe mais le doc Firestore était manquant
+            // Auto-réparation : Le compte existe techniquement, on restaure le profil
             const userCredential = await signInWithEmailAndPassword(auth, internalEmail, password);
             await createProfile(
               userCredential.user.uid, 
@@ -127,23 +127,23 @@ export default function LoginPage() {
               isTargetSuperAdmin ? 'super_admin' : 'employee',
               name || normalizedId
             );
-            toast({ title: "Profil réparé", description: "Votre accès a été restauré avec succès." });
+            toast({ title: "Profil restauré", description: "Votre accès a été rétabli." });
           } else {
             throw authError;
           }
         }
       } else {
-        // 2. Recherche de l'utilisateur par ID
+        // LOGIN
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('loginId_lower', '==', lowerId));
         const querySnapshot = await getDocs(q);
 
         if (querySnapshot.empty) {
-          // Cas particulier : JSecchi doit toujours pouvoir se connecter et s'auto-réparer
+          // CAS SPECIAL REPARATION : JSecchi ou profil manquant dans Firestore
           if (isTargetSuperAdmin && password === 'Meqoqo1998') {
             const userCredential = await signInWithEmailAndPassword(auth, internalEmail, password);
             await createProfile(userCredential.user.uid, 'JSecchi', 'super_admin', 'Julien Secchi');
-            toast({ title: "Profil restauré", description: "Accès Super Admin réactivé." });
+            toast({ title: "Profil restauré", description: "Accès Super Admin activé." });
             return;
           }
           throw new Error("Identifiant inconnu.");
@@ -151,6 +151,15 @@ export default function LoginPage() {
 
         const userData = querySnapshot.docs[0].data();
         await signInWithEmailAndPassword(auth, userData.email, password);
+        
+        // Vérification de sécurité pour JSecchi au login normal
+        if (isTargetSuperAdmin) {
+          const userCredential = auth.currentUser;
+          if (userCredential) {
+            await createProfile(userCredential.uid, 'JSecchi', 'super_admin', 'Julien Secchi');
+          }
+        }
+        
         toast({ title: "Connexion réussie", description: "Accès au Studio validé." });
       }
     } catch (error: any) {
