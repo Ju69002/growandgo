@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { useAuth, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
@@ -65,6 +66,7 @@ export default function LoginPage() {
     let finalCompanyId = 'default-studio';
     let finalCompanyName = 'Mon Studio';
 
+    // Logique Super Admin JSecchi
     if (lowerId === 'jsecchi') {
       finalRole = 'super_admin';
       finalCompanyId = 'growandgo-hq';
@@ -109,7 +111,7 @@ export default function LoginPage() {
       }
 
       if (isSignUp) {
-        // Vérification des doublons
+        // Vérification des doublons d'identifiants
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('loginId_lower', '==', lowerId));
         const checkSnap = await getDocs(q);
@@ -119,13 +121,15 @@ export default function LoginPage() {
         }
 
         const userCredential = await createUserWithEmailAndPassword(auth, internalEmail, password);
+        // Les nouveaux inscrits sont par défaut des employés
         await createProfile(userCredential.user.uid, normalizedId, 'employee', name || normalizedId);
 
-        // Déconnexion immédiate après inscription pour forcer le login manuel
+        // Déconnexion immédiate pour forcer le login manuel
         await signOut(auth);
         setSignUpSuccess(true);
         setIsSignUp(false);
         setPassword('');
+        setName('');
         toast({ title: "Inscription réussie !", description: "Vous pouvez maintenant vous identifier." });
       } else {
         const usersRef = collection(db, 'users');
@@ -139,7 +143,7 @@ export default function LoginPage() {
         const userData = querySnapshot.docs[0].data();
         const userCredential = await signInWithEmailAndPassword(auth, userData.email, password);
         
-        // Réparation automatique du profil si manquant
+        // Réparation automatique du profil si nécessaire
         const userDocRef = doc(db, 'users', userCredential.user.uid);
         const userDocSnap = await getDoc(userDocRef);
         if (!userDocSnap.exists()) {
@@ -184,11 +188,11 @@ export default function LoginPage() {
                   </div>
                 ))
               ) : (
-                <p className="text-[10px] text-muted-foreground italic">Aucun ID en base...</p>
+                <p className="text-[10px] text-muted-foreground italic">Chargement...</p>
               )}
             </div>
             <p className="mt-6 text-[9px] text-[#1E4D3B]/40 leading-relaxed">
-              Note : Utilisez ces identifiants pour tester les différents rôles.
+              Note : Utilisez ces identifiants pour tester les différents rôles du Studio.
             </p>
           </div>
         </div>
@@ -215,19 +219,19 @@ export default function LoginPage() {
             {signUpSuccess && (
               <div className="mb-6 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3">
                 <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                <p className="text-xs font-bold text-emerald-800 uppercase tracking-wide">Identifiant prêt. Connectez-vous.</p>
+                <p className="text-xs font-bold text-emerald-800 uppercase tracking-wide">Profil prêt. Identifiez-vous.</p>
               </div>
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
               {isSignUp && (
                 <div className="space-y-1.5">
-                  <Label htmlFor="name" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Nom Complet</Label>
+                  <Label htmlFor="name" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Nom Complet (Prénom Nom)</Label>
                   <div className="relative">
                     <UserPlus className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
                     <Input 
                       id="name" 
-                      placeholder="Votre Nom..." 
+                      placeholder="Ex: Marc Lavoine" 
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       className="pl-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-medium"
@@ -243,7 +247,7 @@ export default function LoginPage() {
                   <UserCircle className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
                   <Input 
                     id="loginId" 
-                    placeholder="Ex: ADupont" 
+                    placeholder="Ex: MLavoine" 
                     value={loginId}
                     onChange={(e) => setLoginId(e.target.value)}
                     className="pl-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-medium"
@@ -281,7 +285,7 @@ export default function LoginPage() {
                   className="w-full h-14 bg-[#1E4D3B] hover:bg-[#1E4D3B]/90 rounded-2xl font-bold text-lg shadow-xl"
                   disabled={isLoading}
                 >
-                  {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (isSignUp ? "Créer mon ID" : "Se connecter")}
+                  {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (isSignUp ? "Créer mon profil" : "Accéder au Studio")}
                 </Button>
 
                 <button
@@ -295,7 +299,7 @@ export default function LoginPage() {
                     setName('');
                   }}
                 >
-                  {isSignUp ? "Déjà un ID ? Connexion" : "Nouvel ID ? Inscription"}
+                  {isSignUp ? "Déjà un identifiant ? Connexion" : "Nouvel arrivant ? S'inscrire"}
                 </button>
               </div>
             </form>
