@@ -50,7 +50,7 @@ export default function BillingPage() {
 
   const isSuperAdmin = profile?.role === 'super_admin';
 
-  // Récupération plus large pour éviter de rater des profils (filtrage en mémoire)
+  // Récupération globale pour assurer la visibilité complète
   const allUsersQuery = useMemoFirebase(() => {
     if (!db || !isSuperAdmin) return null;
     return query(collection(db, 'users'));
@@ -58,11 +58,11 @@ export default function BillingPage() {
 
   const { data: allUsers, isLoading: isLoadingUsers } = useCollection<User>(allUsersQuery);
 
-  // Synchronisation des tâches au chargement de la page pour l'Admin
+  // Synchronisation automatique en arrière-plan pour l'Admin
   useEffect(() => {
     if (db && user && isSuperAdmin && allUsers && !syncLock.current) {
       syncLock.current = true;
-      syncBillingTasks(db, user.uid, allUsers.filter(u => u.isProfile));
+      syncBillingTasks(db, user.uid, allUsers.filter(u => u.isProfile || u.role !== 'super_admin'));
     }
   }, [db, user, isSuperAdmin, allUsers]);
 
@@ -95,11 +95,12 @@ export default function BillingPage() {
 
   const uniqueProfiles = useMemo(() => {
     if (!allUsers) return [];
-    // Filtrage des profils uniques et suppression des doublons de session
+    // Déduplication basée sur loginId pour afficher tous les comptes du répertoire
     return Array.from(
       new Map(
         allUsers
-          .filter(u => u.isProfile && (u.loginId || u.loginId_lower))
+          .filter(u => u.loginId || u.loginId_lower)
+          .sort((a, b) => (a.isProfile ? 1 : -1)) // Le profil principal gagne sur la session
           .map(u => {
             const lowerId = (u.loginId_lower || u.loginId?.toLowerCase());
             return [lowerId, u];
@@ -123,21 +124,6 @@ export default function BillingPage() {
               <p className="text-muted-foreground font-medium">Gestion des accès et récapitulatif des comptes actifs.</p>
             </div>
           </div>
-          {isSuperAdmin && (
-             <Button 
-               variant="outline" 
-               className="rounded-full h-10 gap-2 font-bold text-xs uppercase"
-               onClick={() => {
-                 if (db && user && allUsers) {
-                   syncBillingTasks(db, user.uid, allUsers.filter(u => u.isProfile));
-                   toast({ title: "Synchronisation forcée", description: "Tâches et agenda mis à jour." });
-                 }
-               }}
-             >
-               <Zap className="w-4 h-4 text-amber-500" />
-               Actualiser les tâches
-             </Button>
-          )}
         </div>
 
         {isSuperAdmin ? (
@@ -165,7 +151,13 @@ export default function BillingPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {uniqueProfiles.map((u) => (
+                  {isLoadingUsers ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="py-20 text-center">
+                        <Loader2 className="w-10 h-10 animate-spin text-primary/20 mx-auto" />
+                      </TableCell>
+                    </TableRow>
+                  ) : uniqueProfiles.map((u) => (
                     <TableRow key={u.uid} className="hover:bg-primary/5 border-b-primary/5">
                       <TableCell className="pl-8 py-6">
                         <div className="flex flex-col">
