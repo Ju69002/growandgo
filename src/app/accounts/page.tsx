@@ -38,7 +38,8 @@ import {
   CheckCircle2,
   Calendar,
   UserCircle,
-  AlertTriangle
+  AlertTriangle,
+  User as UserIcon
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useMemo, useEffect } from 'react';
@@ -80,10 +81,12 @@ export default function AccountsPage() {
   const [editingPasswordUser, setEditingPasswordUser] = useState<User | null>(null);
   const [editingCompanyUser, setEditingCompanyUser] = useState<User | null>(null);
   const [editingRoleUser, setEditingRoleUser] = useState<User | null>(null);
+  const [editingNameUser, setEditingNameUser] = useState<User | null>(null);
   const [deletingUser, setDeletingUser] = useState<User | null>(null);
   
   const [newPassword, setNewPassword] = useState('');
   const [newCompanyName, setNewCompanyName] = useState('');
+  const [newName, setNewName] = useState('');
   const [newRole, setNewRole] = useState<UserRole>('employee');
   const [roleCompanyInput, setRoleCompanyInput] = useState('');
 
@@ -125,7 +128,6 @@ export default function AccountsPage() {
             } else if (u.role === 'particulier') {
               finalUser.companyName = "Espace Privé";
             } else if (!u.companyName && u.companyId) {
-              // Restauration visuelle si le nom est manquant mais l'ID existe
               finalUser.companyName = u.companyId;
             }
             
@@ -174,6 +176,13 @@ export default function AccountsPage() {
     setEditingPasswordUser(null);
   };
 
+  const handleUpdateName = () => {
+    if (!db || !editingNameUser || !newName.trim()) return;
+    updateAllUserDocs(editingNameUser.loginId, { name: newName.trim() });
+    toast({ title: "Nom mis à jour" });
+    setEditingNameUser(null);
+  };
+
   const handleUpdateCompany = () => {
     if (!db || !editingCompanyUser || !newCompanyName.trim()) return;
     const newId = normalizeId(newCompanyName);
@@ -194,12 +203,10 @@ export default function AccountsPage() {
       isCategoryModifier: newRole !== 'employee'
     };
 
-    // Logique d'isolation Particulier
     if (newRole === 'particulier') {
       updates.companyName = "Mon Espace Personnel";
       updates.companyId = `private-${editingRoleUser.loginId.toLowerCase()}`;
     } else if (editingRoleUser.role === 'particulier' && (newRole === 'admin' || newRole === 'employee')) {
-      // Transition depuis Particulier : on force le nom d'entreprise
       if (!roleCompanyInput.trim()) {
         toast({ variant: "destructive", title: "Action requise", description: "Veuillez renseigner le nom de l'entreprise." });
         return;
@@ -247,7 +254,20 @@ export default function AccountsPage() {
                 {uniqueUsers.map((u) => (
                   <TableRow key={u.uid} className="hover:bg-primary/5 border-b-primary/5">
                     <TableCell className="pl-8 py-6 font-bold text-base text-primary">
-                      {u.name || u.loginId}
+                      <div className="flex items-center gap-2 group">
+                        <span>{u.name || u.loginId}</span>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-6 w-6 opacity-0 group-hover:opacity-100 text-primary" 
+                          onClick={() => { 
+                            setEditingNameUser(u); 
+                            setNewName(u.name || u.loginId || ''); 
+                          }}
+                        >
+                          <Edit2 className="w-3 h-3" />
+                        </Button>
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-1 group">
@@ -333,6 +353,19 @@ export default function AccountsPage() {
                                variant="ghost" 
                                size="icon" 
                                className="text-primary" 
+                               title="Modifier le nom"
+                               onClick={() => { 
+                                 setEditingNameUser(u); 
+                                 setNewName(u.name || u.loginId || ''); 
+                               }}
+                             >
+                               <UserIcon className="w-4 h-4" />
+                             </Button>
+                             <Button 
+                               variant="ghost" 
+                               size="icon" 
+                               className="text-primary" 
+                               title="Modifier le mot de passe"
                                onClick={() => { 
                                  setEditingPasswordUser(u); 
                                  setNewPassword(u.password || ''); 
@@ -359,6 +392,27 @@ export default function AccountsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={!!editingNameUser} onOpenChange={(open) => !open && setEditingNameUser(null)}>
+        <DialogContent className="rounded-[2rem]">
+          <DialogHeader>
+            <DialogTitle>Modifier le nom complet</DialogTitle>
+            <DialogDescription>Mise à jour pour l'utilisateur : <strong>{editingNameUser?.loginId}</strong></DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="space-y-1">
+              <span className="text-[10px] font-black uppercase text-muted-foreground ml-1">Nom et Prénom</span>
+              <Input 
+                value={newName} 
+                onChange={(e) => setNewName(e.target.value)} 
+                placeholder="Ex: Patrick Blanc"
+                className="rounded-xl h-12 font-bold" 
+              />
+            </div>
+          </div>
+          <DialogFooter><Button onClick={handleUpdateName} className="rounded-full bg-primary">Enregistrer le nom</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!editingPasswordUser} onOpenChange={(open) => !open && setEditingPasswordUser(null)}>
         <DialogContent className="rounded-[2rem]">
@@ -417,7 +471,6 @@ export default function AccountsPage() {
               </Select>
             </div>
 
-            {/* Champ conditionnel pour le nom d'entreprise lors du passage de Particulier -> Autre */}
             {(editingRoleUser?.role === 'particulier' && (newRole === 'admin' || newRole === 'employee')) && (
               <div className="space-y-2 animate-in slide-in-from-top-2">
                 <Label className="text-[10px] font-black uppercase text-rose-600 flex items-center gap-2">
