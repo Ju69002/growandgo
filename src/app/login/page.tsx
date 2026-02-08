@@ -128,7 +128,7 @@ export default function LoginPage() {
           name || normalizedId
         );
 
-        // RETOUR A LA CONNEXION APRES INSCRIPTION
+        // RETOUR A LA CONNEXION APRES INSCRIPTION (MANUEL)
         await signOut(auth);
         setIsSignUp(false);
         setPassword('');

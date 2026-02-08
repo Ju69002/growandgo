@@ -36,7 +36,6 @@ export default function SettingsPage() {
 
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
-  const [companyName, setCompanyName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
   const userRef = useMemoFirebase(() => {
@@ -57,8 +56,7 @@ export default function SettingsPage() {
   useEffect(() => {
     if (profile?.name) setUserName(profile.name);
     if (profile?.email) setUserEmail(profile.email);
-    if (company?.name) setCompanyName(company.name);
-  }, [profile, company]);
+  }, [profile]);
 
   const handleSave = () => {
     if (!db || !user || !companyId) return;
@@ -70,17 +68,11 @@ export default function SettingsPage() {
       email: userEmail
     });
 
-    const isPatronOrSuper = profile?.role === 'admin' || profile?.role === 'super_admin';
-    if (isPatronOrSuper && companyName.trim()) {
-      const compDocRef = doc(db, 'companies', companyId);
-      updateDocumentNonBlocking(compDocRef, { name: companyName });
-    }
-
     setTimeout(() => {
       setIsSaving(false);
       toast({ 
         title: "Profil mis à jour", 
-        description: "Vos modifications ont été enregistrées." 
+        description: "Vos modifications ont été enregistrées avec succès." 
       });
     }, 500);
   };
@@ -90,7 +82,7 @@ export default function SettingsPage() {
       <DashboardLayout>
         <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
           <Loader2 className="w-12 h-12 animate-spin text-primary opacity-30" />
-          <p className="text-xs font-black uppercase text-muted-foreground">Chargement...</p>
+          <p className="text-xs font-black uppercase text-muted-foreground">Chargement de votre profil...</p>
         </div>
       </DashboardLayout>
     );
@@ -104,8 +96,8 @@ export default function SettingsPage() {
             <UserIcon className="w-8 h-8" />
           </div>
           <div>
-            <h1 className="text-4xl font-black tracking-tighter text-primary uppercase">Mon Profil</h1>
-            <p className="text-muted-foreground font-medium">Gérez vos informations personnelles.</p>
+            <h1 className="text-4xl font-black tracking-tighter text-primary uppercase">Mon Profil Studio</h1>
+            <p className="text-muted-foreground font-medium">Gérez votre identité et vos informations d'accès.</p>
           </div>
         </div>
 
@@ -115,7 +107,7 @@ export default function SettingsPage() {
               <div className="flex items-center justify-between">
                 <CardTitle className="text-xl flex items-center gap-2">
                   <Fingerprint className="w-6 h-6" />
-                  Identité
+                  Identité & Rôle
                 </CardTitle>
                 <Badge className={cn(
                   "font-black uppercase text-[10px] h-6 px-3",
@@ -129,16 +121,34 @@ export default function SettingsPage() {
             <CardContent className="p-8 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Nom Complet</Label>
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Identifiant Studio (Fixe)</Label>
                   <Input 
+                    value={profile?.loginId || ''}
+                    disabled
+                    className="rounded-xl bg-muted/50 border-primary/5 h-12 font-bold opacity-60"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Entreprise Studio</Label>
+                  <Input 
+                    value={company?.name || profile?.companyId || ''}
+                    disabled
+                    className="rounded-xl bg-muted/50 border-primary/5 h-12 font-bold opacity-60"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="uname" className="text-[10px] font-black uppercase text-muted-foreground ml-1">Nom Complet / Prénom</Label>
+                  <Input 
+                    id="uname"
                     value={userName}
                     onChange={(e) => setUserName(e.target.value)}
                     className="rounded-xl border-primary/10 h-12 font-bold"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">E-mail</Label>
+                  <Label htmlFor="uemail" className="text-[10px] font-black uppercase text-muted-foreground ml-1">E-mail de contact</Label>
                   <Input 
+                    id="uemail"
                     type="email"
                     value={userEmail}
                     onChange={(e) => setUserEmail(e.target.value)}
@@ -156,7 +166,7 @@ export default function SettingsPage() {
               className="rounded-full px-12 h-14 font-bold bg-primary hover:bg-primary/90 shadow-xl gap-3 text-lg"
             >
               {isSaving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
-              Enregistrer
+              Enregistrer mon profil
             </Button>
           </div>
         </div>

@@ -42,7 +42,7 @@ export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [isCalendarFull, setIsCalendarFull] = useState(false);
 
-  // DECLARATION DE TOUS LES HOOKS AU SOMMET (RULES OF HOOKS)
+  // 1. Déclaration de TOUS les Hooks au sommet (Rules of Hooks)
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user) return null;
     return doc(db, 'users', user.uid);
@@ -70,17 +70,18 @@ export default function Home() {
 
   const { data: meetings } = useCollection<CalendarEvent>(meetingsQuery);
 
+  // 2. Gestion du montage et de la redirection prioritaire
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // REDIRECTION PRIORITAIRE VERS LOGIN
   useEffect(() => {
     if (mounted && !isUserLoading && !user) {
       router.push('/login');
     }
   }, [user, isUserLoading, router, mounted]);
 
+  // 3. Calcul des tâches hebdomadaires
   const weeklyTasks = useMemo(() => {
     if (!mounted || (!documents && !meetings)) return [];
     const today = startOfToday();
@@ -128,7 +129,7 @@ export default function Home() {
     return tasks.sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [mounted, documents, meetings]);
 
-  // RENDU SECURISE
+  // 4. Rendus conditionnels sécurisés APRES les Hooks
   if (!mounted || isUserLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#F5F2EA]">
@@ -138,7 +139,7 @@ export default function Home() {
   }
 
   if (!user) {
-    return null; // Redirection en cours
+    return null; // Redirection forcée vers login
   }
 
   if (!isProfileLoading && !profile) {
@@ -151,14 +152,14 @@ export default function Home() {
           <div className="space-y-2">
             <h2 className="text-3xl font-black uppercase tracking-tighter text-primary">Profil Inaccessible</h2>
             <p className="text-muted-foreground max-w-md mx-auto font-medium">
-              Votre identifiant est connecté mais nous n'avons pas pu charger votre profil Studio.
+              Votre identifiant est connecté mais votre profil Studio est manquant ou en cours de réparation.
             </p>
           </div>
           <Button 
             onClick={() => router.push('/login')}
             className="rounded-full px-12 h-14 bg-primary font-bold shadow-xl text-lg uppercase"
           >
-            Retourner à l'accueil
+            Retourner à l'identification
           </Button>
         </div>
       </DashboardLayout>
@@ -175,9 +176,9 @@ export default function Home() {
             <h1 className="text-4xl font-black tracking-tighter text-primary uppercase">Tableau de bord</h1>
             <Badge className={cn(
               "font-black uppercase text-[10px] h-5 px-2",
-              profile?.role === 'super_admin' ? "bg-rose-950 text-white" : "bg-primary text-primary-foreground"
+              isSuperAdmin ? "bg-rose-950 text-white" : "bg-primary text-primary-foreground"
             )}>
-              {profile?.role === 'super_admin' ? 'Super Admin' : profile?.role === 'admin' ? 'Patron' : 'Employé'}
+              {isSuperAdmin ? 'Super Admin' : profile?.role === 'admin' ? 'Patron' : 'Employé'}
             </Badge>
           </div>
           <p className="text-muted-foreground mt-1 font-medium italic">
@@ -258,7 +259,7 @@ export default function Home() {
               <div className="space-y-2">
                 <h2 className="text-2xl font-black uppercase tracking-tight text-primary">Console Super Administrateur</h2>
                 <p className="text-sm text-muted-foreground font-medium max-w-lg mx-auto">
-                  Gestion globale des accès et des entreprises.
+                  Gestion globale des accès et des entreprises Studio.
                 </p>
               </div>
             </div>
