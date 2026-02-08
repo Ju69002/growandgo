@@ -275,7 +275,7 @@ export default function AccountsPage() {
                   <TableHead className="text-[10px] font-black uppercase tracking-widest text-primary-foreground/70">Entreprise</TableHead>
                   <TableHead className="text-[10px] font-black uppercase tracking-widest text-primary-foreground/70 text-center">Rôle</TableHead>
                   <TableHead className="text-[10px] font-black uppercase tracking-widest text-primary-foreground/70 text-center">Abonnement</TableHead>
-                  <TableHead className="text-[10px] font-black uppercase tracking-widest text-primary-foreground/70">Identifiant (ID)</TableHead>
+                  <TableHead className="text-[10px] font-black uppercase tracking-widest text-primary-foreground/70 text-center">Identifiant (ID)</TableHead>
                   <TableHead className="text-right pr-8 text-[10px] font-black uppercase tracking-widest text-primary-foreground/70">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -293,7 +293,7 @@ export default function AccountsPage() {
                             <Button 
                               variant="ghost" 
                               size="icon" 
-                              className="h-5 w-5 opacity-0 group-hover:opacity-100 text-primary transition-opacity" 
+                              className="h-5 w-5 text-primary" 
                               onClick={() => { setEditingNameUser(u); setNewName(u.name || u.loginId || ''); }}
                             >
                               <Edit2 className="w-3 h-3" />
@@ -316,7 +316,7 @@ export default function AccountsPage() {
                           <Button 
                             variant="ghost" 
                             size="icon" 
-                            className="h-5 w-5 opacity-0 group-hover:opacity-100 text-primary transition-opacity" 
+                            className="h-5 w-5 text-primary" 
                             onClick={() => { setEditingCompanyUser(u); setNewCompanyName(u.companyName || u.companyId || ''); }}
                           >
                             <Edit2 className="w-3 h-3" />
@@ -327,19 +327,19 @@ export default function AccountsPage() {
                     <TableCell className="text-center py-4">
                       <div className="flex items-center justify-center gap-2">
                         <Badge className={cn(
-                          "text-[9px] font-black uppercase px-2 h-5 tracking-tighter whitespace-nowrap",
+                          "text-[10px] font-black uppercase px-3 h-6 tracking-tight whitespace-nowrap flex items-center justify-center",
                           u.role === 'super_admin' ? "bg-rose-950" : 
                           u.role === 'admin' ? "bg-primary" : 
                           u.role === 'particulier' ? "bg-amber-600" :
                           "bg-muted-foreground/20 text-muted-foreground"
                         )}>
-                          {u.role === 'super_admin' ? 'ADMIN' : u.role === 'admin' ? 'PATRON' : u.role === 'particulier' ? 'PART.' : 'EMP.'}
+                          {u.role === 'super_admin' ? 'ADMIN' : u.role === 'admin' ? 'PATRON' : u.role === 'particulier' ? 'PARTICULIER' : 'EMPLOYÉ'}
                         </Badge>
                         {u.role !== 'super_admin' && (
                           <Button 
                             variant="ghost" 
                             size="icon" 
-                            className="h-5 w-5 opacity-0 group-hover:opacity-100 text-primary transition-opacity"
+                            className="h-5 w-5 text-primary"
                             onClick={() => {
                               setEditingRoleUser(u);
                               setNewRole(u.role);
@@ -352,30 +352,32 @@ export default function AccountsPage() {
                       </div>
                     </TableCell>
                     <TableCell className="text-center py-4">
-                      {u.role !== 'super_admin' ? (
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className={cn(
-                            "rounded-full h-6 px-3 text-[9px] font-black uppercase tracking-widest gap-1.5 transition-all",
-                            u.subscriptionStatus === 'inactive' ? "text-rose-600 bg-rose-50 hover:bg-rose-100" : "text-emerald-600 bg-emerald-50 hover:bg-emerald-100"
-                          )}
-                          onClick={() => toggleSubscription(u.loginId, u.subscriptionStatus)}
-                        >
-                          {u.subscriptionStatus === 'inactive' ? <Ban className="w-2.5 h-2.5" /> : <CheckCircle2 className="w-2.5 h-2.5" />}
-                          {u.subscriptionStatus === 'inactive' ? 'Désactivé' : 'Actif'}
-                        </Button>
-                      ) : (
-                        <Badge className="bg-emerald-600 font-black uppercase text-[9px] h-5">TOUJOURS ACTIF</Badge>
-                      )}
+                      <div className="flex justify-center">
+                        {u.role !== 'super_admin' ? (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className={cn(
+                              "rounded-full h-6 px-3 text-[9px] font-black uppercase tracking-widest gap-1.5 transition-all",
+                              u.subscriptionStatus === 'inactive' ? "text-rose-600 bg-rose-50 hover:bg-rose-100" : "text-emerald-600 bg-emerald-50 hover:bg-emerald-100"
+                            )}
+                            onClick={() => toggleSubscription(u.loginId, u.subscriptionStatus)}
+                          >
+                            {u.subscriptionStatus === 'inactive' ? <Ban className="w-2.5 h-2.5" /> : <CheckCircle2 className="w-2.5 h-2.5" />}
+                            {u.subscriptionStatus === 'inactive' ? 'Désactivé' : 'Actif'}
+                          </Button>
+                        ) : (
+                          <Badge className="bg-emerald-600 font-black uppercase text-[9px] h-6 px-3 flex items-center justify-center">TOUJOURS ACTIF</Badge>
+                        )}
+                      </div>
                     </TableCell>
-                    <TableCell className="py-4">
-                      <Badge variant="outline" className="font-mono text-[10px] font-black text-primary/60 border-primary/5 bg-primary/5 px-2 py-0">
+                    <TableCell className="py-4 text-center">
+                      <Badge variant="outline" className="font-mono text-[10px] font-black text-primary/60 border-primary/5 bg-primary/5 px-2 py-0 inline-flex">
                         {u.loginId}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right pr-8 py-4">
-                      <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center justify-end gap-1">
                         {u.role !== 'super_admin' && (
                           <>
                              <Button 
@@ -407,7 +409,6 @@ export default function AccountsPage() {
         </Card>
       </div>
 
-      {/* DIALOGS (Inchangés pour la logique, juste arrondis) */}
       <Dialog open={!!editingNameUser} onOpenChange={(open) => !open && setEditingNameUser(null)}>
         <DialogContent className="rounded-[2rem]">
           <DialogHeader>
