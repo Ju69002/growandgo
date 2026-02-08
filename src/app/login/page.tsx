@@ -30,6 +30,7 @@ export default function LoginPage() {
   const { toast } = useToast();
   const logo = PlaceHolderImages.find(img => img.id === 'app-logo');
 
+  // Redirection automatique si déjà connecté
   useEffect(() => {
     if (!isUserLoading && user) {
       router.push('/');
@@ -60,6 +61,7 @@ export default function LoginPage() {
   const createProfile = async (uid: string, loginId: string, role: string, displayName: string) => {
     if (!db) return;
     const lowerId = loginId.toLowerCase().trim();
+    // Logic d'ID Super Admin en dur
     const isTargetSuperAdmin = lowerId === 'jsecchi';
     const companyId = isTargetSuperAdmin ? 'growandgo-hq' : 'default-studio';
     const companyName = isTargetSuperAdmin ? 'Grow&Go HQ' : 'Mon Studio';
@@ -70,9 +72,9 @@ export default function LoginPage() {
     await setDoc(userRef, {
       uid: uid,
       companyId: companyId,
-      role: role,
-      adminMode: role === 'super_admin' || role === 'admin',
-      isCategoryModifier: role === 'super_admin' || role === 'admin',
+      role: isTargetSuperAdmin ? 'super_admin' : role,
+      adminMode: (isTargetSuperAdmin || role === 'admin'),
+      isCategoryModifier: (isTargetSuperAdmin || role === 'admin'),
       name: displayName || loginId,
       loginId: loginId.trim(),
       loginId_lower: lowerId,
@@ -95,23 +97,29 @@ export default function LoginPage() {
       // LOGIQUE PRIORITAIRE JSECCHI (IDENTIFIANTS EN DUR)
       if (!isSignUp && lowerId === 'jsecchi' && password === 'Meqoqo1998') {
         try {
+          // Tentative de connexion normale
           const userCredential = await signInWithEmailAndPassword(auth, internalEmail, password);
+          // Auto-réparation du profil Super Admin si manquant
           await createProfile(userCredential.user.uid, 'JSecchi', 'super_admin', 'Julien Secchi');
-          toast({ title: "Accès Super Admin", description: "Profil restauré avec succès." });
+          toast({ title: "Accès Super Admin", description: "Profil restauré et synchronisé." });
           return;
         } catch (authError: any) {
-          if (authError.code === 'auth/user-not-found' || authError.code === 'auth/invalid-credential') {
-            const userCredential = await createUserWithEmailAndPassword(auth, internalEmail, password);
-            await createProfile(userCredential.user.uid, 'JSecchi', 'super_admin', 'Julien Secchi');
-            toast({ title: "Initialisation JSecchi", description: "Compte Super Administrateur créé." });
-            return;
+          // Si le compte technique n'existe pas encore (première fois)
+          if (authError.code === 'auth/user-not-found' || authError.code === 'auth/invalid-credential' || authError.code === 'auth/wrong-password') {
+             if (password === 'Meqoqo1998') {
+               // Création forcée du compte technique JSecchi
+               const userCredential = await createUserWithEmailAndPassword(auth, internalEmail, password);
+               await createProfile(userCredential.user.uid, 'JSecchi', 'super_admin', 'Julien Secchi');
+               toast({ title: "Initialisation JSecchi", description: "Accès Super Administrateur créé." });
+               return;
+             }
           }
           throw authError;
         }
       }
 
       if (isSignUp) {
-        // VERIFICATION DOUBLON ID DANS FIRESTORE
+        // VÉRIFICATION DOUBLON DANS FIRESTORE
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('loginId_lower', '==', lowerId));
         const checkSnap = await getDocs(q);
@@ -120,22 +128,24 @@ export default function LoginPage() {
           throw new Error("Cet identifiant est déjà utilisé dans la base Studio.");
         }
 
+        // Création technique
         const userCredential = await createUserWithEmailAndPassword(auth, internalEmail, password);
+        // Création profil
         await createProfile(
           userCredential.user.uid, 
           normalizedId, 
-          lowerId === 'jsecchi' ? 'super_admin' : 'employee',
+          'employee', // Rôle par défaut, modifiable par Super Admin
           name || normalizedId
         );
 
-        // RETOUR A LA CONNEXION APRES INSCRIPTION (MANUEL)
+        // OBLIGATION DE CONNEXION MANUELLE APRÈS INSCRIPTION
         await signOut(auth);
         setIsSignUp(false);
         setPassword('');
         toast({ title: "Inscription réussie !", description: "Connectez-vous maintenant avec vos identifiants." });
         
       } else {
-        // CONNEXION NORMALE PAR ID
+        // CONNEXION NORMALE
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('loginId_lower', '==', lowerId));
         const querySnapshot = await getDocs(q);
@@ -151,7 +161,7 @@ export default function LoginPage() {
     } catch (error: any) {
       console.error("Auth Error:", error);
       let message = error.message || "Une erreur est survenue.";
-      if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
+      if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
         message = "Identifiant ou mot de passe incorrect.";
       }
       toast({ variant: "destructive", title: "Erreur d'accès", description: message });

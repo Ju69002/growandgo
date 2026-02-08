@@ -9,7 +9,8 @@ import {
   Loader2, 
   ShieldCheck, 
   Fingerprint,
-  Mail
+  Mail,
+  Edit2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -72,7 +73,7 @@ export default function SettingsPage() {
       setIsSaving(false);
       toast({ 
         title: "Profil mis à jour", 
-        description: "Vos modifications ont été enregistrées avec succès." 
+        description: "Vos modifications ont été enregistrées avec succès dans votre studio." 
       });
     }, 500);
   };
@@ -82,7 +83,7 @@ export default function SettingsPage() {
       <DashboardLayout>
         <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
           <Loader2 className="w-12 h-12 animate-spin text-primary opacity-30" />
-          <p className="text-xs font-black uppercase text-muted-foreground">Chargement de votre profil...</p>
+          <p className="text-xs font-black uppercase text-muted-foreground">Accès à votre profil...</p>
         </div>
       </DashboardLayout>
     );
@@ -97,7 +98,7 @@ export default function SettingsPage() {
           </div>
           <div>
             <h1 className="text-4xl font-black tracking-tighter text-primary uppercase">Mon Profil Studio</h1>
-            <p className="text-muted-foreground font-medium">Gérez votre identité et vos informations d'accès.</p>
+            <p className="text-muted-foreground font-medium">Gérez votre identité et vos accès personnalisés.</p>
           </div>
         </div>
 
@@ -137,38 +138,44 @@ export default function SettingsPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="uname" className="text-[10px] font-black uppercase text-muted-foreground ml-1">Nom Complet / Prénom</Label>
+                  <Label htmlFor="uname" className="text-[10px] font-black uppercase text-muted-foreground ml-1 flex items-center gap-2">
+                    <Edit2 className="w-3 h-3" /> Nom Complet
+                  </Label>
                   <Input 
                     id="uname"
                     value={userName}
                     onChange={(e) => setUserName(e.target.value)}
-                    className="rounded-xl border-primary/10 h-12 font-bold"
+                    className="rounded-xl border-primary/10 h-12 font-bold focus:ring-primary"
+                    placeholder="Prénom Nom"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="uemail" className="text-[10px] font-black uppercase text-muted-foreground ml-1">E-mail de contact</Label>
+                  <Label htmlFor="uemail" className="text-[10px] font-black uppercase text-muted-foreground ml-1 flex items-center gap-2">
+                    <Mail className="w-3 h-3" /> E-mail de contact
+                  </Label>
                   <Input 
                     id="uemail"
                     type="email"
                     value={userEmail}
                     onChange={(e) => setUserEmail(e.target.value)}
-                    className="rounded-xl border-primary/10 h-12 font-bold"
+                    className="rounded-xl border-primary/10 h-12 font-bold focus:ring-primary"
+                    placeholder="votre@email.com"
                   />
                 </div>
               </div>
+
+              <div className="flex justify-end pt-6">
+                <Button 
+                  onClick={handleSave} 
+                  disabled={isSaving || !userName.trim()}
+                  className="rounded-full px-12 h-14 font-bold bg-primary hover:bg-primary/90 shadow-xl gap-3 text-lg"
+                >
+                  {isSaving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
+                  Enregistrer les modifications
+                </Button>
+              </div>
             </CardContent>
           </Card>
-
-          <div className="flex justify-end pt-4">
-            <Button 
-              onClick={handleSave} 
-              disabled={isSaving || !userName.trim()}
-              className="rounded-full px-12 h-14 font-bold bg-primary hover:bg-primary/90 shadow-xl gap-3 text-lg"
-            >
-              {isSaving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
-              Enregistrer mon profil
-            </Button>
-          </div>
         </div>
       </div>
     </DashboardLayout>

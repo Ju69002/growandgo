@@ -42,7 +42,7 @@ export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [isCalendarFull, setIsCalendarFull] = useState(false);
 
-  // 1. Déclaration de TOUS les Hooks au sommet (Rules of Hooks)
+  // 1. DÉCLARATION DE TOUS LES HOOKS (Rules of Hooks)
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user) return null;
     return doc(db, 'users', user.uid);
@@ -70,7 +70,7 @@ export default function Home() {
 
   const { data: meetings } = useCollection<CalendarEvent>(meetingsQuery);
 
-  // 2. Gestion du montage et de la redirection prioritaire
+  // 2. EFFETS DE NAVIGATION
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -81,7 +81,7 @@ export default function Home() {
     }
   }, [user, isUserLoading, router, mounted]);
 
-  // 3. Calcul des tâches hebdomadaires
+  // 3. CALCULS MEMOÏSÉS
   const weeklyTasks = useMemo(() => {
     if (!mounted || (!documents && !meetings)) return [];
     const today = startOfToday();
@@ -129,7 +129,7 @@ export default function Home() {
     return tasks.sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [mounted, documents, meetings]);
 
-  // 4. Rendus conditionnels sécurisés APRES les Hooks
+  // 4. RENDUS CONDITIONNELS SÉCURISÉS (Après les Hooks)
   if (!mounted || isUserLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#F5F2EA]">
@@ -138,11 +138,20 @@ export default function Home() {
     );
   }
 
-  if (!user) {
-    return null; // Redirection forcée vers login
+  // Redirection gérée par useEffect, mais on sécurise le rendu
+  if (!user) return null;
+
+  // Si on a un utilisateur mais pas encore le profil, on attend
+  if (isProfileLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-[#F5F2EA]">
+        <Loader2 className="w-10 h-10 animate-spin text-primary" />
+      </div>
+    );
   }
 
-  if (!isProfileLoading && !profile) {
+  // Cas critique : Utilisateur authentifié mais profil Firestore manquant (Error auto-repair en cours côté Login)
+  if (!profile) {
     return (
       <DashboardLayout>
         <div className="flex flex-col items-center justify-center min-h-[60vh] p-8 text-center space-y-6">
@@ -152,7 +161,7 @@ export default function Home() {
           <div className="space-y-2">
             <h2 className="text-3xl font-black uppercase tracking-tighter text-primary">Profil Inaccessible</h2>
             <p className="text-muted-foreground max-w-md mx-auto font-medium">
-              Votre identifiant est connecté mais votre profil Studio est manquant ou en cours de réparation.
+              Votre identifiant est connecté mais votre profil technique est manquant dans la base de données.
             </p>
           </div>
           <Button 
