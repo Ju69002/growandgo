@@ -149,11 +149,18 @@ export default function AccountsPage() {
     );
   }
 
-  const sortedUsers = allUsers ? [...allUsers].sort((a, b) => {
+  // Dédoublonnage stricte par Identifiant pour la vue Super Admin
+  const deduplicatedUsers = allUsers ? Array.from(
+    new Map(
+      allUsers.map(u => [u.loginId?.toLowerCase().trim(), u])
+    ).values()
+  ) : [];
+
+  const sortedUsers = deduplicatedUsers.sort((a, b) => {
     if (a.role === 'super_admin') return -1;
     if (b.role === 'super_admin') return 1;
     return (a.loginId || '').localeCompare(b.loginId || '');
-  }) : [];
+  });
 
   return (
     <DashboardLayout>
@@ -164,10 +171,10 @@ export default function AccountsPage() {
               <UserCog className="w-10 h-10" />
               Répertoire des Accès
             </h1>
-            <p className="text-muted-foreground font-medium">Liste complète de tous les identifiants créés dans le Studio.</p>
+            <p className="text-muted-foreground font-medium">Liste unique de tous les identifiants créés dans le Studio (Dédoublonnés).</p>
           </div>
           <Badge variant="outline" className="px-4 py-1 border-primary/20 text-primary font-bold">
-            {allUsers?.length || 0} IDENTIFIANTS ACTIFS
+            {sortedUsers.length} COMPTES UNIQUES
           </Badge>
         </div>
 
@@ -200,6 +207,7 @@ export default function AccountsPage() {
                   {sortedUsers.map((u) => {
                     const company = allCompanies?.find(c => c.id === u.companyId);
                     const companyDisplayName = company?.name || u.companyId || "Non assigné";
+                    const displayPassword = u.password || (u.loginId?.toLowerCase() === 'jsecchi' ? 'Meqoqo1998' : 'Non défini');
 
                     return (
                       <TableRow key={u.uid} className="hover:bg-primary/5 transition-colors border-b-primary/5">
@@ -244,13 +252,13 @@ export default function AccountsPage() {
                         <TableCell>
                           <div className="flex items-center gap-2 px-3 py-1 bg-muted rounded-lg w-fit border border-black/5">
                             <Key className="w-3 h-3 text-muted-foreground" />
-                            <span className="font-mono text-xs font-bold">{u.loginId}</span>
+                            <span className="font-mono text-xs font-black text-primary">{u.loginId}</span>
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2 text-rose-900 font-bold">
+                          <div className="flex items-center gap-2 text-rose-900 font-black">
                             <Lock className="w-3 h-3 opacity-50" />
-                            <span className="font-mono text-xs">{u.password || (u.loginId?.toLowerCase() === 'jsecchi' ? 'Meqoqo1998' : 'Non défini')}</span>
+                            <span className="font-mono text-sm tracking-tight">{displayPassword}</span>
                           </div>
                         </TableCell>
                         <TableCell className="text-right pr-8">
@@ -267,9 +275,11 @@ export default function AccountsPage() {
                               </Button>
 
                               <AlertDialog>
-                                <Button asChild variant="ghost" size="icon" className="h-8 w-8 text-rose-950 hover:bg-rose-100 hover:text-rose-950 rounded-full">
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
+                                <AlertDialogAction asChild>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-950 hover:bg-rose-100 hover:text-rose-950 rounded-full">
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </AlertDialogAction>
                                 <AlertDialogContent className="rounded-[2rem] border-none shadow-2xl">
                                   <AlertDialogHeader>
                                     <AlertDialogTitle className="text-2xl font-black uppercase flex items-center gap-2">

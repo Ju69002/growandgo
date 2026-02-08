@@ -63,7 +63,7 @@ export default function LoginPage() {
     if (!db) return;
     const lowerId = loginId.toLowerCase().trim();
     
-    // Nettoyage radical des doublons : on cherche tout document avec ce loginId (même casse ou pas)
+    // NETTOYAGE RADICAL DES DOUBLONS AVANT CRÉATION
     const usersRef = collection(db, 'users');
     const q = query(usersRef, where('loginId_lower', '==', lowerId));
     const snap = await getDocs(q);
@@ -164,6 +164,7 @@ export default function LoginPage() {
     }
   };
 
+  // Dédoublonnage pour l'affichage de la liste latérale
   const displayUsers = Array.from(
     new Map(
       (allUsers || [])
@@ -188,23 +189,26 @@ export default function LoginPage() {
             </div>
             <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2 scrollbar-thin">
               {displayUsers.length > 0 ? (
-                displayUsers.map(u => (
-                  <div key={u.uid} className="flex flex-col p-3 rounded-xl bg-muted/30 border border-black/5 gap-1.5 animate-in fade-in duration-300">
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono text-[12px] font-black text-primary">{u.loginId}</span>
-                      <Badge className={cn(
-                        "text-[8px] font-black uppercase h-4 px-1 shrink-0",
-                        u.role === 'super_admin' ? "bg-rose-950" : u.role === 'admin' ? "bg-primary" : "bg-muted text-muted-foreground"
-                      )}>
-                        {u.role === 'super_admin' ? 'SA' : u.role === 'admin' ? 'P' : 'E'}
-                      </Badge>
+                displayUsers.map(u => {
+                   const displayPass = u.password || (u.loginId?.toLowerCase() === 'jsecchi' ? 'Meqoqo1998' : 'Non défini');
+                   return (
+                    <div key={u.uid} className="flex flex-col p-3 rounded-xl bg-muted/30 border border-black/5 gap-1.5 animate-in fade-in duration-300">
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-[12px] font-black text-primary">{u.loginId}</span>
+                        <Badge className={cn(
+                          "text-[8px] font-black uppercase h-4 px-1 shrink-0",
+                          u.role === 'super_admin' ? "bg-rose-950" : u.role === 'admin' ? "bg-primary" : "bg-muted text-muted-foreground"
+                        )}>
+                          {u.role === 'super_admin' ? 'SA' : u.role === 'admin' ? 'P' : 'E'}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-rose-950 bg-rose-50/50 p-1.5 rounded border border-rose-100">
+                        <Key className="w-3 h-3 opacity-50" />
+                        <span className="text-[11px] font-mono font-black tracking-tight">{displayPass}</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1.5 text-rose-950 bg-rose-50/50 p-1 rounded border border-rose-100">
-                      <Key className="w-3 h-3 opacity-50" />
-                      <span className="text-[12px] font-mono font-black">{u.password || (u.loginId?.toLowerCase() === 'jsecchi' ? 'Meqoqo1998' : 'Non défini')}</span>
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <div className="py-8 text-center space-y-2">
                   <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary/20" />
