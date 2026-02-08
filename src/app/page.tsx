@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useRef, useMemo } from 'react';
@@ -36,7 +37,7 @@ export default function Home() {
   const { user, isUserLoading } = useUser();
   const db = useFirestore();
   const [mounted, setMounted] = useState(false);
-  const syncLock = useRef(false);
+  const syncCountRef = useRef(0);
 
   useEffect(() => {
     setMounted(true);
@@ -60,15 +61,18 @@ export default function Home() {
 
   const allUsersQuery = useMemoFirebase(() => {
     if (!db || !isSuperAdmin) return null;
-    return query(collection(db, 'users'), where('isProfile', '==', true));
+    return query(collection(db, 'users'));
   }, [db, isSuperAdmin]);
 
   const { data: allUsers } = useCollection<User>(allUsersQuery);
 
+  // Synchronisation avec gestion de la mise à jour des données
   useEffect(() => {
-    if (db && user && isSuperAdmin && allUsers && !syncLock.current) {
-      syncLock.current = true;
-      syncBillingTasks(db, user.uid, allUsers);
+    if (db && user && isSuperAdmin && allUsers && allUsers.length > 0) {
+      if (syncCountRef.current !== allUsers.length) {
+        syncCountRef.current = allUsers.length;
+        syncBillingTasks(db, user.uid, allUsers.filter(u => u.isProfile));
+      }
     }
   }, [db, user, isSuperAdmin, allUsers]);
 
@@ -82,16 +86,16 @@ export default function Home() {
 
   const { data: pendingTasks } = useCollection<BusinessDocument>(pendingDocsQuery);
 
-  // Filtrage des tâches pour la semaine en cours
+  // Filtrage STRICT des tâches pour la semaine en cours uniquement
   const weeklyTasks = useMemo(() => {
     if (!pendingTasks) return [];
     const now = new Date();
-    const start = startOfWeek(now, { locale: fr });
-    const end = endOfWeek(now, { locale: fr });
+    // En France, la semaine commence le lundi
+    const start = startOfWeek(now, { locale: fr, weekStartsOn: 1 });
+    const end = endOfWeek(now, { locale: fr, weekStartsOn: 1 });
 
     return pendingTasks.filter(task => {
       try {
-        // La date est au format dd/MM/yyyy dans task.createdAt
         const taskDate = parse(task.createdAt, 'dd/MM/yyyy', new Date());
         return isWithinInterval(taskDate, { start, end });
       } catch (e) {
@@ -130,7 +134,7 @@ export default function Home() {
         </div>
         <div className="space-y-2">
           <h2 className="text-2xl font-black text-primary uppercase tracking-tighter">Profil non synchronisé</h2>
-          <p className="text-muted-foreground max-w-sm mx-auto font-medium">
+          <p className="text-muted-foreground max-sm mx-auto font-medium">
             Votre session est active mais les données de votre profil sont introuvables.
           </p>
         </div>

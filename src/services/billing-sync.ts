@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Firestore, collection, doc } from 'firebase/firestore';
@@ -8,20 +9,20 @@ import { fr } from 'date-fns/locale';
 
 /**
  * Service pour synchroniser les tâches de facturation de l'Admin.
- * Gère la création pour les actifs et la suppression pour les inactifs.
+ * Gère la création pour les actifs et la suppression pour les inactifs sur 24 mois.
  */
 export async function syncBillingTasks(db: Firestore, adminUid: string, allUsers: User[]) {
   const adminCompanyId = "GrowAndGo";
   const now = new Date();
 
-  // On synchronise sur une plage de 12 mois en arrière et 12 mois en avant
+  // On synchronise sur une plage de 12 mois en arrière et 24 mois en avant pour assurer la continuité
   const rangeStart = addMonths(now, -12);
-  const rangeEnd = addMonths(now, 12);
+  const rangeEnd = addMonths(now, 24);
 
   for (const client of allUsers.filter(u => u.role !== 'super_admin')) {
     const isActive = client.subscriptionStatus !== 'inactive';
     
-    // Si pas de date de création, on utilise la date par défaut
+    // Si pas de date de création, on utilise la date par défaut (lancement du studio)
     const creationDateStr = client.createdAt || "2026-02-08T00:00:00.000Z";
     let startDate = parseISO(creationDateStr);
     if (!isValid(startDate)) startDate = new Date(2026, 1, 8);
@@ -53,7 +54,7 @@ export async function syncBillingTasks(db: Firestore, adminUid: string, allUsers
             subCategory: 'Factures à envoyer',
             projectColumn: 'administrative',
             status: 'waiting_verification',
-            createdAt: format(eventDate, 'dd/MM/yyyy'), // Date de l'échéance
+            createdAt: format(eventDate, 'dd/MM/yyyy'),
             companyId: adminCompanyId,
             isBillingTask: true,
             billingMonthId: monthId,
@@ -81,7 +82,7 @@ export async function syncBillingTasks(db: Firestore, adminUid: string, allUsers
           setDocumentNonBlocking(eventRef, eventData, { merge: true });
         }
       } else {
-        // SUPPRESSION si l'utilisateur est inactif
+        // NETTOYAGE : Suppression immédiate si l'utilisateur est devenu inactif
         deleteDocumentNonBlocking(taskRef);
         deleteDocumentNonBlocking(eventRef);
       }

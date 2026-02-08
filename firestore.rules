@@ -11,19 +11,18 @@ service cloud.firestore {
     match /users/{userId} {
       allow read, write: if isSignedIn(); 
       
-      // Factures reçues par l'admin (pour usage futur si réactivé)
+      // Factures reçues par l'admin
       match /received_invoices/{invoiceId} {
         allow read: if isSignedIn() && request.auth.uid == userId;
         allow write: if isSignedIn();
       }
     }
 
-    // Gestion des entreprises
+    // Gestion des entreprises (Accès pour tous les membres de l'espace)
     match /companies/{companyId} {
-      // Accès global authentifié pour l'Espace de travail
       allow read, write: if isSignedIn();
 
-      // Autoriser récursivement toutes les sous-collections (catégories, documents, événements)
+      // Accès récursif aux sous-collections (documents, événements, catégories)
       match /{allSubcollections=**} {
         allow read, write: if isSignedIn();
       }
