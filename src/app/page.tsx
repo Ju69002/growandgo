@@ -193,7 +193,7 @@ export default function Home() {
                 <SharedCalendar companyId={companyId} isCompact={true} />
               ) : (
                 <div className="h-full flex items-center justify-center text-muted-foreground animate-pulse">
-                   Initialisation du calendrier...
+                   Initialisation de l'agenda...
                 </div>
               )}
             </div>

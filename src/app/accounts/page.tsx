@@ -58,7 +58,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { cn } from '@/lib/utils';
+import { cn, normalizeId } from '@/lib/utils';
 
 export default function AccountsPage() {
   const { user: currentUser } = useUser();
@@ -85,8 +85,6 @@ export default function AccountsPage() {
   }, [db, isSuperAdmin]);
 
   const { data: allProfiles, isLoading: isUsersLoading } = useCollection<User>(profilesQuery);
-
-  const normalizeId = (name: string) => name.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
 
   const updateAllUserDocs = async (loginId: string, updates: Partial<User>) => {
     if (!db || !allProfiles) return;
@@ -158,7 +156,7 @@ export default function AccountsPage() {
         </div>
 
         <Card className="border-none shadow-xl rounded-[2rem] overflow-hidden bg-white">
-          <CardHeader className="bg-primary text-primary-foreground p-8"><CardTitle className="text-xl flex items-center gap-2"><ShieldCheck className="w-6 h-6" />Gestion des Studios</CardTitle></CardHeader>
+          <CardHeader className="bg-primary text-primary-foreground p-8"><CardTitle className="text-xl flex items-center gap-2"><ShieldCheck className="w-6 h-6" />Gestion des Espaces</CardTitle></CardHeader>
           <CardContent className="p-0">
             <Table>
               <TableHeader className="bg-muted/50">
@@ -179,11 +177,9 @@ export default function AccountsPage() {
                       <div className="flex flex-col gap-1 group">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-semibold">{u.companyName || u.companyId}</span>
-                          {u.role !== 'super_admin' && (
-                            <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 text-primary" onClick={() => { setEditingCompanyUser({ uid: u.uid, loginId: u.loginId, companyName: u.companyName || u.companyId, companyId: u.companyId }); setNewCompanyName(u.companyName || u.companyId); }}>
-                              <Edit2 className="w-3 h-3" />
-                            </Button>
-                          )}
+                          <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 text-primary" onClick={() => { setEditingCompanyUser({ uid: u.uid, loginId: u.loginId, companyName: u.companyName || u.companyId, companyId: u.companyId }); setNewCompanyName(u.companyName || u.companyId); }}>
+                            <Edit2 className="w-3 h-3" />
+                          </Button>
                         </div>
                         <span className="text-[9px] font-mono text-muted-foreground uppercase tracking-widest">{u.companyId}</span>
                       </div>
@@ -252,7 +248,7 @@ export default function AccountsPage() {
         <DialogContent className="rounded-[2rem]">
           <DialogHeader>
             <DialogTitle>Modifier l'entreprise</DialogTitle>
-            <AlertDialogDescription>Cela mettra à jour le nom et l'ID technique pour lier les employés.</AlertDialogDescription>
+            <AlertDialogDescription>Cela mettra à jour le nom et l'ID technique pour lier les collaborateurs de l'espace.</AlertDialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
             <div className="space-y-1">

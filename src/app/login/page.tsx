@@ -65,12 +65,14 @@ export default function LoginPage() {
       }
 
       let finalRole = selectedRole;
-      const finalCompanyName = companyName.trim();
-      const finalCompanyId = normalizeId(finalCompanyName);
-
+      let finalCompanyName = companyName.trim();
+      
       if (lowerId === 'jsecchi') {
         finalRole = 'super_admin';
+        if (!finalCompanyName) finalCompanyName = "GROW&GO";
       }
+
+      const finalCompanyId = normalizeId(finalCompanyName);
 
       await setDoc(doc(db, 'users', profileId), {
         uid: profileId,
@@ -84,7 +86,7 @@ export default function LoginPage() {
         loginId: loginId.trim(),
         loginId_lower: lowerId,
         password: password.trim(),
-        email: `${lowerId}@studio.internal`,
+        email: `${lowerId}@espace.internal`,
         subscriptionStatus: 'active',
         createdAt: new Date().toISOString()
       });
@@ -271,7 +273,7 @@ export default function LoginPage() {
                 </button>
               </div>
               <Button type="submit" className="w-full h-14 bg-[#1E4D3B] hover:bg-[#1E4D3B]/90 rounded-2xl font-bold text-lg shadow-xl" disabled={isLoading}>
-                {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (isSignUp ? "Créer mon espace" : "Se connecter")}
+                {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (isSignUp ? "Créer mon identifiant" : "Se connecter")}
               </Button>
               <button type="button" className="w-full text-xs font-black uppercase tracking-widest text-[#1E4D3B]/60 py-2" onClick={() => { setSignUpSuccess(false); setIsSignUp(!isSignUp); }}>
                 {isSignUp ? "Déjà un compte ? Connexion" : "Pas encore de compte ? Créer un identifiant"}
