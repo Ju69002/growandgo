@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -32,7 +31,7 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { User } from '@/lib/types';
-import { cn } from '@/lib/utils';
+import { cn, normalizeId } from '@/lib/utils';
 
 export function AppSidebar() {
   const { user } = useUser();
@@ -48,6 +47,7 @@ export function AppSidebar() {
   const { data: profile } = useDoc<User>(userRef);
 
   const isSuperAdmin = profile?.role === 'super_admin';
+  const companyId = profile?.companyId ? normalizeId(profile.companyId) : "";
 
   const mainItems = [
     { title: 'Dashboard', icon: LayoutDashboard, url: '/' },
@@ -68,7 +68,7 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar collapsible="icon" className="border-r-0">
+    <Sidebar collapsible="icon" className="border-r-0 z-50">
       <SidebarHeader className="h-20 flex items-center px-4 bg-sidebar">
         <div className="flex items-center gap-3 font-bold text-sidebar-foreground">
           <div className="relative w-12 h-12 overflow-hidden rounded-lg border border-white/20 shadow-xl bg-white">
@@ -81,7 +81,7 @@ export function AppSidebar() {
           </div>
           <div className="flex flex-col group-data-[collapsible=icon]:hidden max-w-[160px]">
             <span className="text-lg leading-tight tracking-tight text-white truncate">
-              {profile?.companyName || profile?.companyId || "Grow&Go"}
+              {profile?.companyName || companyId || "Grow&Go"}
             </span>
             <span className="text-[10px] uppercase tracking-widest opacity-70 font-medium text-white truncate">
               {isSuperAdmin ? "Administration" : "Espace Studio"}

@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -23,6 +22,7 @@ import { collection, query, where, doc } from 'firebase/firestore';
 import { Category, User } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { normalizeId } from '@/lib/utils';
 
 interface CategoryTilesProps {
   profile: User;
@@ -57,11 +57,12 @@ export function CategoryTiles({ profile }: CategoryTilesProps) {
   const db = useFirestore();
   const { toast } = useToast();
   const [isInitializing, setIsInitializing] = React.useState(false);
-  const companyId = profile.companyId;
+  
+  // Normalise systématiquement le companyId pour garantir la synchronisation entre utilisateurs
+  const companyId = profile.companyId ? normalizeId(profile.companyId) : null;
 
   const categoriesQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
-    // On retire le filtre 'where' redondant qui peut causer des problèmes si les données internes sont légèrement décalées
     return query(
       collection(db, 'companies', companyId, 'categories')
     );

@@ -22,7 +22,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { cn } from '@/lib/utils';
+import { cn, normalizeId } from '@/lib/utils';
 import { signOut } from 'firebase/auth';
 import Link from 'next/link';
 
@@ -49,7 +49,9 @@ export default function Home() {
   }, [db, user]);
 
   const { data: profile, isLoading: isProfileLoading } = useDoc<User>(userRef);
-  const companyId = profile?.companyId;
+  
+  // Normalisation systématique du companyId pour le partage
+  const companyId = profile?.companyId ? normalizeId(profile.companyId) : null;
 
   const pendingDocsQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
@@ -133,9 +135,7 @@ export default function Home() {
           </div>
         </header>
 
-        {/* Section Supérieure : Tâches à gauche, Agenda à droite */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Colonne Tâches (1/4) */}
           <aside className="lg:col-span-1 space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-black uppercase tracking-tighter flex items-center gap-2">
@@ -176,7 +176,6 @@ export default function Home() {
             </div>
           </aside>
 
-          {/* Colonne Agenda (3/4) */}
           <div className="lg:col-span-3 space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-black uppercase tracking-tighter flex items-center gap-2">
@@ -201,7 +200,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Section Inférieure : Dossiers */}
         <section className="pt-8 border-t">
           <h2 className="text-2xl font-black uppercase tracking-tighter mb-8 flex items-center gap-3">
             <FileText className="w-7 h-7 text-primary" />

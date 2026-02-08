@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -16,7 +15,7 @@ import { Loader2, Lock, UserCircle, Users, Key, Eye, EyeOff, CheckCircle2 } from
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { User } from '@/lib/types';
-import { cn } from '@/lib/utils';
+import { cn, normalizeId } from '@/lib/utils';
 
 export default function LoginPage() {
   const [loginId, setLoginId] = useState('');
@@ -33,8 +32,6 @@ export default function LoginPage() {
   const db = useFirestore();
   const { toast } = useToast();
   const logo = PlaceHolderImages.find(img => img.id === 'app-logo');
-
-  const normalizeId = (name: string) => name.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
 
   const allUsersQuery = useMemoFirebase(() => {
     if (!db) return null;
@@ -168,9 +165,13 @@ export default function LoginPage() {
       const userCredential = await signInAnonymously(auth);
       const sessionUid = userCredential.user.uid;
 
+      // Force la normalisation du companyId lors de la création de la session pour garantir la synchronisation
+      const normalizedCompanyId = normalizeId(profileData.companyName || profileData.companyId);
+
       await setDoc(doc(db, 'users', sessionUid), {
         ...profileData,
         uid: sessionUid,
+        companyId: normalizedCompanyId,
         isProfile: false,
         isSession: true,
         lastLogin: serverTimestamp()
