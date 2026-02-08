@@ -47,10 +47,10 @@ export function AppSidebar() {
   const { data: profile } = useDoc<User>(userRef);
 
   const isSuperAdmin = profile?.role === 'super_admin';
-  const companyId = profile?.companyId ? normalizeId(profile.companyId) : "";
+  const companyId = profile?.companyId ? profile.companyId : "";
 
   const mainItems = [
-    { title: 'Dashboard', icon: LayoutDashboard, url: '/' },
+    { title: 'Tableau de bord', icon: LayoutDashboard, url: '/' },
     { title: 'Équipe', icon: Users, url: '/team' },
   ];
 
@@ -78,7 +78,7 @@ export function AppSidebar() {
           </div>
           <div className="flex flex-col group-data-[collapsible=icon]:hidden max-w-[160px]">
             <span className="text-lg leading-tight tracking-tight text-white truncate">
-              {profile?.companyName || companyId || "GROW&GO"}
+              {profile?.companyName || companyId || "GrowAndGo"}
             </span>
             <span className="text-[10px] uppercase tracking-widest opacity-70 font-medium text-white truncate">
               {isSuperAdmin ? "Administration" : "Espace de travail"}
@@ -137,7 +137,7 @@ export function AppSidebar() {
                   >
                     <Link href="/accounts">
                       <UserCheck className={cn("w-5 h-5", isItemActive('/accounts') ? "text-primary" : "text-white")} />
-                      <span className={cn(isItemActive('/accounts') ? "text-primary" : "text-white")}>Comptes</span>
+                      <span className={cn(isItemActive('/accounts') ? "text-primary" : "text-white")}>Répertoire</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

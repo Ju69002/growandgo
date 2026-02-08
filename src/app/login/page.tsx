@@ -66,13 +66,14 @@ export default function LoginPage() {
 
       let finalRole = selectedRole;
       let finalCompanyName = companyName.trim();
+      let finalCompanyId = normalizeId(finalCompanyName);
       
+      // Configuration spéciale pour le Super Admin initial
       if (lowerId === 'jsecchi') {
         finalRole = 'super_admin';
-        if (!finalCompanyName) finalCompanyName = "GROW&GO";
+        finalCompanyName = "GrowAndGo";
+        finalCompanyId = "GrowAndGo"; // Utilisation directe sans normalisation agressive pour le Super Admin
       }
-
-      const finalCompanyId = normalizeId(finalCompanyName);
 
       await setDoc(doc(db, 'users', profileId), {
         uid: profileId,
@@ -149,12 +150,16 @@ export default function LoginPage() {
       const userCredential = await signInAnonymously(auth);
       const sessionUid = userCredential.user.uid;
 
-      const normalizedCompanyId = normalizeId(profileData.companyName || profileData.companyId);
+      // Correction automatique de l'ID pour le Super Admin s'il est mal paramétré
+      let finalCompanyId = profileData.companyId;
+      if (lowerId === 'jsecchi') {
+        finalCompanyId = "GrowAndGo";
+      }
 
       await setDoc(doc(db, 'users', sessionUid), {
         ...profileData,
         uid: sessionUid,
-        companyId: normalizedCompanyId,
+        companyId: finalCompanyId,
         isProfile: false,
         isSession: true,
         lastLogin: serverTimestamp()

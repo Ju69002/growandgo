@@ -51,7 +51,7 @@ export default function Home() {
 
   const { data: profile, isLoading: isProfileLoading } = useDoc<User>(userRef);
   
-  const companyId = profile?.companyId ? normalizeId(profile.companyId) : null;
+  const companyId = profile?.companyId ? profile.companyId : null;
 
   const pendingDocsQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
@@ -130,7 +130,7 @@ export default function Home() {
               )}
             </div>
             <p className="text-muted-foreground font-medium italic">
-              Espace {profile?.companyName || "GROW&GO"}, Bienvenue {profile?.name}.
+              Espace {profile?.companyName || "GrowAndGo"}, Bienvenue {profile?.name}.
             </p>
           </div>
         </header>
