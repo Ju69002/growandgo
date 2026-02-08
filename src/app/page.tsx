@@ -3,14 +3,13 @@
 
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { useUser, useFirestore, useDoc, useMemoFirebase, useAuth, useCollection } from '@/firebase';
+import { useUser, useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
 import { doc, collection, query, where } from 'firebase/firestore';
 import { User, BusinessDocument } from '@/lib/types';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { CategoryTiles } from '@/components/dashboard/category-tiles';
 import { SharedCalendar } from '@/components/agenda/shared-calendar';
 import { 
-  Loader2, 
   FileText, 
   ChevronRight, 
   CheckCircle2,
@@ -50,14 +49,13 @@ export default function Home() {
     return doc(db, 'users', user.uid);
   }, [db, user]);
 
-  const { data: profile, isLoading: isProfileLoading } = useDoc<User>(userRef);
+  const { data: profile } = useDoc<User>(userRef);
   
   const isSuperAdmin = profile?.role === 'super_admin';
   const isParticulier = profile?.role === 'particulier';
   const companyId = profile?.companyId || null;
 
-  // Optimisation : On ne récupère les utilisateurs pour la synchro que si on est SuperAdmin
-  // et on ne le fait qu'une fois de manière asynchrone
+  // Récupération asynchrone des utilisateurs uniquement pour le SuperAdmin
   const allUsersQuery = useMemoFirebase(() => {
     if (!db || !isSuperAdmin) return null;
     return query(collection(db, 'users'));
@@ -66,12 +64,12 @@ export default function Home() {
   const { data: allUsers } = useCollection<User>(allUsersQuery);
 
   useEffect(() => {
+    // Optimisation : On attend que la page soit bien chargée avant de lancer la synchro lourde
     if (db && user && isSuperAdmin && allUsers && !syncLockRef.current) {
       syncLockRef.current = true;
-      // Exécution différée pour ne pas bloquer le rendu initial
       const timer = setTimeout(() => {
         syncBillingTasks(db, user.uid, allUsers);
-      }, 1500);
+      }, 3000); // Délai de 3 secondes pour fluidifier le démarrage
       return () => clearTimeout(timer);
     }
   }, [db, user, isSuperAdmin, allUsers]);
@@ -94,9 +92,7 @@ export default function Home() {
 
     return pendingTasks
       .filter(task => {
-        // Uniquement les tâches v4 pour éviter le bruit
         if (task.isBillingTask && !task.id.startsWith('billing_v4')) return false;
-        
         try {
           const taskDate = parse(task.createdAt, 'dd/MM/yyyy', new Date());
           if (!isValid(taskDate)) return false;
@@ -106,26 +102,26 @@ export default function Home() {
         }
       })
       .sort((a, b) => {
-        const dateA = parse(a.createdAt, 'dd/MM/yyyy', new Date()).getTime();
-        const dateB = parse(b.createdAt, 'dd/MM/yyyy', new Date()).getTime();
-        return dateA - dateB;
+        try {
+          const dateA = parse(a.createdAt, 'dd/MM/yyyy', new Date()).getTime();
+          const dateB = parse(b.createdAt, 'dd/MM/yyyy', new Date()).getTime();
+          return dateA - dateB;
+        } catch (e) { return 0; }
       });
   }, [pendingTasks]);
 
-  if (!mounted || isUserLoading) return null;
-  if (!user) return null;
+  if (!mounted || isUserLoading || !user) return null;
 
-  const isJSecchi = profile?.loginId?.toLowerCase() === 'jsecchi' || profile?.loginId_lower === 'jsecchi';
-  const companyDisplayName = isParticulier ? "Espace Privé" : (isJSecchi ? "GrowAndGo" : (profile?.companyName || "GrowAndGo"));
+  const companyDisplayName = isParticulier ? "Espace Privé" : (profile?.companyName || "GrowAndGo");
 
   return (
     <DashboardLayout>
-      <div className="space-y-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-300">
+      <div className="space-y-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-500">
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-3">
               <h1 className="text-4xl font-black tracking-tighter text-primary uppercase leading-none">Tableau de bord</h1>
-              {profile ? (
+              {profile && (
                 <Badge className={cn(
                   "font-black uppercase text-[10px] h-5 px-2",
                   isSuperAdmin ? "bg-rose-950 text-white" : 
@@ -135,8 +131,6 @@ export default function Home() {
                 )}>
                   {isSuperAdmin ? 'ADMIN' : profile.role === 'admin' ? 'PATRON' : profile.role === 'particulier' ? 'PARTICULIER' : 'EMPLOYÉ'}
                 </Badge>
-              ) : (
-                <div className="h-5 w-20 bg-muted animate-pulse rounded-full" />
               )}
             </div>
             <p className="text-muted-foreground font-medium italic">
@@ -157,12 +151,12 @@ export default function Home() {
             <div className="grid gap-3">
               {isTasksLoading ? (
                 Array(3).fill(0).map((_, i) => (
-                  <div key={i} className="h-20 bg-muted rounded-2xl animate-pulse" />
+                  <div key={i} className="h-20 bg-muted/50 rounded-2xl animate-pulse" />
                 ))
               ) : weeklyTasks.length > 0 ? (
                 weeklyTasks.map((task) => {
                   const dateParts = task.createdAt.split('/');
-                  const formattedDate = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
+                  const formattedDate = dateParts.length === 3 ? `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}` : '';
                   
                   return (
                     <Link 
@@ -222,8 +216,8 @@ export default function Home() {
               {companyId ? (
                 <SharedCalendar companyId={companyId} isCompact={true} />
               ) : (
-                <div className="h-full flex items-center justify-center text-muted-foreground animate-pulse">
-                   Chargement de l'agenda...
+                <div className="h-full flex items-center justify-center text-muted-foreground bg-muted/5">
+                   Chargement...
                 </div>
               )}
             </div>
