@@ -37,7 +37,8 @@ import {
   Ban,
   CheckCircle2,
   Calendar,
-  UserCircle
+  UserCircle,
+  AlertTriangle
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useMemo, useEffect } from 'react';
@@ -67,6 +68,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn, normalizeId } from '@/lib/utils';
+import { Label } from '@/components/ui/label';
 
 export default function AccountsPage() {
   const { user: currentUser } = useUser();
@@ -83,6 +85,7 @@ export default function AccountsPage() {
   const [newPassword, setNewPassword] = useState('');
   const [newCompanyName, setNewCompanyName] = useState('');
   const [newRole, setNewRole] = useState<UserRole>('employee');
+  const [roleCompanyInput, setRoleCompanyInput] = useState('');
 
   useEffect(() => {
     setMounted(true);
@@ -104,7 +107,7 @@ export default function AccountsPage() {
 
   const { data: allProfiles, isLoading: isUsersLoading } = useCollection<User>(profilesQuery);
 
-  // Mémoïsation de la liste unique
+  // Mémoïsation de la liste unique avec nettoyage des noms d'entreprise pour les particuliers
   const uniqueUsers = useMemo(() => {
     if (!allProfiles) return [];
     return Array.from(
@@ -114,10 +117,16 @@ export default function AccountsPage() {
           .sort((a, b) => (a.isProfile ? 1 : -1))
           .map(u => {
             const lowerId = (u.loginId_lower || u.loginId?.toLowerCase());
+            let finalUser = { ...u };
+            
             if (lowerId === 'jsecchi') {
-              return [lowerId, { ...u, companyName: "GrowAndGo", companyId: "GrowAndGo" }];
+              finalUser.companyName = "GrowAndGo";
+              finalUser.companyId = "GrowAndGo";
+            } else if (u.role === 'particulier') {
+              finalUser.companyName = "Espace Privé";
             }
-            return [lowerId, u];
+            
+            return [lowerId, finalUser];
           })
       ).values()
     ).sort((a, b) => (a.role === 'super_admin' ? -1 : 1));
@@ -175,13 +184,31 @@ export default function AccountsPage() {
 
   const handleUpdateRole = () => {
     if (!db || !editingRoleUser) return;
-    updateAllUserDocs(editingRoleUser.loginId, { 
+
+    const updates: Partial<User> = {
       role: newRole,
       adminMode: newRole !== 'employee',
       isCategoryModifier: newRole !== 'employee'
-    });
+    };
+
+    // Logique d'isolation Particulier
+    if (newRole === 'particulier') {
+      updates.companyName = "Mon Espace Personnel";
+      updates.companyId = `private-${editingRoleUser.loginId.toLowerCase()}`;
+    } else if (editingRoleUser.role === 'particulier' && (newRole === 'admin' || newRole === 'employee')) {
+      // Transition depuis Particulier : on force le nom d'entreprise
+      if (!roleCompanyInput.trim()) {
+        toast({ variant: "destructive", title: "Action requise", description: "Veuillez renseigner le nom de l'entreprise." });
+        return;
+      }
+      updates.companyName = roleCompanyInput.trim();
+      updates.companyId = normalizeId(roleCompanyInput);
+    }
+
+    updateAllUserDocs(editingRoleUser.loginId, updates);
     toast({ title: "Rôle mis à jour", description: `L'utilisateur est désormais ${newRole.toUpperCase()}.` });
     setEditingRoleUser(null);
+    setRoleCompanyInput('');
   };
 
   if (!mounted || isProfileLoading || isUsersLoading) return <div className="flex items-center justify-center min-h-screen bg-[#F5F2EA]"><Loader2 className="animate-spin text-primary opacity-50" /></div>;
@@ -220,8 +247,11 @@ export default function AccountsPage() {
                     <TableCell>
                       <div className="flex flex-col gap-1 group">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-semibold">{u.companyName || u.companyId}</span>
-                          {u.loginId_lower !== 'jsecchi' && (
+                          <span className={cn(
+                            "text-sm font-semibold",
+                            u.role === 'particulier' && "text-amber-600 italic"
+                          )}>{u.companyName}</span>
+                          {u.loginId_lower !== 'jsecchi' && u.role !== 'particulier' && (
                             <Button 
                               variant="ghost" 
                               size="icon" 
@@ -259,6 +289,7 @@ export default function AccountsPage() {
                             onClick={() => {
                               setEditingRoleUser(u);
                               setNewRole(u.role);
+                              setRoleCompanyInput(u.role === 'particulier' ? '' : (u.companyName || ''));
                             }}
                           >
                             <Edit2 className="w-3 h-3" />
@@ -339,7 +370,7 @@ export default function AccountsPage() {
           </DialogHeader>
           <div className="py-4 space-y-4">
             <div className="space-y-1">
-              <span className="text-[10px] font-black uppercase text-muted-foreground">Nom d'affichage</span>
+              <span className="text-[10px] font-black uppercase text-muted-foreground ml-1">Nom d'affichage</span>
               <Input value={newCompanyName} onChange={(e) => setNewCompanyName(e.target.value)} className="rounded-xl h-12 font-bold" />
             </div>
             {newCompanyName && (
@@ -364,7 +395,7 @@ export default function AccountsPage() {
           </DialogHeader>
           <div className="py-4 space-y-4">
             <div className="space-y-1">
-              <span className="text-[10px] font-black uppercase text-muted-foreground">Nouveau Rôle</span>
+              <span className="text-[10px] font-black uppercase text-muted-foreground ml-1">Nouveau Rôle</span>
               <Select value={newRole} onValueChange={(v) => setNewRole(v as UserRole)}>
                 <SelectTrigger className="rounded-xl h-12 font-bold">
                   <SelectValue placeholder="Choisir un rôle" />
@@ -376,11 +407,34 @@ export default function AccountsPage() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Champ conditionnel pour le nom d'entreprise lors du passage de Particulier -> Autre */}
+            {(editingRoleUser?.role === 'particulier' && (newRole === 'admin' || newRole === 'employee')) && (
+              <div className="space-y-2 animate-in slide-in-from-top-2">
+                <Label className="text-[10px] font-black uppercase text-rose-600 flex items-center gap-2">
+                  <AlertTriangle className="w-3 h-3" /> Nom de l'entreprise requis
+                </Label>
+                <Input 
+                  placeholder="Nom de l'entreprise de destination..." 
+                  value={roleCompanyInput}
+                  onChange={(e) => setRoleCompanyInput(e.target.value)}
+                  className="rounded-xl h-12 font-bold border-rose-200"
+                />
+              </div>
+            )}
+
             <div className="p-4 bg-muted/50 rounded-xl border flex items-start gap-3">
               <UserCircle className="w-5 h-5 text-primary mt-0.5" />
-              <p className="text-xs leading-relaxed font-medium">
-                Les rôles <strong>Patron</strong> et <strong>Particulier</strong> ont des accès complets. Le rôle <strong>Employé</strong> est restreint aux dossiers autorisés.
-              </p>
+              <div className="text-xs leading-relaxed font-medium space-y-1">
+                <p>
+                  Les rôles <strong>Patron</strong> et <strong>Particulier</strong> ont des accès complets. Le rôle <strong>Employé</strong> est restreint.
+                </p>
+                {newRole === 'particulier' && (
+                  <p className="text-amber-600 font-bold">
+                    Attention : Le passage en Particulier isolera cet utilisateur dans son propre espace privé.
+                  </p>
+                )}
+              </div>
             </div>
           </div>
           <DialogFooter><Button onClick={handleUpdateRole} className="rounded-full bg-primary">Appliquer le changement</Button></DialogFooter>
