@@ -43,7 +43,7 @@ export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [isCalendarFull, setIsCalendarFull] = useState(false);
 
-  // DECLARATION DE TOUS LES HOOKS AU SOMMET (RULES OF HOOKS)
+  // DECLARATION DE TOUS LES HOOKS AU SOMMET
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user) return null;
     return doc(db, 'users', user.uid);
@@ -128,21 +128,19 @@ export default function Home() {
     return tasks.sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [mounted, documents, meetings]);
 
-  // GESTION DES RENDUS CONDITIONNELS APRES LES HOOKS
-  if (!mounted || isUserLoading || isProfileLoading) {
+  // REDIRECTION SI NON AUTHENTIFIE
+  if (!mounted || isUserLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#F5F2EA]">
-        <div className="text-center space-y-4">
-          <Loader2 className="w-10 h-10 animate-spin text-[#1E4D3B] mx-auto" />
-          <p className="text-[#1E4D3B] font-black uppercase text-[10px] tracking-widest opacity-50">Chargement du Studio...</p>
-        </div>
+        <Loader2 className="w-10 h-10 animate-spin text-primary" />
       </div>
     );
   }
 
   if (!user) return null;
 
-  if (!profile) {
+  // SI AUTHENTIFIE MAIS PROFIL MANQUANT
+  if (!isProfileLoading && !profile) {
     return (
       <DashboardLayout>
         <div className="flex flex-col items-center justify-center min-h-[60vh] p-8 text-center space-y-6">
@@ -153,13 +151,11 @@ export default function Home() {
             <h2 className="text-3xl font-black uppercase tracking-tighter">Profil Introuvable</h2>
             <p className="text-muted-foreground max-w-md mx-auto font-medium">
               Nous n'avons pas pu charger votre profil Studio. 
-              Cela arrive parfois lors de la première création. Tentez de vous reconnecter pour forcer la synchronisation.
+              Cela peut arriver si votre compte vient d'être créé.
             </p>
           </div>
           <Button 
-            onClick={() => {
-              window.location.href = '/login';
-            }}
+            onClick={() => router.push('/login')}
             className="rounded-full px-12 h-14 bg-primary font-bold shadow-xl text-lg uppercase tracking-tighter"
           >
             Retour à la connexion
@@ -169,7 +165,15 @@ export default function Home() {
     );
   }
 
-  const isSuperAdmin = profile.role === 'super_admin';
+  if (isProfileLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-[#F5F2EA]">
+        <Loader2 className="w-10 h-10 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  const isSuperAdmin = profile?.role === 'super_admin';
 
   return (
     <DashboardLayout>
@@ -179,14 +183,14 @@ export default function Home() {
             <h1 className="text-4xl font-black tracking-tighter text-primary uppercase">Tableau de bord</h1>
             <Badge className={cn(
               "font-black uppercase text-[10px] h-5 px-2 shadow-sm",
-              profile.role === 'super_admin' ? "bg-rose-950 text-white" : 
-              profile.role === 'admin' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+              profile?.role === 'super_admin' ? "bg-rose-950 text-white" : 
+              profile?.role === 'admin' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
             )}>
-              {profile.role === 'super_admin' ? 'Super Admin' : profile.role === 'admin' ? 'Patron' : 'Employé'}
+              {profile?.role === 'super_admin' ? 'Super Admin' : profile?.role === 'admin' ? 'Patron' : 'Employé'}
             </Badge>
           </div>
           <p className="text-muted-foreground mt-1 flex items-center gap-2 font-medium">
-            Bienvenue dans votre espace {profile.name || profile.loginId}.
+            Bienvenue dans votre espace {profile?.name || profile?.loginId}.
           </p>
         </header>
 

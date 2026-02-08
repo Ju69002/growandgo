@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { useAuth, useFirestore, useUser } from '@/firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Lock, UserCircle, UserPlus, Eye, EyeOff } from 'lucide-react';
@@ -99,51 +99,42 @@ export default function LoginPage() {
       }
 
       if (isSignUp) {
-        // Vérification anti-doublon Firestore
+        // VERIFICATION AVANT VALIDATION : L'ID EXISTE-T-IL DEJA ?
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('loginId_lower', '==', lowerId));
         const checkSnap = await getDocs(q);
         
         if (!checkSnap.empty) {
-          throw new Error("Cet identifiant est déjà utilisé.");
+          throw new Error("Cet identifiant est déjà utilisé dans la base Studio.");
         }
 
-        try {
-          const userCredential = await createUserWithEmailAndPassword(auth, internalEmail, password);
-          await createProfile(
-            userCredential.user.uid, 
-            normalizedId, 
-            isTargetSuperAdmin ? 'super_admin' : 'employee',
-            name || normalizedId
-          );
-          toast({ title: "Bienvenue !", description: "Votre accès Studio a été créé." });
-        } catch (authError: any) {
-          if (authError.code === 'auth/email-already-in-use') {
-            // Auto-réparation : Le compte existe techniquement, on restaure le profil
-            const userCredential = await signInWithEmailAndPassword(auth, internalEmail, password);
-            await createProfile(
-              userCredential.user.uid, 
-              normalizedId, 
-              isTargetSuperAdmin ? 'super_admin' : 'employee',
-              name || normalizedId
-            );
-            toast({ title: "Profil restauré", description: "Votre accès a été rétabli." });
-          } else {
-            throw authError;
-          }
-        }
+        // CREATION TECHNIQUE ET PROFIL
+        const userCredential = await createUserWithEmailAndPassword(auth, internalEmail, password);
+        await createProfile(
+          userCredential.user.uid, 
+          normalizedId, 
+          isTargetSuperAdmin ? 'super_admin' : 'employee',
+          name || normalizedId
+        );
+
+        // DECONNEXION ET REDIRECTION POUR CONNEXION MANUELLE
+        await signOut(auth);
+        setIsSignUp(false);
+        setPassword('');
+        toast({ title: "Inscription réussie !", description: "Veuillez maintenant vous connecter avec vos identifiants." });
+        
       } else {
-        // LOGIN
+        // TENTATIVE DE CONNEXION
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('loginId_lower', '==', lowerId));
         const querySnapshot = await getDocs(q);
 
         if (querySnapshot.empty) {
-          // CAS SPECIAL REPARATION : JSecchi ou profil manquant dans Firestore
+          // AUTO-REPARATION JSECCHI
           if (isTargetSuperAdmin && password === 'Meqoqo1998') {
             const userCredential = await signInWithEmailAndPassword(auth, internalEmail, password);
             await createProfile(userCredential.user.uid, 'JSecchi', 'super_admin', 'Julien Secchi');
-            toast({ title: "Profil restauré", description: "Accès Super Admin activé." });
+            toast({ title: "Accès restauré", description: "Profil Super Admin synchronisé." });
             return;
           }
           throw new Error("Identifiant inconnu.");
@@ -151,16 +142,7 @@ export default function LoginPage() {
 
         const userData = querySnapshot.docs[0].data();
         await signInWithEmailAndPassword(auth, userData.email, password);
-        
-        // Vérification de sécurité pour JSecchi au login normal
-        if (isTargetSuperAdmin) {
-          const userCredential = auth.currentUser;
-          if (userCredential) {
-            await createProfile(userCredential.uid, 'JSecchi', 'super_admin', 'Julien Secchi');
-          }
-        }
-        
-        toast({ title: "Connexion réussie", description: "Accès au Studio validé." });
+        toast({ title: "Connexion réussie", description: "Bienvenue dans votre Studio." });
       }
     } catch (error: any) {
       console.error("Auth Error:", error);
@@ -195,7 +177,7 @@ export default function LoginPage() {
           <div>
             <CardTitle className="text-2xl font-bold text-[#1E4D3B] uppercase tracking-tighter">Grow&Go Studio</CardTitle>
             <CardDescription className="text-[#1E4D3B]/60 font-medium">
-              {isSignUp ? "Créer un nouvel accès" : "Connexion au Studio"}
+              {isSignUp ? "Création d'accès" : "Connexion au Studio"}
             </CardDescription>
           </div>
         </CardHeader>
@@ -262,7 +244,7 @@ export default function LoginPage() {
                 className="w-full h-14 bg-[#1E4D3B] hover:bg-[#1E4D3B]/90 rounded-2xl font-bold text-lg shadow-xl"
                 disabled={isLoading}
               >
-                {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (isSignUp ? "Créer l'accès" : "Accéder au Studio")}
+                {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (isSignUp ? "Confirmer l'inscription" : "Accéder au Studio")}
               </Button>
 
               <button
@@ -275,7 +257,7 @@ export default function LoginPage() {
                   setName('');
                 }}
               >
-                {isSignUp ? "Déjà un identifiant ? Se connecter" : "Nouveau ? Créer un identifiant"}
+                {isSignUp ? "Déjà un accès ? Se connecter" : "Nouveau ? Créer un identifiant"}
               </button>
             </div>
           </form>
