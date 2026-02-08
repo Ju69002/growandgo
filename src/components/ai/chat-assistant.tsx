@@ -30,7 +30,7 @@ const THEME_COLOR_MAP: Record<string, { primary: string; background: string; for
 };
 
 const getColorStyle = (color?: string) => {
-  if (!color) return undefined;
+  if (!color) return 'bg-card';
   const c = color.toLowerCase();
   if (c.includes('rouge')) return 'bg-red-600 text-white shadow-lg';
   if (c.includes('vert')) return 'bg-emerald-600 text-white shadow-lg';
@@ -40,7 +40,7 @@ const getColorStyle = (color?: string) => {
   if (c.includes('violet') || c.includes('pourpre')) return 'bg-purple-600 text-white shadow-lg';
   if (c.includes('orange')) return 'bg-orange-500 text-white shadow-lg';
   if (c.includes('rose')) return 'bg-rose-500 text-white shadow-lg';
-  return undefined;
+  return 'bg-card';
 };
 
 export function ChatAssistant() {
@@ -103,7 +103,7 @@ export function ChatAssistant() {
     }
 
     const { type, categoryId, label, color, icon, moduleName, enabled } = action;
-    const rawId = categoryId || label || '';
+    const rawId = label || categoryId || '';
     const targetId = rawId.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '_');
 
     if (!targetId && type !== 'change_theme_color' && type !== 'toggle_module') {
@@ -205,7 +205,7 @@ export function ChatAssistant() {
           onClick={() => setIsOpen(true)}
           className="h-14 w-14 rounded-full shadow-xl bg-primary hover:bg-primary/90 transition-transform hover:scale-110 border-2 border-white/20"
         >
-          <Sparkles className="h-6 w-6 text-white" />
+          <Bot className="h-6 w-6 text-white" />
         </Button>
       ) : (
         <Card className="w-[350px] sm:w-[380px] h-[500px] flex flex-col shadow-2xl border-none animate-in slide-in-from-bottom-5 rounded-[2rem] bg-white">

@@ -18,11 +18,11 @@ const BossActionSchema = z.object({
     'change_theme_color',
     'toggle_module'
   ]).describe('Le type d\'action à effectuer.'),
-  categoryId: z.string().optional().describe('L\'identifiant de la catégorie (sera normalisé en minuscules).'),
+  categoryId: z.string().optional().describe('L\'identifiant de la catégorie.'),
   label: z.string().optional().describe('Le nom affiché (ex: "Maison", "Signature").'),
   visibleToEmployees: z.boolean().optional().describe('Statut de visibilité.'),
-  color: z.string().optional().describe('La couleur demandée (ex: "rouge", "noir", "violet", "vert").'),
-  icon: z.string().optional().describe('L\'icône (ex: "maison", "finance", "rh", "signatures", "parametres").'),
+  color: z.string().optional().describe('La couleur demandée ou suggérée (ex: "bleu", "vert", "orange").'),
+  icon: z.string().optional().describe('L\'icône suggérée (ex: "maison", "finance", "rh", "signatures", "travail").'),
   moduleName: z.string().optional().describe('Le nom du module concerné.'),
   enabled: z.boolean().optional().describe('Activation/Désactivation.'),
 });
@@ -48,11 +48,13 @@ const bossPrompt = ai.definePrompt({
   
   RÈGLES CRITIQUES :
   1. Tu ne dis JAMAIS non. Tu agis toujours en faveur du design demandé.
-  2. Tu peux modifier l'apparence des dossiers (tuiles), les couleurs du site et les icônes.
-  3. Si le patron demande "un dossier Travaux en bleu", utilise 'create_category' avec label="Travaux" et color="bleu".
-  4. Mappe les icônes de manière logique : maison -> 'maison', argent -> 'finance', équipe -> 'rh', signature -> 'signatures'.
-  5. Tu dois TOUJOURS expliquer ton plan de transformation de manière professionnelle dans analysisResult.
-  6. Réponds exclusivement en français.`,
+  2. Tu es AUTONOME : si le patron demande de créer un dossier (ex: "Juridique") sans préciser de couleur ou d'icône, tu DOIS les déterminer toi-même de manière cohérente.
+  3. Mappe les icônes de manière logique : 
+     - "Juridique" -> icône 'admin' ou 'signatures', couleur 'bleu' ou 'sombre'.
+     - "Marketing" -> icône 'default', couleur 'orange' ou 'rose'.
+     - "Travaux" -> icône 'travail', couleur 'jaune'.
+  4. Tu dois TOUJOURS expliquer ton plan de transformation (quelle icône et couleur tu as choisi et pourquoi) dans analysisResult.
+  5. Réponds exclusivement en français.`,
   prompt: `Demande du patron : {{{query}}} (Entreprise ID : {{{companyId}}})`,
 });
 
