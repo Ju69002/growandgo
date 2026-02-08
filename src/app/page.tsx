@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -54,11 +53,24 @@ export default function Home() {
     setMounted(true);
   }, []);
 
+  // Sécurité au début de la fonction comme demandé
+  if (isUserLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="text-center space-y-4">
+          <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto" />
+          <p className="text-muted-foreground animate-pulse font-black uppercase text-[10px] tracking-widest">Chargement...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Force l'affichage du Login si aucune session n'est détectée
   useEffect(() => {
-    if (!isUserLoading && !user) {
+    if (mounted && !isUserLoading && !user) {
       router.push('/login');
     }
-  }, [user, isUserLoading, router]);
+  }, [user, isUserLoading, router, mounted]);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -137,20 +149,18 @@ export default function Home() {
 
   const [isCalendarFull, setIsCalendarFull] = useState(false);
 
-  if (!mounted || isUserLoading || isProfileLoading) {
+  if (!mounted || isProfileLoading || !user) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="text-center space-y-4">
           <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto" />
-          <p className="text-muted-foreground animate-pulse font-black uppercase text-[10px] tracking-widest">Grow&Go Studio...</p>
+          <p className="text-muted-foreground animate-pulse font-black uppercase text-[10px] tracking-widest">Initialisation...</p>
         </div>
       </div>
     );
   }
 
-  if (!user || !profile) return null;
-
-  const isSuperAdmin = profile.role === 'super_admin';
+  const isSuperAdmin = profile?.role === 'super_admin';
 
   return (
     <DashboardLayout>
@@ -160,14 +170,14 @@ export default function Home() {
             <h1 className="text-4xl font-black tracking-tighter text-primary uppercase">Tableau de bord</h1>
             <Badge className={cn(
               "font-black uppercase text-[10px] h-5 px-2 shadow-sm",
-              profile.role === 'super_admin' ? "bg-rose-950 text-white" : 
-              profile.role === 'admin' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+              profile?.role === 'super_admin' ? "bg-rose-950 text-white" : 
+              profile?.role === 'admin' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
             )}>
-              {profile.role === 'super_admin' ? 'Super Admin' : profile.role === 'admin' ? 'Patron' : 'Employé'}
+              {profile?.role === 'super_admin' ? 'Super Admin' : profile?.role === 'admin' ? 'Patron' : 'Employé'}
             </Badge>
           </div>
           <p className="text-muted-foreground mt-1 flex items-center gap-2 font-medium">
-            Bienvenue {profile.name}. Planning hebdomadaire et suivi des dossiers de studio.
+            Bienvenue {profile?.name}. Planning hebdomadaire et suivi des dossiers de studio.
           </p>
         </header>
 
@@ -245,7 +255,7 @@ export default function Home() {
           </Card>
         </div>
 
-        {!isSuperAdmin && (
+        {!isSuperAdmin && profile && (
           <div className="pt-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
             <h2 className="text-2xl font-black uppercase tracking-tighter mb-8 flex items-center gap-3">
               <div className="p-2 bg-primary text-white rounded-xl shadow-lg">
@@ -291,7 +301,7 @@ export default function Home() {
                   <h2 className="font-black text-2xl uppercase tracking-tighter leading-none">AGENDA PARTAGÉ</h2>
                   <div className="flex items-center gap-2 mt-1 opacity-70">
                     <Users className="w-3.5 h-3.5" />
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em]">{profile.companyId} Studio</span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em]">{companyId} Studio</span>
                   </div>
                 </div>
               </div>

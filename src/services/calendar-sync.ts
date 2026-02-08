@@ -1,8 +1,8 @@
 'use client';
 
 /**
- * @fileOverview Service de synchronisation bidirectionnelle des calendriers Google.
- * Gère la prévention des doublons en utilisant les ID Google comme IDs Firestore.
+ * @fileOverview Service de synchronisation bidirectionnelle des calendriers Google et Microsoft.
+ * Gère la prévention des doublons en utilisant les ID externes comme IDs Firestore.
  */
 
 import { CalendarEvent } from '@/lib/types';
@@ -32,6 +32,53 @@ export async function fetchGoogleEvents(token: string, timeMin: string, timeMax:
     console.error("fetchGoogleEvents failed:", error);
     throw error;
   }
+}
+
+/**
+ * Mappe un événement Google Calendar vers le schéma Grow&Go.
+ */
+export function mapGoogleEvent(googleEvent: any, companyId: string, userId: string): Partial<CalendarEvent> {
+  const start = googleEvent.start?.dateTime || googleEvent.start?.date || new Date().toISOString();
+  const end = googleEvent.end?.dateTime || googleEvent.end?.date || new Date().toISOString();
+  const idToUse = googleEvent.id || Math.random().toString(36).substring(7);
+
+  return {
+    id_externe: idToUse,
+    companyId,
+    userId,
+    titre: googleEvent.summary || 'Sans titre',
+    description: googleEvent.description || '',
+    debut: start,
+    fin: end,
+    attendees: googleEvent.attendees?.filter((a: any) => a?.email).map((a: any) => a.email) || [],
+    source: 'google',
+    type: 'meeting',
+    derniere_maj: googleEvent.updated || new Date().toISOString()
+  };
+}
+
+/**
+ * Mappe un événement Microsoft Outlook (Azure) vers le schéma Grow&Go.
+ * Utilise le chaînage optionnel sécurisé pour les adresses participants.
+ */
+export function mapOutlookEvent(outlookEvent: any, companyId: string, userId: string): Partial<CalendarEvent> {
+  const start = outlookEvent.start?.dateTime || new Date().toISOString();
+  const end = outlookEvent.end?.dateTime || new Date().toISOString();
+  const idToUse = outlookEvent.id || Math.random().toString(36).substring(7);
+
+  return {
+    id_externe: idToUse,
+    companyId,
+    userId,
+    titre: outlookEvent.subject || 'Sans titre',
+    description: outlookEvent.bodyPreview || '',
+    debut: start,
+    fin: end,
+    attendees: outlookEvent.attendees?.map((a: any) => a.emailAddress?.address || '') || [],
+    source: 'google', // On garde Google comme source technique pour le stockage unifié
+    type: 'meeting',
+    derniere_maj: outlookEvent.lastModifiedDateTime || new Date().toISOString()
+  };
 }
 
 /**
@@ -70,41 +117,13 @@ export async function pushEventToGoogle(token: string, event: CalendarEvent) {
 }
 
 /**
- * Mappe un événement Google Calendar vers le schéma Grow&Go.
- */
-export function mapGoogleEvent(googleEvent: any, companyId: string, userId: string): Partial<CalendarEvent> {
-  const start = googleEvent.start?.dateTime || googleEvent.start?.date || new Date().toISOString();
-  const end = googleEvent.end?.dateTime || googleEvent.end?.date || new Date().toISOString();
-
-  // On utilise l'ID de Google s'il existe pour éviter les doublons lors du setDoc
-  const idToUse = googleEvent.id || Math.random().toString(36).substring(7);
-
-  return {
-    id_externe: idToUse,
-    companyId,
-    userId,
-    titre: googleEvent.summary || 'Sans titre',
-    description: googleEvent.description || '',
-    debut: start,
-    fin: end,
-    attendees: googleEvent.attendees?.filter((a: any) => a?.email).map((a: any) => a.email) || [],
-    source: 'google',
-    type: 'meeting',
-    derniere_maj: googleEvent.updated || new Date().toISOString()
-  };
-}
-
-/**
  * Enregistre un événement dans Firestore.
- * Utilise id_externe comme ID du document pour garantir l'unicité (Anti-Doublons).
  */
 export async function syncEventToFirestore(
   db: Firestore, 
   eventData: Partial<CalendarEvent>
 ) {
   if (!eventData.id_externe || !eventData.companyId) return;
-  // Utiliser id_externe comme ID du document garantit que si l'événement est ré-importé, 
-  // il écrase le précédent au lieu d'en créer un nouveau.
   const eventRef = doc(db, 'companies', eventData.companyId, 'events', eventData.id_externe);
   setDocumentNonBlocking(eventRef, eventData, { merge: true });
 }
