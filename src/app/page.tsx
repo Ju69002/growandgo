@@ -15,7 +15,6 @@ import {
   CheckCircle2, 
   X,
   AlertTriangle,
-  UserCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -43,7 +42,7 @@ export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [isCalendarFull, setIsCalendarFull] = useState(false);
 
-  // DECLARATION DE TOUS LES HOOKS AU SOMMET
+  // DECLARATION DE TOUS LES HOOKS AU SOMMET POUR RESPECTER LES RULES OF HOOKS
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user) return null;
     return doc(db, 'users', user.uid);
@@ -128,7 +127,7 @@ export default function Home() {
     return tasks.sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [mounted, documents, meetings]);
 
-  // REDIRECTION SI NON AUTHENTIFIE
+  // AFFICHAGE DU CHARGEMENT
   if (!mounted || isUserLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#F5F2EA]">
@@ -137,9 +136,10 @@ export default function Home() {
     );
   }
 
+  // REDIRECTION SI NON AUTHENTIFIE
   if (!user) return null;
 
-  // SI AUTHENTIFIE MAIS PROFIL MANQUANT
+  // CAS DU PROFIL MANQUANT (AUTO-REPARATION EN COURS VIA LOGIN)
   if (!isProfileLoading && !profile) {
     return (
       <DashboardLayout>
@@ -150,8 +150,7 @@ export default function Home() {
           <div className="space-y-2">
             <h2 className="text-3xl font-black uppercase tracking-tighter">Profil Introuvable</h2>
             <p className="text-muted-foreground max-w-md mx-auto font-medium">
-              Nous n'avons pas pu charger votre profil Studio. 
-              Cela peut arriver si votre compte vient d'être créé.
+              Nous n'avons pas pu charger votre profil Studio. Cela peut arriver si votre compte vient d'être créé.
             </p>
           </div>
           <Button 

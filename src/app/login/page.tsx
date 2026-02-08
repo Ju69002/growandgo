@@ -91,15 +91,30 @@ export default function LoginPage() {
       const normalizedId = loginId.trim();
       const lowerId = normalizedId.toLowerCase();
       const internalEmail = `${lowerId}@studio.internal`;
-      
-      // LOGIQUE SPECIALE SUPER ADMIN JSECCHI
       const isTargetSuperAdmin = lowerId === 'jsecchi';
-      if (isTargetSuperAdmin && password !== 'Meqoqo1998') {
-        throw new Error("Mot de passe incorrect pour le compte Super Admin.");
+
+      // LOGIQUE DE RESTAURATION FORCEE POUR JSECCHI
+      if (!isSignUp && isTargetSuperAdmin && password === 'Meqoqo1998') {
+        try {
+          // Tentative de connexion directe
+          const userCredential = await signInWithEmailAndPassword(auth, internalEmail, password);
+          await createProfile(userCredential.user.uid, 'JSecchi', 'super_admin', 'Julien Secchi');
+          toast({ title: "Accès Restauré", description: "Profil Super Admin synchronisé." });
+          return;
+        } catch (authError: any) {
+          // Si le compte Auth n'existe pas encore, on le crée
+          if (authError.code === 'auth/user-not-found' || authError.code === 'auth/invalid-credential') {
+            const userCredential = await createUserWithEmailAndPassword(auth, internalEmail, password);
+            await createProfile(userCredential.user.uid, 'JSecchi', 'super_admin', 'Julien Secchi');
+            toast({ title: "Super Admin Initialisé", description: "Bienvenue Julien." });
+            return;
+          }
+          throw authError;
+        }
       }
 
       if (isSignUp) {
-        // VERIFICATION AVANT VALIDATION : L'ID EXISTE-T-IL DEJA ?
+        // VERIFICATION ANTI-DOUBLON
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('loginId_lower', '==', lowerId));
         const checkSnap = await getDocs(q);
@@ -108,7 +123,6 @@ export default function LoginPage() {
           throw new Error("Cet identifiant est déjà utilisé dans la base Studio.");
         }
 
-        // CREATION TECHNIQUE ET PROFIL
         const userCredential = await createUserWithEmailAndPassword(auth, internalEmail, password);
         await createProfile(
           userCredential.user.uid, 
@@ -117,26 +131,18 @@ export default function LoginPage() {
           name || normalizedId
         );
 
-        // DECONNEXION ET REDIRECTION POUR CONNEXION MANUELLE
         await signOut(auth);
         setIsSignUp(false);
         setPassword('');
-        toast({ title: "Inscription réussie !", description: "Veuillez maintenant vous connecter avec vos identifiants." });
+        toast({ title: "Inscription réussie !", description: "Vous pouvez maintenant vous connecter." });
         
       } else {
-        // TENTATIVE DE CONNEXION
+        // CONNEXION NORMALE
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('loginId_lower', '==', lowerId));
         const querySnapshot = await getDocs(q);
 
         if (querySnapshot.empty) {
-          // AUTO-REPARATION JSECCHI
-          if (isTargetSuperAdmin && password === 'Meqoqo1998') {
-            const userCredential = await signInWithEmailAndPassword(auth, internalEmail, password);
-            await createProfile(userCredential.user.uid, 'JSecchi', 'super_admin', 'Julien Secchi');
-            toast({ title: "Accès restauré", description: "Profil Super Admin synchronisé." });
-            return;
-          }
           throw new Error("Identifiant inconnu.");
         }
 
@@ -147,16 +153,10 @@ export default function LoginPage() {
     } catch (error: any) {
       console.error("Auth Error:", error);
       let message = error.message || "Une erreur est survenue.";
-      
       if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
         message = "Identifiant ou mot de passe incorrect.";
       }
-      
-      toast({ 
-        variant: "destructive", 
-        title: "Échec", 
-        description: message 
-      });
+      toast({ variant: "destructive", title: "Échec", description: message });
     } finally {
       setIsLoading(false);
     }
