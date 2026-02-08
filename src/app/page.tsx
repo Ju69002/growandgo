@@ -50,10 +50,7 @@ export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [isCalendarFull, setIsCalendarFull] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
+  // Tous les Hooks Firestore doivent être appelés inconditionnellement au début
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user) return null;
     return doc(db, 'users', user.uid);
@@ -129,6 +126,11 @@ export default function Home() {
     return tasks.sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [mounted, documents, meetings]);
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Gestion de la redirection après tous les Hooks
   useEffect(() => {
     if (mounted && !isUserLoading && !user) {
       router.push('/login');

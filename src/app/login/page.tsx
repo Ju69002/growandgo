@@ -65,6 +65,7 @@ export default function LoginPage() {
     if (!trimmedId) return;
 
     setIsLoading(true);
+    // On génère un email interne à partir de l'identifiant pour Firebase
     const internalEmail = `${trimmedId.toLowerCase()}@studio.internal`;
 
     try {
