@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -130,7 +129,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
 
   const startHour = 8;
   const endHour = 20;
-  const hourHeight = isCompact ? 40 : 60;
+  const hourHeight = isCompact ? 36 : 60;
 
   const eventsQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
@@ -169,7 +168,6 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
     return events
       .filter(e => {
         if (!e.debut) return false;
-        // FILTRAGE CRITIQUE : Uniquement les Billing Events de version v4
         if (e.isBillingEvent && !e.id.startsWith('event_v4')) return false;
         
         try {
@@ -220,7 +218,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
         
         const snappedDeltaY = Math.round(deltaY / snapPixels) * snapPixels;
         const minutesDelta = (snappedDeltaY / hourHeight) * 60;
-        const daysDelta = Math.round(deltaX / (colWidth + 8)); // 8 is the grid gap-2
+        const daysDelta = Math.round(deltaX / (colWidth + 8));
 
         if ((minutesDelta !== 0 || daysDelta !== 0) && db && companyId) {
           const oldStart = parseISO(event.debut);
@@ -271,36 +269,6 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
       toast({ title: "Importation terminée !", description: `${externalEvents.length} événements synchronisés.` });
     } catch (error: any) {
       toast({ variant: "destructive", title: "Échec d'importation", description: error.message });
-    } finally {
-      setIsSyncing('idle');
-    }
-  };
-
-  const handleExportToGoogle = async () => {
-    if (!db || !companyId || !user || !auth || !events) return;
-    const localEvents = events.filter(e => e.source === 'local');
-    if (localEvents.length === 0) {
-      toast({ title: "Rien à exporter", description: "Tous vos événements sont déjà synchronisés." });
-      return;
-    }
-
-    setIsSyncing('exporting');
-    try {
-      const result = await signInWithGoogleCalendar(auth);
-      if (!result.token) throw new Error("Accès refusé.");
-      
-      let count = 0;
-      for (const event of localEvents) {
-        const googleResult = await pushEventToGoogle(result.token!, event);
-        if (googleResult.id) {
-          const eventRef = doc(db, 'companies', companyId, 'events', event.id);
-          setDocumentNonBlocking(eventRef, { source: 'google', id_externe: googleResult.id }, { merge: true });
-          count++;
-        }
-      }
-      toast({ title: "Exportation réussie !", description: `${count} événements ajoutés à Google Calendar.` });
-    } catch (error: any) {
-      toast({ variant: "destructive", title: "Échec d'exportation", description: error.message });
     } finally {
       setIsSyncing('idle');
     }
@@ -400,7 +368,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
 
     return (
       <div className={cn("flex flex-col h-full bg-card overflow-hidden", !isCompact && "p-8")}>
-        <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/5 mb-2 rounded-t-2xl">
+        <div className={cn("flex items-center justify-between px-4 py-2 border-b bg-muted/5 mb-2 rounded-t-2xl", isCompact && "py-1")}>
            <div className="flex items-center gap-4">
              <div className="flex gap-1">
                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setCurrentDate(addDays(currentDate, -1))}><ChevronLeft className="w-3 h-3" /></Button>
@@ -415,7 +383,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
            <div className="flex gap-2">
               <Button variant="ghost" size="sm" className="h-6 text-[9px] font-black uppercase px-2 gap-1" onClick={handleImportFromGoogle} disabled={isSyncing !== 'idle'}>
                 {isSyncing === 'importing' ? <Loader2 className="w-3 h-3 animate-spin" /> : <DownloadCloud className="w-3 h-3" />}
-                Sync Google
+                Sync
               </Button>
               <Button size="sm" className="h-6 text-[9px] font-black uppercase px-2 bg-primary rounded-lg" onClick={() => openAddEvent()}>
                 <Plus className="w-3 h-3" />
@@ -428,87 +396,85 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
           <div className="flex-1 grid grid-cols-3 gap-2">
             {days.map((day, idx) => (
               <div key={idx} className="text-center">
-                <p className="text-[10px] font-black uppercase tracking-wider text-primary/40">{isToday(day) ? "Auj." : format(day, "EEE", { locale: fr })}</p>
-                <h3 className={cn("font-black text-primary leading-none", isCompact ? "text-xs" : "text-base")}>{format(day, "d MMM", { locale: fr })}</h3>
+                <p className="text-[10px] font-black uppercase tracking-wider text-primary/40 leading-none mb-0.5">{isToday(day) ? "Auj." : format(day, "EEE", { locale: fr })}</p>
+                <h3 className={cn("font-black text-primary leading-none", isCompact ? "text-[10px]" : "text-base")}>{format(day, "d MMM", { locale: fr })}</h3>
               </div>
             ))}
           </div>
         </div>
 
         <div className="relative flex-1 overflow-hidden">
-          <div className="flex relative h-full" style={{ height: `${totalHeight}px` }}>
-            <div className={cn("flex-shrink-0 flex flex-col border-r bg-muted/5", isCompact ? "w-10" : "w-16")}>
-              {hours.map((h) => (
-                <div key={h} className="relative flex items-start justify-center border-b last:border-0" style={{ height: `${hourHeight}px` }}>
-                  <span className={cn("font-black text-muted-foreground/30 mt-1", isCompact ? "text-[8px]" : "text-[10px]")}>{h}:00</span>
-                </div>
-              ))}
-            </div>
+          <ScrollArea className="h-full">
+            <div className="flex relative" style={{ height: `${totalHeight}px` }}>
+              <div className={cn("flex-shrink-0 flex flex-col border-r bg-muted/5", isCompact ? "w-10" : "w-16")}>
+                {hours.map((h) => (
+                  <div key={h} className="relative flex items-start justify-center border-b last:border-0" style={{ height: `${hourHeight}px` }}>
+                    <span className={cn("font-black text-muted-foreground/30 mt-1", isCompact ? "text-[8px]" : "text-[10px]")}>{h}:00</span>
+                  </div>
+                ))}
+              </div>
 
-            <div className="flex-1 grid grid-cols-3 gap-2 relative bg-muted/[0.02]">
-              {days.map((day, idx) => {
-                const dayEvents = getEventsForDay(day);
-                const isTday = isToday(day);
-                
-                return (
-                  <div key={idx} className={cn("relative h-full border-r last:border-r-0", isTday && "bg-primary/[0.03]")}>
-                    {hours.map((h) => (
-                      <div key={h} className="border-b last:border-0 w-full" style={{ height: `${hourHeight}px` }} />
-                    ))}
+              <div className="flex-1 grid grid-cols-3 gap-2 relative bg-muted/[0.02]">
+                {days.map((day, idx) => {
+                  const dayEvents = getEventsForDay(day);
+                  const isTday = isToday(day);
+                  
+                  return (
+                    <div key={idx} className={cn("relative h-full border-r last:border-r-0", isTday && "bg-primary/[0.03]")}>
+                      {hours.map((h) => (
+                        <div key={h} className="border-b last:border-0 w-full" style={{ height: `${hourHeight}px` }} />
+                      ))}
 
-                    {dayEvents.map(event => {
-                      const start = parseISO(event.debut);
-                      const end = parseISO(event.fin);
-                      const eventStartHour = start.getHours();
-                      const eventStartMin = start.getMinutes();
-                      const duration = differenceInMinutes(end, start);
+                      {dayEvents.map(event => {
+                        const start = parseISO(event.debut);
+                        const end = parseISO(event.fin);
+                        const eventStartHour = start.getHours();
+                        const eventStartMin = start.getMinutes();
+                        const duration = differenceInMinutes(end, start);
 
-                      if (eventStartHour < startHour && (eventStartHour + duration/60) <= startHour) return null;
-                      if (eventStartHour > endHour) return null;
+                        if (eventStartHour < startHour && (eventStartHour + duration/60) <= startHour) return null;
+                        if (eventStartHour > endHour) return null;
 
-                      const isCurrentDragged = draggedEventId === event.id;
-                      const topPos = Math.max(0, (eventStartHour - startHour) * hourHeight + (eventStartMin / 60 * hourHeight));
-                      const eventHeight = Math.min(totalHeight - topPos, (duration / 60) * hourHeight);
+                        const isCurrentDragged = draggedEventId === event.id;
+                        const topPos = Math.max(0, (eventStartHour - startHour) * hourHeight + (eventStartMin / 60 * hourHeight));
+                        const eventHeight = Math.max(20, Math.min(totalHeight - topPos, (duration / 60) * hourHeight));
 
-                      return (
-                        <div 
-                          key={event.id} 
-                          onMouseDown={(e) => handleMouseDown(e, event)}
-                          className={cn(
-                            "absolute left-0 right-0 mx-1 z-10 rounded-xl border-l-4 shadow-md hover:ring-2 hover:ring-primary/20 transition-all cursor-pointer p-2 overflow-hidden flex flex-col select-none",
-                            event.source === 'google' ? "bg-white border-primary" : "bg-amber-50 border-amber-500",
-                            isCurrentDragged && "z-30 opacity-90 scale-[1.02] shadow-2xl ring-2 ring-primary border-dashed"
-                          )}
-                          style={{ 
-                            top: `${topPos + (isCurrentDragged ? dragOffset : 0)}px`, 
-                            left: `${isCurrentDragged ? dragXOffset : 0}px`,
-                            height: `${eventHeight}px`, 
-                            minHeight: '20px' 
-                          }}
-                        >
-                          <div className="flex items-center justify-between mb-0.5">
-                            <p className={cn("font-black text-primary/60 shrink-0", isCompact ? "text-[8px]" : "text-[9px]")}>
+                        return (
+                          <div 
+                            key={event.id} 
+                            onMouseDown={(e) => handleMouseDown(e, event)}
+                            className={cn(
+                              "absolute left-0 right-0 mx-0.5 z-10 rounded-lg border-l-4 shadow-sm hover:ring-2 hover:ring-primary/20 transition-all cursor-pointer p-1 overflow-hidden flex flex-col select-none",
+                              event.source === 'google' ? "bg-white border-primary" : "bg-amber-50 border-amber-500",
+                              isCurrentDragged && "z-30 opacity-90 scale-[1.02] shadow-2xl ring-2 ring-primary border-dashed"
+                            )}
+                            style={{ 
+                              top: `${topPos + (isCurrentDragged ? dragOffset : 0)}px`, 
+                              left: `${isCurrentDragged ? dragXOffset : 0}px`,
+                              height: `${eventHeight}px`
+                            }}
+                          >
+                            <p className={cn("font-black text-primary/60 leading-none shrink-0", isCompact ? "text-[7px]" : "text-[9px]")}>
                               {format(isCurrentDragged ? addMinutes(start, (dragOffset/hourHeight)*60) : start, "HH:mm")}
                             </p>
-                            {event.source === 'google' && <Chrome className="w-2.5 h-2.5 opacity-20" />}
+                            <h4 className={cn("font-bold leading-tight line-clamp-1 text-foreground", isCompact ? "text-[8px]" : "text-xs")}>
+                              {event.titre}
+                            </h4>
+                            {!isCompact && (
+                              <div className="mt-auto flex items-center gap-1 opacity-40">
+                                <UserIcon className="w-2.5 h-2.5" />
+                                <span className="text-[8px] font-black uppercase truncate">{getCreatorName(event.userId)}</span>
+                              </div>
+                            )}
                           </div>
-                          <h4 className={cn("font-bold leading-tight line-clamp-2 text-foreground", isCompact ? "text-[9px]" : "text-xs")}>
-                            {event.titre}
-                          </h4>
-                          {!isCompact && (
-                            <div className="mt-auto flex items-center gap-1 opacity-40">
-                              <UserIcon className="w-2.5 h-2.5" />
-                              <span className="text-[8px] font-black uppercase truncate">{getCreatorName(event.userId)}</span>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })}
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          </ScrollArea>
         </div>
       </div>
     );
@@ -539,7 +505,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
           <div className="flex flex-wrap gap-3">
               <Button variant="outline" size="lg" className="rounded-full font-bold gap-2 h-12 shadow-sm" onClick={handleImportFromGoogle} disabled={isSyncing !== 'idle'}>
                 {isSyncing === 'importing' ? <Loader2 className="w-5 h-5 animate-spin" /> : <DownloadCloud className="w-5 h-5" />}
-                Importer Google
+                Sync Google
               </Button>
               <Button size="lg" className="rounded-full font-bold gap-2 bg-primary h-12 px-8 shadow-xl" onClick={() => openAddEvent()}>
                 <Plus className="w-5 h-5" /> Ajouter un RDV

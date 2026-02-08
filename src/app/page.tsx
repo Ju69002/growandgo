@@ -68,7 +68,6 @@ export default function Home() {
 
   useEffect(() => {
     if (db && user && isSuperAdmin && allUsers && allUsers.length > 0) {
-      // Déclenchement basé sur le nombre d'identifiants uniques pour ne rater personne
       const uniqueIdCount = new Set(
         allUsers.map(u => (u.loginId_lower || u.loginId?.toLowerCase() || '').trim()).filter(Boolean)
       ).size;
@@ -90,7 +89,6 @@ export default function Home() {
 
   const { data: pendingTasks } = useCollection<BusinessDocument>(pendingDocsQuery);
 
-  // Filtrage STRICT des tâches pour la semaine en cours et la version stable v4
   const weeklyTasks = useMemo(() => {
     if (!pendingTasks) return [];
     const now = new Date();
@@ -99,7 +97,6 @@ export default function Home() {
 
     return pendingTasks
       .filter(task => {
-        // Uniquement les tâches Billing de la version v4 pour éliminer les doublons visuels
         if (task.isBillingTask && !task.id.startsWith('billing_v4')) return false;
         
         try {
@@ -163,8 +160,8 @@ export default function Home() {
           </div>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          <aside className="lg:col-span-1 space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+          <aside className="lg:col-span-2 space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-black uppercase tracking-tighter flex items-center gap-2">
                 <ListTodo className="w-5 h-5 text-primary" />
@@ -172,7 +169,7 @@ export default function Home() {
               </h2>
             </div>
             
-            <div className="space-y-3">
+            <div className="grid gap-3">
               {weeklyTasks.length > 0 ? (
                 weeklyTasks.map((task) => {
                   const dateParts = task.createdAt.split('/');
@@ -191,7 +188,7 @@ export default function Home() {
                       )}>
                         <CardContent className="p-4 flex items-center gap-3">
                           <div className={cn(
-                            "p-2 rounded-lg",
+                            "p-2 rounded-lg shrink-0",
                             task.isBillingTask ? "bg-amber-100 text-amber-600" : "bg-primary/5 text-primary"
                           )}>
                             {task.isBillingTask ? <Zap className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
@@ -205,7 +202,7 @@ export default function Home() {
                               <p className="text-[9px] font-bold text-primary/40">{task.createdAt}</p>
                             </div>
                           </div>
-                          <ChevronRight className="w-4 h-4 text-muted-foreground/30 group-hover:translate-x-1 transition-transform" />
+                          <ChevronRight className="w-4 h-4 text-muted-foreground/30 group-hover:translate-x-1 transition-transform shrink-0" />
                         </CardContent>
                       </Card>
                     </Link>
@@ -232,7 +229,7 @@ export default function Home() {
                 </Link>
               </Button>
             </div>
-            <div className="h-[500px] border-none shadow-xl rounded-[2rem] overflow-hidden bg-white">
+            <div className="h-[420px] border-none shadow-xl rounded-[2rem] overflow-hidden bg-white">
               {companyId ? (
                 <SharedCalendar companyId={companyId} isCompact={true} />
               ) : (
