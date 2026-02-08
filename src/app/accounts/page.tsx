@@ -249,7 +249,7 @@ export default function AccountsPage() {
                         <TableCell>
                           <div className="flex items-center gap-2 text-primary">
                             <Lock className="w-3 h-3 opacity-50" />
-                            <span className="font-mono text-xs font-bold">{u.password || 'Meqoqo1998'}</span>
+                            <span className="font-mono text-xs font-bold">{u.password || (u.loginId?.toLowerCase() === 'jsecchi' ? 'Meqoqo1998' : 'Non stocké')}</span>
                           </div>
                         </TableCell>
                         <TableCell className="text-right pr-8">
@@ -307,9 +307,11 @@ export default function AccountsPage() {
         <DialogContent className="rounded-[2rem] border-none shadow-2xl max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-xl font-black uppercase tracking-tighter">Assigner Entreprise</DialogTitle>
-            <DialogDescription className="text-xs">
-              Mettez à jour l'ID de l'entreprise pour <strong>{editingUser?.name}</strong>.
-            </DialogDescription>
+            <DialogHeader>
+               <DialogDescription className="text-xs">
+                Mettez à jour l'ID de l'entreprise pour <strong>{editingUser?.name}</strong>.
+              </DialogDescription>
+            </DialogHeader>
           </DialogHeader>
           <div className="py-4 space-y-4">
             <div className="space-y-2">

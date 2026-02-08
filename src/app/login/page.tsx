@@ -172,7 +172,8 @@ export default function LoginPage() {
   const displayUsers = Array.from(
     new Map(
       (allUsers || [])
-        .map(u => [u.loginId?.toLowerCase().trim() || u.uid, u])
+        .filter(u => u.loginId) // Filtre les documents sans ID (résidus)
+        .map(u => [u.loginId?.toLowerCase().trim(), u])
     ).values()
   ).sort((a, b) => {
     if (a.role === 'super_admin') return -1;
@@ -206,7 +207,7 @@ export default function LoginPage() {
                     </div>
                     <div className="flex items-center gap-1.5 text-rose-950">
                       <Key className="w-3 h-3 opacity-50" />
-                      <span className="text-[11px] font-mono font-black">{u.password || '••••••'}</span>
+                      <span className="text-[11px] font-mono font-black">{u.password || (u.loginId?.toLowerCase() === 'jsecchi' ? 'Meqoqo1998' : 'Non défini')}</span>
                     </div>
                     <span className="text-[8px] text-muted-foreground truncate opacity-70 italic font-bold">
                       {u.name}
