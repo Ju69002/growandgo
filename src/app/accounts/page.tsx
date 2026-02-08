@@ -33,7 +33,9 @@ import {
   UserCog, 
   Loader2,
   RefreshCcw,
-  Lock
+  Lock,
+  Building2,
+  Edit2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
@@ -61,7 +63,9 @@ export default function AccountsPage() {
   const db = useFirestore();
   const { toast } = useToast();
   const [editingPasswordUser, setEditingPasswordUser] = useState<{ uid: string, loginId: string, password?: string } | null>(null);
+  const [editingCompany, setEditingCompany] = useState<{ id: string, name: string } | null>(null);
   const [newPassword, setNewPassword] = useState('');
+  const [newCompanyName, setNewCompanyName] = useState('');
 
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !currentUser) return null;
@@ -112,6 +116,15 @@ export default function AccountsPage() {
     toast({ title: "Mot de passe modifié avec succès" });
     setEditingPasswordUser(null);
     setNewPassword('');
+  };
+
+  const handleUpdateCompany = () => {
+    if (!db || !editingCompany || !newCompanyName.trim()) return;
+    const companyRef = doc(db, 'companies', editingCompany.id);
+    updateDocumentNonBlocking(companyRef, { name: newCompanyName.trim() });
+    toast({ title: "Nom de l'entreprise mis à jour" });
+    setEditingCompany(null);
+    setNewCompanyName('');
   };
 
   if (isProfileLoading) {
@@ -195,7 +208,22 @@ export default function AccountsPage() {
                           <div className="flex items-center gap-3 font-bold">{u.name}</div>
                         </TableCell>
                         <TableCell>
-                          <span className="text-sm font-semibold">{company?.name || u.companyId}</span>
+                          <div className="flex items-center gap-2 group">
+                            <span className="text-sm font-semibold">{company?.name || u.companyId}</span>
+                            {u.role !== 'super_admin' && (
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-6 w-6 opacity-0 group-hover:opacity-100 text-primary"
+                                onClick={() => {
+                                  setEditingCompany({ id: u.companyId, name: company?.name || u.companyId });
+                                  setNewCompanyName(company?.name || u.companyId);
+                                }}
+                              >
+                                <Edit2 className="w-3 h-3" />
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <Badge className={u.role === 'super_admin' ? "bg-rose-950" : u.role === 'admin' ? "bg-primary" : "bg-muted text-muted-foreground"}>
@@ -264,6 +292,26 @@ export default function AccountsPage() {
           </div>
           <DialogFooter>
             <Button onClick={handleUpdatePassword} disabled={!newPassword.trim()} className="rounded-full font-bold px-8 bg-primary">Mettre à jour</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editingCompany} onOpenChange={(open) => !open && setEditingCompany(null)}>
+        <DialogContent className="rounded-[2rem]">
+          <DialogHeader>
+            <DialogTitle>Modifier l'entreprise</DialogTitle>
+            <DialogDesc>Renommez l'entreprise associée à cet utilisateur.</DialogDesc>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <Input 
+              value={newCompanyName} 
+              onChange={(e) => setNewCompanyName(e.target.value)} 
+              className="rounded-xl h-12 font-bold" 
+              placeholder="Nom de l'entreprise..." 
+            />
+          </div>
+          <DialogFooter>
+            <Button onClick={handleUpdateCompany} disabled={!newCompanyName.trim()} className="rounded-full font-bold px-8 bg-primary">Enregistrer</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

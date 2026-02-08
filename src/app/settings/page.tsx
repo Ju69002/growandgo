@@ -134,7 +134,7 @@ export default function SettingsPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Entreprise Studio (Fixe)</Label>
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Entreprise Studio (Fixe - Modifiable par Super Admin)</Label>
                   <div className="relative">
                     <Building2 className="absolute left-3 top-3.5 w-4 h-4 text-muted-foreground/40" />
                     <Input 
