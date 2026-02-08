@@ -149,7 +149,7 @@ export default function Home() {
             </h2>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-6">
             {isTasksLoading ? (
               Array(2).fill(0).map((_, i) => (
                 <div key={i} className="h-24 bg-muted/50 rounded-2xl animate-pulse" />
@@ -191,7 +191,7 @@ export default function Home() {
                 );
               })
             ) : (
-              <div className="col-span-full p-12 border-2 border-dashed rounded-[3rem] text-center space-y-3 bg-muted/5">
+              <div className="p-12 border-2 border-dashed rounded-[3rem] text-center space-y-3 bg-muted/5">
                 <CheckCircle2 className="w-10 h-10 text-primary/30 mx-auto" />
                 <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Aucune tâche en attente</p>
               </div>

@@ -114,7 +114,6 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
   // Plage horaire strictly de 8h à 20h
   const startHour = 8;
   const endHour = 20;
-  // Hauteur ajustée pour ne pas avoir de scroll dans un bloc de 750px (p-8 + header inclus)
   const hourHeight = 45; 
 
   const eventsQuery = useMemoFirebase(() => {
@@ -130,7 +129,6 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
     return events
       .filter(e => {
         if (!e.debut) return false;
-        // On n'affiche que les événements V1 stables
         if (e.isBillingEvent && !e.id.startsWith('event_v1')) return false;
         try {
           const eventDate = parseISO(e.debut);
