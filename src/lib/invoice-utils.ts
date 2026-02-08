@@ -65,7 +65,7 @@ export const generateInvoicePDF = (userData: User, price: string) => {
     margin: { left: 20, right: 20 }
   });
 
-  const finalY = (doc as any).lastAutoTable.finalY + 10;
+  const finalY = (doc as any).lastAutoTable.finalY + 15;
   
   // Totaux
   const priceNum = parseFloat(price.replace(',', '.'));
@@ -73,16 +73,20 @@ export const generateInvoicePDF = (userData: User, price: string) => {
   const totalTTC = priceNum + tva;
 
   doc.setFontSize(10);
-  doc.text('Total HT :', 140, finalY);
-  doc.text(`${price} €`, 175, finalY, { align: 'right' });
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(0);
   
-  doc.text('TVA (20%) :', 140, finalY + 7);
-  doc.text(`${tva.toFixed(2).replace('.', ',')} €`, 175, finalY + 7, { align: 'right' });
+  // Ajustement des positions pour éviter la superposition (Libellé à 130, Valeur alignée à droite sur 185)
+  doc.text('Total HT :', 130, finalY);
+  doc.text(`${price} €`, 185, finalY, { align: 'right' });
+  
+  doc.text('TVA (20%) :', 130, finalY + 7);
+  doc.text(`${tva.toFixed(2).replace('.', ',')} €`, 185, finalY + 7, { align: 'right' });
   
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.text('TOTAL TTC :', 140, finalY + 16);
-  doc.text(`${totalTTC.toFixed(2).replace('.', ',')} €`, 175, finalY + 16, { align: 'right' });
+  doc.text('TOTAL TTC :', 130, finalY + 16);
+  doc.text(`${totalTTC.toFixed(2).replace('.', ',')} €`, 185, finalY + 16, { align: 'right' });
 
   // Bas de page
   doc.setFontSize(8);
