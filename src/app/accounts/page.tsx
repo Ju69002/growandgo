@@ -39,7 +39,8 @@ import {
   Calendar,
   UserCircle,
   AlertTriangle,
-  User as UserIcon
+  User as UserIcon,
+  Search
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useMemo, useEffect } from 'react';
@@ -76,6 +77,7 @@ export default function AccountsPage() {
   const db = useFirestore();
   const { toast } = useToast();
   const [mounted, setMounted] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   
   const [editingPasswordUser, setEditingPasswordUser] = useState<User | null>(null);
   const [editingCompanyUser, setEditingCompanyUser] = useState<User | null>(null);
@@ -138,8 +140,18 @@ export default function AccountsPage() {
       }
       
       return finalUser;
-    }).sort((a, b) => (a.role === 'super_admin' ? -1 : 1));
-  }, [allProfiles]);
+    })
+    .filter(u => {
+      if (!searchQuery) return true;
+      const search = searchQuery.toLowerCase();
+      return (
+        u.name?.toLowerCase().includes(search) ||
+        u.loginId?.toLowerCase().includes(search) ||
+        u.companyName?.toLowerCase().includes(search)
+      );
+    })
+    .sort((a, b) => (a.role === 'super_admin' ? -1 : 1));
+  }, [allProfiles, searchQuery]);
 
   const updateAllUserDocs = async (loginId: string, updates: Partial<User>) => {
     if (!db || !allProfiles) return;
@@ -231,90 +243,103 @@ export default function AccountsPage() {
 
   return (
     <DashboardLayout>
-      <div className="max-w-6xl mx-auto py-10 px-6 space-y-8">
-        <div className="flex items-center justify-between">
+      <div className="max-w-7xl mx-auto py-8 px-6 space-y-6">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div className="space-y-1">
-            <h1 className="text-4xl font-black tracking-tighter text-primary uppercase flex items-center gap-3"><UserCog className="w-10 h-10" />Répertoire</h1>
-            <p className="text-muted-foreground font-medium">Gestion globale des accès et des entreprises.</p>
+            <h1 className="text-3xl font-black tracking-tighter text-primary uppercase flex items-center gap-3">
+              <UserCog className="w-8 h-8" />
+              Répertoire
+            </h1>
+            <p className="text-muted-foreground font-medium text-sm">Contrôle global des utilisateurs et des permissions.</p>
           </div>
-          <Badge variant="outline" className="px-4 py-1 border-primary/20 text-primary font-bold">{uniqueUsers.length} UTILISATEURS</Badge>
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
+              <Input 
+                placeholder="Rechercher..." 
+                className="pl-9 h-10 w-64 rounded-full bg-white border-primary/10 shadow-sm"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <Badge variant="outline" className="h-10 px-4 border-primary/20 text-primary font-bold bg-white">{uniqueUsers.length} comptes</Badge>
+          </div>
         </div>
 
-        <Card className="border-none shadow-xl rounded-[2rem] overflow-hidden bg-white">
-          <CardHeader className="bg-primary text-primary-foreground p-8"><CardTitle className="text-xl flex items-center gap-2"><ShieldCheck className="w-6 h-6" />Gestion des Espaces</CardTitle></CardHeader>
+        <Card className="border-none shadow-2xl rounded-[2rem] overflow-hidden bg-white">
           <CardContent className="p-0">
             <Table>
-              <TableHeader className="bg-muted/50">
-                <TableRow>
-                  <TableHead className="pl-8">Utilisateur (Nom & Prénom)</TableHead>
-                  <TableHead>Entreprise / Créé le</TableHead>
-                  <TableHead>Rôle</TableHead>
-                  <TableHead>Abonnement</TableHead>
-                  <TableHead>Identifiant (ID)</TableHead>
-                  <TableHead className="text-right pr-8">Actions</TableHead>
+              <TableHeader className="bg-primary text-primary-foreground">
+                <TableRow className="hover:bg-primary/95 border-none">
+                  <TableHead className="pl-8 py-4 text-[10px] font-black uppercase tracking-widest text-primary-foreground/70">Utilisateur</TableHead>
+                  <TableHead className="text-[10px] font-black uppercase tracking-widest text-primary-foreground/70">Entreprise</TableHead>
+                  <TableHead className="text-[10px] font-black uppercase tracking-widest text-primary-foreground/70 text-center">Rôle</TableHead>
+                  <TableHead className="text-[10px] font-black uppercase tracking-widest text-primary-foreground/70 text-center">Abonnement</TableHead>
+                  <TableHead className="text-[10px] font-black uppercase tracking-widest text-primary-foreground/70">Identifiant (ID)</TableHead>
+                  <TableHead className="text-right pr-8 text-[10px] font-black uppercase tracking-widest text-primary-foreground/70">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {uniqueUsers.map((u) => (
-                  <TableRow key={u.uid} className="hover:bg-primary/5 border-b-primary/5">
-                    <TableCell className="pl-8 py-6 font-bold text-base text-primary">
-                      <div className="flex items-center gap-2 group">
-                        <span>{u.name || u.loginId}</span>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-6 w-6 opacity-0 group-hover:opacity-100 text-primary" 
-                          onClick={() => { 
-                            setEditingNameUser(u); 
-                            setNewName(u.name || u.loginId || ''); 
-                          }}
-                        >
-                          <Edit2 className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-col gap-1 group">
-                        <div className="flex items-center gap-2">
-                          <span className={cn(
-                            "text-sm font-semibold",
-                            u.role === 'particulier' && "text-amber-600 italic"
-                          )}>{u.companyName || u.companyId}</span>
-                          {u.loginId_lower !== 'jsecchi' && u.role !== 'particulier' && (
+                  <TableRow key={u.uid} className="hover:bg-primary/5 transition-colors group">
+                    <TableCell className="pl-8 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-black text-xs">
+                          {u.name?.charAt(0) || u.loginId?.charAt(0)}
+                        </div>
+                        <div className="flex flex-col">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-sm text-primary whitespace-nowrap">{u.name || u.loginId}</span>
                             <Button 
                               variant="ghost" 
                               size="icon" 
-                              className="h-6 w-6 opacity-0 group-hover:opacity-100 text-primary" 
-                              onClick={() => { 
-                                setEditingCompanyUser(u); 
-                                setNewCompanyName(u.companyName || u.companyId || ''); 
-                              }}
+                              className="h-5 w-5 opacity-0 group-hover:opacity-100 text-primary transition-opacity" 
+                              onClick={() => { setEditingNameUser(u); setNewName(u.name || u.loginId || ''); }}
                             >
                               <Edit2 className="w-3 h-3" />
                             </Button>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1.5 text-[9px] font-black uppercase text-muted-foreground">
-                          <Calendar className="w-3 h-3 opacity-30" />
-                          {u.createdAt ? new Date(u.createdAt).toLocaleDateString('fr-FR') : '08/02/2026'}
+                          </div>
+                          <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                            <Calendar className="w-2.5 h-2.5 opacity-40" />
+                            {u.createdAt ? new Date(u.createdAt).toLocaleDateString('fr-FR') : '08/02/2026'}
+                          </div>
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2 group">
-                        <Badge className={
+                    <TableCell className="py-4">
+                      <div className="flex items-center gap-2">
+                        <span className={cn(
+                          "text-xs font-semibold whitespace-nowrap",
+                          u.role === 'particulier' ? "text-amber-600 italic" : "text-foreground"
+                        )}>{u.companyName || u.companyId}</span>
+                        {u.loginId_lower !== 'jsecchi' && u.role !== 'particulier' && (
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-5 w-5 opacity-0 group-hover:opacity-100 text-primary transition-opacity" 
+                            onClick={() => { setEditingCompanyUser(u); setNewCompanyName(u.companyName || u.companyId || ''); }}
+                          >
+                            <Edit2 className="w-3 h-3" />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-center py-4">
+                      <div className="flex items-center justify-center gap-2">
+                        <Badge className={cn(
+                          "text-[9px] font-black uppercase px-2 h-5 tracking-tighter whitespace-nowrap",
                           u.role === 'super_admin' ? "bg-rose-950" : 
                           u.role === 'admin' ? "bg-primary" : 
                           u.role === 'particulier' ? "bg-amber-600" :
-                          "bg-primary"
-                        }>
-                          {u.role === 'super_admin' ? 'ADMIN' : u.role === 'admin' ? 'PATRON' : u.role === 'particulier' ? 'PARTICULIER' : 'EMPLOYÉ'}
+                          "bg-muted-foreground/20 text-muted-foreground"
+                        )}>
+                          {u.role === 'super_admin' ? 'ADMIN' : u.role === 'admin' ? 'PATRON' : u.role === 'particulier' ? 'PART.' : 'EMP.'}
                         </Badge>
                         {u.role !== 'super_admin' && (
                           <Button 
                             variant="ghost" 
                             size="icon" 
-                            className="h-6 w-6 opacity-0 group-hover:opacity-100 text-primary"
+                            className="h-5 w-5 opacity-0 group-hover:opacity-100 text-primary transition-opacity"
                             onClick={() => {
                               setEditingRoleUser(u);
                               setNewRole(u.role);
@@ -326,61 +351,46 @@ export default function AccountsPage() {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-center py-4">
                       {u.role !== 'super_admin' ? (
                         <Button 
                           variant="ghost" 
                           size="sm" 
                           className={cn(
-                            "rounded-full h-7 px-3 text-[10px] font-black uppercase tracking-widest gap-2",
+                            "rounded-full h-6 px-3 text-[9px] font-black uppercase tracking-widest gap-1.5 transition-all",
                             u.subscriptionStatus === 'inactive' ? "text-rose-600 bg-rose-50 hover:bg-rose-100" : "text-emerald-600 bg-emerald-50 hover:bg-emerald-100"
                           )}
                           onClick={() => toggleSubscription(u.loginId, u.subscriptionStatus)}
                         >
-                          {u.subscriptionStatus === 'inactive' ? <Ban className="w-3 h-3" /> : <CheckCircle2 className="w-3 h-3" />}
-                          {u.subscriptionStatus === 'inactive' ? 'Suspendu' : 'Actif'}
+                          {u.subscriptionStatus === 'inactive' ? <Ban className="w-2.5 h-2.5" /> : <CheckCircle2 className="w-2.5 h-2.5" />}
+                          {u.subscriptionStatus === 'inactive' ? 'Désactivé' : 'Actif'}
                         </Button>
                       ) : (
-                        <Badge className="bg-emerald-600 font-black uppercase text-[10px]">TOUJOURS ACTIF</Badge>
+                        <Badge className="bg-emerald-600 font-black uppercase text-[9px] h-5">TOUJOURS ACTIF</Badge>
                       )}
                     </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="font-mono text-[11px] font-black text-primary border-primary/10 bg-primary/5">
+                    <TableCell className="py-4">
+                      <Badge variant="outline" className="font-mono text-[10px] font-black text-primary/60 border-primary/5 bg-primary/5 px-2 py-0">
                         {u.loginId}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right pr-8">
-                      <div className="flex items-center justify-end gap-2">
+                    <TableCell className="text-right pr-8 py-4">
+                      <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         {u.role !== 'super_admin' && (
                           <>
                              <Button 
                                variant="ghost" 
                                size="icon" 
-                               className="text-primary" 
-                               title="Modifier le nom"
-                               onClick={() => { 
-                                 setEditingNameUser(u); 
-                                 setNewName(u.name || u.loginId || ''); 
-                               }}
-                             >
-                               <UserIcon className="w-4 h-4" />
-                             </Button>
-                             <Button 
-                               variant="ghost" 
-                               size="icon" 
-                               className="text-primary" 
+                               className="h-8 w-8 text-primary hover:bg-primary/10" 
                                title="Modifier le mot de passe"
-                               onClick={() => { 
-                                 setEditingPasswordUser(u); 
-                                 setNewPassword(u.password || ''); 
-                               }}
+                               onClick={() => { setEditingPasswordUser(u); setNewPassword(u.password || ''); }}
                              >
                                <Key className="w-4 h-4" />
                              </Button>
                              <Button 
                                variant="ghost" 
                                size="icon" 
-                               className="text-rose-950" 
+                               className="h-8 w-8 text-rose-950 hover:bg-rose-50" 
                                onClick={() => setDeletingUser(u)}
                              >
                                <Trash2 className="w-4 h-4" />
@@ -397,6 +407,7 @@ export default function AccountsPage() {
         </Card>
       </div>
 
+      {/* DIALOGS (Inchangés pour la logique, juste arrondis) */}
       <Dialog open={!!editingNameUser} onOpenChange={(open) => !open && setEditingNameUser(null)}>
         <DialogContent className="rounded-[2rem]">
           <DialogHeader>
@@ -406,15 +417,10 @@ export default function AccountsPage() {
           <div className="py-4 space-y-4">
             <div className="space-y-1">
               <span className="text-[10px] font-black uppercase text-muted-foreground ml-1">Nom et Prénom</span>
-              <Input 
-                value={newName} 
-                onChange={(e) => setNewName(e.target.value)} 
-                placeholder="Ex: Patrick Blanc"
-                className="rounded-xl h-12 font-bold" 
-              />
+              <Input value={newName} onChange={(e) => setNewName(e.target.value)} className="rounded-xl h-12 font-bold" />
             </div>
           </div>
-          <DialogFooter><Button onClick={handleUpdateName} className="rounded-full bg-primary">Enregistrer le nom</Button></DialogFooter>
+          <DialogFooter><Button onClick={handleUpdateName} className="rounded-full bg-primary px-8">Enregistrer</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -424,8 +430,13 @@ export default function AccountsPage() {
             <DialogTitle>Modifier le mot de passe</DialogTitle>
             <DialogDescription>Mise à jour pour l'utilisateur : <strong>{editingPasswordUser?.loginId}</strong></DialogDescription>
           </DialogHeader>
-          <div className="py-4"><Input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="rounded-xl h-12 font-bold" /></div>
-          <DialogFooter><Button onClick={handleUpdatePassword} className="rounded-full bg-primary">Enregistrer</Button></DialogFooter>
+          <div className="py-4">
+            <div className="space-y-1">
+              <span className="text-[10px] font-black uppercase text-muted-foreground ml-1">Nouveau mot de passe</span>
+              <Input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="rounded-xl h-12 font-bold" />
+            </div>
+          </div>
+          <DialogFooter><Button onClick={handleUpdatePassword} className="rounded-full bg-primary px-8">Enregistrer</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -433,24 +444,15 @@ export default function AccountsPage() {
         <DialogContent className="rounded-[2rem]">
           <DialogHeader>
             <DialogTitle>Modifier l'entreprise</DialogTitle>
-            <DialogDescription>Mise à jour de l'espace de travail pour <strong>{editingCompanyUser?.loginId}</strong>. L'identifiant technique sera synchronisé.</DialogDescription>
+            <DialogDescription>Mise à jour de l'espace pour <strong>{editingCompanyUser?.loginId}</strong>.</DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
             <div className="space-y-1">
               <span className="text-[10px] font-black uppercase text-muted-foreground ml-1">Nom d'affichage</span>
               <Input value={newCompanyName} onChange={(e) => setNewCompanyName(e.target.value)} className="rounded-xl h-12 font-bold" />
             </div>
-            {newCompanyName && (
-              <div className="p-3 bg-muted rounded-xl border border-dashed flex items-center gap-3">
-                <Building className="w-4 h-4 text-primary" />
-                <div className="flex flex-col">
-                  <span className="text-[8px] font-black uppercase text-muted-foreground">Nouvel ID technique</span>
-                  <span className="text-xs font-mono font-bold text-primary">{normalizeId(newCompanyName)}</span>
-                </div>
-              </div>
-            )}
           </div>
-          <DialogFooter><Button onClick={handleUpdateCompany} className="rounded-full bg-primary">Mettre à jour & Lier</Button></DialogFooter>
+          <DialogFooter><Button onClick={handleUpdateCompany} className="rounded-full bg-primary px-8">Mettre à jour</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -458,14 +460,14 @@ export default function AccountsPage() {
         <DialogContent className="rounded-[2rem]">
           <DialogHeader>
             <DialogTitle>Modifier le rôle</DialogTitle>
-            <DialogDescription>Changement des permissions pour <strong>{editingRoleUser?.loginId}</strong>.</DialogDescription>
+            <DialogDescription>Permissions pour <strong>{editingRoleUser?.loginId}</strong>.</DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
             <div className="space-y-1">
               <span className="text-[10px] font-black uppercase text-muted-foreground ml-1">Nouveau Rôle</span>
               <Select value={newRole} onValueChange={(v) => setNewRole(v as UserRole)}>
                 <SelectTrigger className="rounded-xl h-12 font-bold">
-                  <SelectValue placeholder="Choisir un rôle" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="admin">Patron</SelectItem>
@@ -474,36 +476,14 @@ export default function AccountsPage() {
                 </SelectContent>
               </Select>
             </div>
-
             {(editingRoleUser?.role === 'particulier' && (newRole === 'admin' || newRole === 'employee')) && (
               <div className="space-y-2 animate-in slide-in-from-top-2">
-                <Label className="text-[10px] font-black uppercase text-rose-600 flex items-center gap-2">
-                  <AlertTriangle className="w-3 h-3" /> Nom de l'entreprise requis
-                </Label>
-                <Input 
-                  placeholder="Nom de l'entreprise de destination..." 
-                  value={roleCompanyInput}
-                  onChange={(e) => setRoleCompanyInput(e.target.value)}
-                  className="rounded-xl h-12 font-bold border-rose-200"
-                />
+                <Label className="text-[10px] font-black uppercase text-rose-600">Nom de l'entreprise requis</Label>
+                <Input placeholder="Nom de l'entreprise..." value={roleCompanyInput} onChange={(e) => setRoleCompanyInput(e.target.value)} className="rounded-xl h-12 font-bold" />
               </div>
             )}
-
-            <div className="p-4 bg-muted/50 rounded-xl border flex items-start gap-3">
-              <UserCircle className="w-5 h-5 text-primary mt-0.5" />
-              <div className="text-xs leading-relaxed font-medium space-y-1">
-                <p>
-                  Les rôles <strong>Patron</strong> et <strong>Particulier</strong> ont des accès complets. Le rôle <strong>Employé</strong> est restreint.
-                </p>
-                {newRole === 'particulier' && (
-                  <p className="text-amber-600 font-bold">
-                    Attention : Le passage en Particulier isolera cet utilisateur dans son propre espace privé.
-                  </p>
-                )}
-              </div>
-            </div>
           </div>
-          <DialogFooter><Button onClick={handleUpdateRole} className="rounded-full bg-primary">Appliquer le changement</Button></DialogFooter>
+          <DialogFooter><Button onClick={handleUpdateRole} className="rounded-full bg-primary px-8">Appliquer</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -511,11 +491,11 @@ export default function AccountsPage() {
         <AlertDialogContent className="rounded-[2rem]">
           <AlertDialogHeader>
             <AlertDialogTitle>Supprimer le compte ?</AlertDialogTitle>
-            <AlertDialogDescription>Action irréversible pour <strong>{deletingUser?.loginId}</strong>. L'utilisateur n'aura plus accès à son espace de travail.</AlertDialogDescription>
+            <AlertDialogDescription>Action irréversible pour <strong>{deletingUser?.loginId}</strong>.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="rounded-full">Annuler</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteUser} className="bg-rose-950 rounded-full">Supprimer définitivement</AlertDialogAction>
+            <AlertDialogAction onClick={handleDeleteUser} className="bg-rose-950 rounded-full">Supprimer</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
