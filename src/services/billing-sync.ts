@@ -59,7 +59,7 @@ export async function syncBillingTasks(db: Firestore, adminUid: string, allUsers
           // On utilise setDocumentNonBlocking avec merge pour ne pas écraser inutilement
           setDocumentNonBlocking(taskRef, {
             id: currentTaskId,
-            name: `Facture ${client.name || client.loginId} - ${monthLabel}`,
+            name: `Générer facture pour ${client.name || client.loginId} - ${monthLabel}`,
             categoryId: 'finance',
             subCategory: 'Factures à envoyer',
             status: 'waiting_verification',

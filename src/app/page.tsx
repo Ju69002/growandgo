@@ -55,7 +55,6 @@ export default function Home() {
   const isParticulier = profile?.role === 'particulier';
   const companyId = profile?.companyId || null;
 
-  // Récupération asynchrone des utilisateurs uniquement pour le SuperAdmin
   const allUsersQuery = useMemoFirebase(() => {
     if (!db || !isSuperAdmin) return null;
     return query(collection(db, 'users'));
@@ -64,12 +63,11 @@ export default function Home() {
   const { data: allUsers } = useCollection<User>(allUsersQuery);
 
   useEffect(() => {
-    // Optimisation : On attend que la page soit bien chargée avant de lancer la synchro lourde
     if (db && user && isSuperAdmin && allUsers && !syncLockRef.current) {
       syncLockRef.current = true;
       const timer = setTimeout(() => {
         syncBillingTasks(db, user.uid, allUsers);
-      }, 3000); // Délai de 3 secondes pour fluidifier le démarrage
+      }, 3000);
       return () => clearTimeout(timer);
     }
   }, [db, user, isSuperAdmin, allUsers]);
@@ -155,13 +153,10 @@ export default function Home() {
                 ))
               ) : weeklyTasks.length > 0 ? (
                 weeklyTasks.map((task) => {
-                  const dateParts = task.createdAt.split('/');
-                  const formattedDate = dateParts.length === 3 ? `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}` : '';
-                  
                   return (
                     <Link 
                       href={task.isBillingTask 
-                        ? `/categories/agenda?date=${formattedDate}` 
+                        ? `/billing` 
                         : `/categories/${task.categoryId}`} 
                       key={task.id}
                     >
@@ -180,7 +175,7 @@ export default function Home() {
                             <p className="text-sm font-bold truncate group-hover:text-primary transition-colors">{task.name}</p>
                             <div className="flex items-center justify-between mt-0.5">
                               <p className="text-[10px] font-black uppercase text-muted-foreground opacity-60">
-                                {task.isBillingTask ? "Facturation" : task.status.replace('_', ' ')}
+                                {task.isBillingTask ? "Action requise" : task.status.replace('_', ' ')}
                               </p>
                               <p className="text-[9px] font-bold text-primary/40">{task.createdAt}</p>
                             </div>

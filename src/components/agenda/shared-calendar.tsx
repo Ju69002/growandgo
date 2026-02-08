@@ -91,8 +91,6 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
   const [dragXOffset, setDragXOffset] = React.useState(0);
   const isDraggingRef = React.useRef(false);
 
-  const [openSelect, setOpenSelect] = React.useState<'duration' | 'hour' | 'minute' | null>(null);
-
   const [formTitre, setFormTitre] = React.useState('');
   const [formDate, setFormDate] = React.useState(format(new Date(), 'yyyy-MM-dd'));
   const [formHour, setFormHour] = React.useState('09');
@@ -116,7 +114,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
   }, [searchParams]);
 
   const startHour = 8;
-  const endHour = 20;
+  const endHour = 18;
   const hourHeight = isCompact ? 36 : 60;
 
   const eventsQuery = useMemoFirebase(() => {
@@ -133,22 +131,6 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
 
   const { data: teamMembers } = useCollection<User>(teamQuery);
 
-  const getCreatorName = (userId: string) => {
-    if (!teamMembers) return "Utilisateur";
-    return teamMembers.find(m => m.uid === userId)?.name || "Utilisateur";
-  };
-
-  const calculatedTimes = React.useMemo(() => {
-    if (!formDate || !formHour || !formMinute || !selectedDuration) return null;
-    try {
-      const [year, month, day] = formDate.split('-').map(Number);
-      const start = new Date(year, month - 1, day, parseInt(formHour), parseInt(formMinute));
-      const end = addMinutes(start, parseInt(selectedDuration));
-      return { start, end };
-    } catch (e) { return null; }
-  }, [formDate, formHour, formMinute, selectedDuration]);
-
-  // Optimisation du filtrage des événements par jour
   const getEventsForDay = React.useCallback((day: Date) => {
     if (!events) return [];
     return events
@@ -296,14 +278,6 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
     toast({ title: "Agenda synchronisé" });
   };
 
-  const hoursList = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
-  const minutesList = ['00', '10', '20', '30', '40', '50'];
-  const durations = [
-    { label: '15 min', value: '15' }, { label: '30 min', value: '30' },
-    { label: '45 min', value: '45' }, { label: '1 heure', value: '60' },
-    { label: '1h 30min', value: '90' }, { label: '2 heures', value: '120' },
-  ];
-
   const render3DayView = () => {
     const days = [currentDate, addDays(currentDate, 1), addDays(currentDate, 2)];
     const hours = Array.from({ length: endHour - startHour + 1 }, (_, i) => startHour + i);
@@ -389,10 +363,14 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
                               height: `${height}px`
                             }}
                           >
-                            <p className={cn("font-black text-primary/60 leading-none shrink-0", isCompact ? "text-[7px]" : "text-[9px]")}>
-                              {format(isCurrentDragged ? addMinutes(start, (dragOffset/hourHeight)*60) : start, "HH:mm")}
-                            </p>
-                            <h4 className={cn("font-bold leading-tight line-clamp-1 text-foreground", isCompact ? "text-[8px]" : "text-xs")}>{event.titre}</h4>
+                            <div className="flex items-center gap-1.5 shrink-0 overflow-hidden mb-0.5">
+                               <span className={cn("font-black text-primary/60 leading-none", isCompact ? "text-[7px]" : "text-[9px]")}>
+                                 {format(isCurrentDragged ? addMinutes(start, (dragOffset/hourHeight)*60) : start, "HH:mm")}
+                               </span>
+                            </div>
+                            <h4 className={cn("font-bold leading-tight line-clamp-2 text-foreground break-words", isCompact ? "text-[9px]" : "text-sm")}>
+                              {event.titre}
+                            </h4>
                           </div>
                         );
                       })}
@@ -472,7 +450,11 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
                 <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Durée</Label>
                 <Select value={selectedDuration} onValueChange={setSelectedDuration}>
                   <SelectTrigger className="h-12 rounded-xl font-bold"><SelectValue /></SelectTrigger>
-                  <SelectContent className="bg-card rounded-xl">{durations.map(d => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}</SelectContent>
+                  <SelectContent className="bg-card rounded-xl">{[
+                    { label: '15 min', value: '15' }, { label: '30 min', value: '30' },
+                    { label: '45 min', value: '45' }, { label: '1 heure', value: '60' },
+                    { label: '1h 30min', value: '90' }, { label: '2 heures', value: '120' },
+                  ].map(d => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
             </div>
