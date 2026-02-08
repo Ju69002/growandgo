@@ -2,7 +2,7 @@
 'use client';
 
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
-import { CreditCard, ShieldCheck, Ban, CheckCircle2, Users, Calendar, Euro } from 'lucide-react';
+import { CreditCard, ShieldCheck, Ban, CheckCircle2, Users, Calendar, Euro, FileDown, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -23,11 +23,16 @@ import {
   TableHeader, 
   TableRow 
 } from '@/components/ui/table';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { generateInvoicePDF } from '@/lib/invoice-utils';
+import { useToast } from '@/hooks/use-toast';
 
 export default function BillingPage() {
   const { user } = useUser();
   const db = useFirestore();
+  const { toast } = useToast();
+  const [isGenerating, setIsGenerating] = useState<string | null>(null);
 
   const userRef = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -57,6 +62,19 @@ export default function BillingPage() {
     if (role === 'super_admin') return "ADMIN";
     if (role === 'admin') return "PATRON";
     return "EMPLOYÉ";
+  };
+
+  const handleDownloadInvoice = (userData: User) => {
+    setIsGenerating(userData.uid);
+    try {
+      const price = getPrice(userData.role);
+      generateInvoicePDF(userData, price);
+      toast({ title: "Facture générée", description: `Le document pour ${userData.name} est prêt.` });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Erreur PDF", description: "Impossible de générer le document." });
+    } finally {
+      setIsGenerating(null);
+    }
   };
 
   const uniqueProfiles = useMemo(() => {
@@ -108,7 +126,7 @@ export default function BillingPage() {
                     <TableHead>Rôle</TableHead>
                     <TableHead>Date de création</TableHead>
                     <TableHead>Prix mensuel</TableHead>
-                    <TableHead className="text-right pr-8">Statut</TableHead>
+                    <TableHead className="text-right pr-8">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -141,12 +159,25 @@ export default function BillingPage() {
                         </div>
                       </TableCell>
                       <TableCell className="text-right pr-8">
-                        <Badge className={cn(
-                          "font-black uppercase text-[10px]",
-                          u.subscriptionStatus === 'inactive' && u.role !== 'super_admin' ? "bg-rose-500" : "bg-emerald-500"
-                        )}>
-                          {u.subscriptionStatus === 'inactive' && u.role !== 'super_admin' ? "SUSPENDU" : "ACTIF"}
-                        </Badge>
+                        {u.role !== 'super_admin' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 rounded-full gap-2 font-black uppercase text-[10px] tracking-widest text-primary hover:bg-primary/10"
+                            onClick={() => handleDownloadInvoice(u)}
+                            disabled={!!isGenerating}
+                          >
+                            {isGenerating === u.uid ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <FileDown className="w-3.5 h-3.5" />
+                            )}
+                            Facture
+                          </Button>
+                        )}
+                        {u.role === 'super_admin' && (
+                          <Badge variant="outline" className="text-[9px] font-black uppercase opacity-30">GRATUIT</Badge>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
