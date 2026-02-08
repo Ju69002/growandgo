@@ -53,7 +53,7 @@ export default function TeamPage() {
           <div className="bg-primary p-6 rounded-2xl border flex items-start gap-4 text-left max-w-lg text-white shadow-xl">
             <Info className="w-6 h-6 mt-1 shrink-0" />
             <p className="text-sm leading-relaxed font-bold">
-              La vue "Équipe" est réservée aux entreprises clientes. Pour gérer les accès, modifier les rôles ou supprimer des comptes, rendez-vous dans l'onglet Administration > Répertoire.
+              La vue "Équipe" est réservée aux entreprises clientes. Pour gérer les accès, modifier les rôles ou supprimer des comptes, rendez-vous dans l'onglet Administration {' > '} Répertoire.
             </p>
           </div>
         </div>
