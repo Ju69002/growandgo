@@ -10,11 +10,16 @@ import {
   ToastViewport,
 } from "@/components/ui/toast"
 
+/**
+ * Le Toaster gère l'affichage global des notifications.
+ * J'ai ajouté une durée par défaut de 3000ms (3 secondes) pour que les messages
+ * disparaissent rapidement après l'action de l'utilisateur.
+ */
 export function Toaster() {
   const { toasts } = useToast()
 
   return (
-    <ToastProvider>
+    <ToastProvider duration={3000}>
       {toasts.map(function ({ id, title, description, action, ...props }) {
         return (
           <Toast key={id} {...props}>
