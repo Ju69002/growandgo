@@ -8,7 +8,8 @@ import {
   Save, 
   Loader2, 
   ShieldCheck, 
-  Fingerprint 
+  Fingerprint,
+  Mail
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -34,6 +35,7 @@ export default function SettingsPage() {
   const { toast } = useToast();
 
   const [userName, setUserName] = useState('');
+  const [userEmail, setUserEmail] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
@@ -50,10 +52,11 @@ export default function SettingsPage() {
     return doc(db, 'companies', companyId);
   }, [db, companyId]);
 
-  const { data: company, isLoading: isCompanyLoading } = useDoc<Company>(companyRef);
+  const { data: company } = useDoc<Company>(companyRef);
 
   useEffect(() => {
     if (profile?.name) setUserName(profile.name);
+    if (profile?.email) setUserEmail(profile.email);
     if (company?.name) setCompanyName(company.name);
   }, [profile, company]);
 
@@ -63,7 +66,8 @@ export default function SettingsPage() {
 
     const userDocRef = doc(db, 'users', user.uid);
     updateDocumentNonBlocking(userDocRef, { 
-      name: userName
+      name: userName,
+      email: userEmail
     });
 
     const isPatronOrSuper = profile?.role === 'admin' || profile?.role === 'super_admin';
@@ -76,19 +80,17 @@ export default function SettingsPage() {
       setIsSaving(false);
       toast({ 
         title: "Profil mis à jour", 
-        description: "Vos modifications ont été enregistrées avec succès." 
+        description: "Vos modifications ont été enregistrées." 
       });
     }, 500);
   };
-
-  const isPatronOrSuper = profile?.role === 'admin' || profile?.role === 'super_admin';
 
   if (isProfileLoading) {
     return (
       <DashboardLayout>
         <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
           <Loader2 className="w-12 h-12 animate-spin text-primary opacity-30" />
-          <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Chargement de votre compte...</p>
+          <p className="text-xs font-black uppercase text-muted-foreground">Chargement...</p>
         </div>
       </DashboardLayout>
     );
@@ -103,7 +105,7 @@ export default function SettingsPage() {
           </div>
           <div>
             <h1 className="text-4xl font-black tracking-tighter text-primary uppercase">Mon Profil</h1>
-            <p className="text-muted-foreground font-medium">Gérez vos informations personnelles et celles de votre studio.</p>
+            <p className="text-muted-foreground font-medium">Gérez vos informations personnelles.</p>
           </div>
         </div>
 
@@ -111,15 +113,10 @@ export default function SettingsPage() {
           <Card className="border-none shadow-xl rounded-[2rem] overflow-hidden bg-white">
             <CardHeader className="bg-primary text-primary-foreground p-8">
               <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <CardTitle className="text-xl flex items-center gap-2">
-                    <Fingerprint className="w-6 h-6" />
-                    Identité & Accès
-                  </CardTitle>
-                  <CardDescription className="text-primary-foreground/70">
-                    Vos informations de connexion et d'affichage.
-                  </CardDescription>
-                </div>
+                <CardTitle className="text-xl flex items-center gap-2">
+                  <Fingerprint className="w-6 h-6" />
+                  Identité
+                </CardTitle>
                 <Badge className={cn(
                   "font-black uppercase text-[10px] h-6 px-3",
                   profile?.role === 'super_admin' ? "bg-rose-950 text-white" : 
@@ -132,51 +129,25 @@ export default function SettingsPage() {
             <CardContent className="p-8 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label htmlFor="uname" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Votre Nom Complet</Label>
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Nom Complet</Label>
                   <Input 
-                    id="uname"
                     value={userName}
                     onChange={(e) => setUserName(e.target.value)}
-                    placeholder="Ex: Jean Dupont..."
                     className="rounded-xl border-primary/10 h-12 font-bold"
                   />
                 </div>
-                <div className="space-y-2 opacity-60">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Identifiant de connexion</Label>
-                  <div className="flex items-center gap-2 h-12 px-4 bg-muted rounded-xl font-mono text-sm font-bold border border-black/5">
-                    <ShieldCheck className="w-4 h-4" />
-                    {profile?.loginId}
-                  </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">E-mail</Label>
+                  <Input 
+                    type="email"
+                    value={userEmail}
+                    onChange={(e) => setUserEmail(e.target.value)}
+                    className="rounded-xl border-primary/10 h-12 font-bold"
+                  />
                 </div>
               </div>
             </CardContent>
           </Card>
-
-          {isPatronOrSuper && (
-            <Card className="border-none shadow-xl rounded-[2rem] overflow-hidden bg-white">
-              <CardHeader className="bg-secondary text-secondary-foreground p-8">
-                <CardTitle className="text-xl flex items-center gap-2">
-                  <Building2 className="w-6 h-6" />
-                  Studio / Entreprise
-                </CardTitle>
-                <CardDescription className="text-secondary-foreground/70">
-                  Identité visuelle de votre espace de travail.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-8 space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="cname" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Nom du Studio</Label>
-                  <Input 
-                    id="cname"
-                    value={companyName}
-                    onChange={(e) => setCompanyName(e.target.value)}
-                    placeholder="Ex: Grow&Go Design Studio..."
-                    className="rounded-xl border-primary/10 h-12 font-bold"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          )}
 
           <div className="flex justify-end pt-4">
             <Button 
@@ -185,7 +156,7 @@ export default function SettingsPage() {
               className="rounded-full px-12 h-14 font-bold bg-primary hover:bg-primary/90 shadow-xl gap-3 text-lg"
             >
               {isSaving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
-              Enregistrer les modifications
+              Enregistrer
             </Button>
           </div>
         </div>

@@ -2,8 +2,7 @@
 'use client';
 
 /**
- * @fileOverview Service de synchronisation des calendriers Google et Microsoft.
- * Gère la prévention des doublons en utilisant les ID externes.
+ * @fileOverview Service de synchronisation des calendriers.
  */
 
 import { CalendarEvent } from '@/lib/types';
@@ -11,121 +10,91 @@ import { Firestore, doc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase';
 
 /**
- * Appelle l'API Google pour récupérer les événements.
+ * Récupère les événements Google.
  */
 export async function fetchGoogleEvents(token: string, timeMin: string, timeMax: string) {
   try {
     const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&singleEvents=true&orderBy=startTime`;
-    
-    const response = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      const message = errorData.error?.message || response.statusText;
-      throw new Error(`Erreur API Google (${response.status}): ${message}`);
-    }
-    
+    const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    if (!response.ok) throw new Error(`Erreur Google API`);
     const data = await response.json();
     return data.items || [];
   } catch (error) {
-    console.error("fetchGoogleEvents failed:", error);
+    console.error(error);
     throw error;
   }
 }
 
 /**
- * Mappe un événement Google Calendar vers le schéma Grow&Go.
+ * Mappe un événement externe (Google ou Outlook).
  */
-export function mapGoogleEvent(googleEvent: any, companyId: string, userId: string): Partial<CalendarEvent> {
-  const start = googleEvent.start?.dateTime || googleEvent.start?.date || new Date().toISOString();
-  const end = googleEvent.end?.dateTime || googleEvent.end?.date || new Date().toISOString();
-  const idToUse = googleEvent.id || Math.random().toString(36).substring(7);
+export function mapExternalEvent(event: any, companyId: string, userId: string, source: 'google' | 'outlook'): Partial<CalendarEvent> {
+  const start = event.start?.dateTime || event.start?.date || event.start || new Date().toISOString();
+  const end = event.end?.dateTime || event.end?.date || event.end || new Date().toISOString();
+  
+  // Formatage spécifique Outlook
+  const attendees = source === 'outlook' 
+    ? (event.attendees?.map((a: any) => a.emailAddress?.address || '') || [])
+    : (event.attendees?.filter((a: any) => a?.email).map((a: any) => a.email) || []);
 
   return {
-    id_externe: idToUse,
+    id_externe: event.id || Math.random().toString(36).substring(7),
     companyId,
     userId,
-    titre: googleEvent.summary || 'Sans titre',
-    description: googleEvent.description || '',
+    titre: event.summary || event.subject || 'Sans titre',
+    description: event.description || event.bodyPreview || '',
     debut: start,
     fin: end,
-    attendees: googleEvent.attendees?.filter((a: any) => a?.email).map((a: any) => a.email) || [],
-    source: 'google',
+    attendees,
+    source,
     type: 'meeting',
-    derniere_maj: googleEvent.updated || new Date().toISOString()
+    derniere_maj: event.updated || event.lastModifiedDateTime || new Date().toISOString()
   };
 }
 
 /**
- * Mappe un événement Microsoft Outlook (Azure) vers le schéma Grow&Go.
+ * Alias pour compatibilité.
  */
-export function mapOutlookEvent(outlookEvent: any, companyId: string, userId: string): Partial<CalendarEvent> {
-  const start = outlookEvent.start?.dateTime || new Date().toISOString();
-  const end = outlookEvent.end?.dateTime || new Date().toISOString();
-  const idToUse = outlookEvent.id || Math.random().toString(36).substring(7);
-
-  return {
-    id_externe: idToUse,
-    companyId,
-    userId,
-    titre: outlookEvent.subject || 'Sans titre',
-    description: outlookEvent.bodyPreview || '',
-    debut: start,
-    fin: end,
-    attendees: outlookEvent.attendees?.map((a: any) => a.emailAddress?.address || '') || [],
-    source: 'google', 
-    type: 'meeting',
-    derniere_maj: outlookEvent.lastModifiedDateTime || new Date().toISOString()
-  };
+export function mapGoogleEvent(event: any, companyId: string, userId: string) {
+  return mapExternalEvent(event, companyId, userId, 'google');
 }
 
 /**
- * Envoie un événement local vers Google Calendar.
+ * Support spécifique Microsoft.
+ */
+export function mapOutlookEvent(event: any, companyId: string, userId: string) {
+  return mapExternalEvent(event, companyId, userId, 'outlook');
+}
+
+/**
+ * Exporte vers Google.
  */
 export async function pushEventToGoogle(token: string, event: CalendarEvent) {
   const url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
-  
   const body = {
     summary: event.titre,
     description: event.description || '',
     start: { dateTime: event.debut },
     end: { dateTime: event.fin },
   };
-
   const response = await fetch(url, {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(`Erreur Export Google: ${errorData.error?.message || response.statusText}`);
-  }
-
+  if (!response.ok) throw new Error(`Erreur Export Google`);
   return response.json();
 }
 
 /**
- * Enregistre un événement dans Firestore.
+ * Enregistre dans Firestore.
  */
-export async function syncEventToFirestore(
-  db: Firestore, 
-  eventData: Partial<CalendarEvent>
-) {
+export async function syncEventToFirestore(db: Firestore, eventData: Partial<CalendarEvent>) {
   if (!eventData.id_externe || !eventData.companyId) return;
   const eventRef = doc(db, 'companies', eventData.companyId, 'events', eventData.id_externe);
   setDocumentNonBlocking(eventRef, eventData, { merge: true });
 }
 
-/**
- * Calcul des bornes temporelles ISO.
- */
 export function getSyncTimeRange() {
   const now = new Date();
   const timeMin = new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000).toISOString();

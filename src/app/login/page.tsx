@@ -11,14 +11,15 @@ import { useAuth, useFirestore, useUser } from '@/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Lock, UserCircle, UserPlus, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Lock, UserCircle, UserPlus, Eye, EyeOff, Mail } from 'lucide-react';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 export default function LoginPage() {
-  const [id, setId] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [loginId, setLoginId] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -61,18 +62,14 @@ export default function LoginPage() {
     e.preventDefault();
     if (!auth || !db) return;
 
-    const trimmedId = id.trim();
-    if (!trimmedId) return;
-
     setIsLoading(true);
-    const internalEmail = `${trimmedId.toLowerCase()}@studio.internal`;
 
     try {
       if (isSignUp) {
-        const userCredential = await createUserWithEmailAndPassword(auth, internalEmail, password);
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const newUser = userCredential.user;
         
-        const isTargetSuperAdmin = trimmedId === 'JSecchi';
+        const isTargetSuperAdmin = loginId === 'JSecchi' || email === 'julien.secchi@hotmail.com';
         const companyId = isTargetSuperAdmin ? 'growandgo-hq' : 'Default Studio';
         const companyName = isTargetSuperAdmin ? 'Grow&Go HQ' : 'Nouveau Studio';
 
@@ -85,25 +82,26 @@ export default function LoginPage() {
           role: isTargetSuperAdmin ? 'super_admin' : 'employee',
           adminMode: isTargetSuperAdmin,
           isCategoryModifier: isTargetSuperAdmin,
-          name: name || trimmedId,
-          loginId: trimmedId
+          name: name || loginId,
+          loginId: loginId,
+          email: email
         });
 
         toast({ title: "Bienvenue !", description: "Votre studio Grow&Go est prêt." });
       } else {
-        await signInWithEmailAndPassword(auth, internalEmail, password);
-        toast({ title: "Connexion réussie", description: "Accès au studio en cours..." });
+        await signInWithEmailAndPassword(auth, email, password);
+        toast({ title: "Connexion réussie", description: "Accès au studio..." });
         router.push('/');
       }
     } catch (error: any) {
       console.error("Auth Error:", error);
       let message = "Identifiant ou mot de passe incorrect.";
       if (error.code === 'auth/email-already-in-use') {
-        message = "Cet identifiant est déjà utilisé.";
+        message = "Cet e-mail est déjà utilisé.";
       }
       toast({ 
         variant: "destructive", 
-        title: "Échec de connexion", 
+        title: "Échec", 
         description: message 
       });
     } finally {
@@ -126,12 +124,12 @@ export default function LoginPage() {
           <div>
             <CardTitle className="text-2xl font-bold text-[#1E4D3B] uppercase tracking-tighter">Grow&Go Studio</CardTitle>
             <CardDescription className="text-[#1E4D3B]/60 font-medium">
-              Accès réservé aux membres du studio.
+              Accès réservé aux membres.
             </CardDescription>
           </div>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4">
             {isSignUp && (
               <div className="space-y-1.5">
                 <Label htmlFor="name" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Nom Complet</Label>
@@ -150,19 +148,37 @@ export default function LoginPage() {
             )}
             
             <div className="space-y-1.5">
-              <Label htmlFor="id" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Identifiant</Label>
+              <Label htmlFor="email" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">E-mail</Label>
               <div className="relative">
-                <UserCircle className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
+                <Mail className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
                 <Input 
-                  id="id" 
-                  placeholder="Ex: JSecchi..." 
-                  value={id}
-                  onChange={(e) => setId(e.target.value)}
+                  id="email" 
+                  type="email"
+                  placeholder="votre@email.com" 
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="pl-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-medium"
                   required
                 />
               </div>
             </div>
+
+            {isSignUp && (
+              <div className="space-y-1.5">
+                <Label htmlFor="loginId" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Identifiant Studio</Label>
+                <div className="relative">
+                  <UserCircle className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
+                  <Input 
+                    id="loginId" 
+                    placeholder="Ex: JSecchi" 
+                    value={loginId}
+                    onChange={(e) => setLoginId(e.target.value)}
+                    className="pl-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-medium"
+                    required
+                  />
+                </div>
+              </div>
+            )}
 
             <div className="space-y-1.5">
               <Label htmlFor="pass" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Mot de passe</Label>
@@ -179,7 +195,7 @@ export default function LoginPage() {
                 />
                 <button
                   type="button"
-                  className="absolute right-2 top-2 h-8 w-8 p-0 flex items-center justify-center hover:bg-transparent"
+                  className="absolute right-2 top-2 h-8 w-8 p-0 flex items-center justify-center"
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
@@ -190,7 +206,7 @@ export default function LoginPage() {
             <div className="space-y-3 pt-4">
               <Button 
                 type="submit" 
-                className="w-full h-14 bg-[#1E4D3B] hover:bg-[#1E4D3B]/90 rounded-2xl font-bold text-lg shadow-xl transition-all active:scale-95"
+                className="w-full h-14 bg-[#1E4D3B] hover:bg-[#1E4D3B]/90 rounded-2xl font-bold text-lg shadow-xl"
                 disabled={isLoading}
               >
                 {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (isSignUp ? "Créer un compte" : "Se connecter")}
@@ -198,10 +214,10 @@ export default function LoginPage() {
 
               <button
                 type="button"
-                className="w-full text-xs font-bold uppercase tracking-widest text-[#1E4D3B]/60 hover:bg-[#1E4D3B]/5 py-2 rounded-xl transition-colors"
+                className="w-full text-xs font-bold uppercase tracking-widest text-[#1E4D3B]/60 hover:bg-[#1E4D3B]/5 py-2 rounded-xl"
                 onClick={() => {
                   setIsSignUp(!isSignUp);
-                  setId('');
+                  setEmail('');
                   setPassword('');
                   setName('');
                 }}
@@ -210,9 +226,6 @@ export default function LoginPage() {
               </button>
             </div>
           </form>
-          <div className="mt-8 pt-6 border-t border-[#F5F2EA] text-center text-[10px] text-muted-foreground uppercase tracking-widest font-bold">
-            BusinessPilot SaaS • Sécurité Studio
-          </div>
         </CardContent>
       </Card>
     </div>

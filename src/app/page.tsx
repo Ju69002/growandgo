@@ -50,7 +50,6 @@ export default function Home() {
   const router = useRouter();
   const db = useFirestore();
 
-  // Hooks Firestore appelés inconditionnellement
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user) return null;
     return doc(db, 'users', user.uid);
@@ -77,7 +76,6 @@ export default function Home() {
 
   const { data: meetings } = useCollection<CalendarEvent>(meetingsQuery);
 
-  // Effets de cycle de vie
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -88,7 +86,6 @@ export default function Home() {
     }
   }, [user, isUserLoading, router, mounted]);
 
-  // Calculs mémoïsés
   const weeklyTasks = useMemo(() => {
     if (!mounted || (!documents && !meetings)) return [];
     const today = startOfToday();
@@ -111,7 +108,7 @@ export default function Home() {
           name: doc.name,
           date: taskDate,
           type: 'document',
-          status: (doc.extractedData?.date || doc.extractedData?.expiryDate || doc.extractedData?.deliveryDate) ? 'dated' : doc.status,
+          status: extractedDate ? 'dated' : doc.status,
           subCategory: doc.subCategory,
           categoryId: doc.categoryId
         });
@@ -138,13 +135,12 @@ export default function Home() {
     return tasks.sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [mounted, documents, meetings]);
 
-  // Gestion des états de chargement (après les Hooks)
   if (!mounted || isUserLoading || isProfileLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="text-center space-y-4">
           <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto" />
-          <p className="text-muted-foreground font-black uppercase text-[10px] tracking-widest">Chargement du studio...</p>
+          <p className="text-muted-foreground font-black uppercase text-[10px] tracking-widest">Initialisation du studio...</p>
         </div>
       </div>
     );
@@ -169,7 +165,7 @@ export default function Home() {
             </Badge>
           </div>
           <p className="text-muted-foreground mt-1 flex items-center gap-2 font-medium">
-            Bienvenue {profile?.name}. Suivi des dossiers et planning de studio.
+            Bienvenue {profile?.name || profile?.loginId}.
           </p>
         </header>
 
@@ -180,36 +176,36 @@ export default function Home() {
                 <div className="p-2 bg-primary/10 rounded-xl text-primary">
                   <ListTodo className="w-5 h-5" />
                 </div>
-                Tâches de la semaine
+                Tâches Hebdo
               </CardTitle>
             </CardHeader>
             <CardContent className="p-6 space-y-3 flex-1 overflow-y-auto max-h-[450px]">
               {weeklyTasks.length > 0 ? (
                 weeklyTasks.map(task => (
-                  <div key={task.id} className="flex items-center justify-between p-4 rounded-2xl border border-muted bg-muted/[0.02] hover:bg-muted/10 transition-all hover:translate-x-1 group">
+                  <div key={task.id} className="flex items-center justify-between p-4 rounded-2xl border border-muted bg-muted/[0.02] hover:bg-muted/10 transition-all group">
                     <div className="flex items-center gap-4">
                       <div className={cn(
-                        "p-2 rounded-xl group-hover:scale-110 transition-transform shadow-sm",
+                        "p-2 rounded-xl group-hover:scale-110 transition-transform",
                         task.type === 'meeting' ? "bg-amber-100 text-amber-600" : "bg-primary/5 text-primary"
                       )}>
                         {task.type === 'meeting' ? <CalendarIcon className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
                       </div>
                       <div className="flex flex-col">
-                        <span className="text-sm font-bold truncate max-w-[200px] text-foreground">{task.name}</span>
-                        <span className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">
+                        <span className="text-sm font-bold truncate max-w-[200px]">{task.name}</span>
+                        <span className="text-[10px] text-muted-foreground uppercase font-black">
                           {format(task.date, "EEEE d MMMM", { locale: fr })}
                         </span>
                       </div>
                     </div>
-                    <Badge className={cn("text-[10px] uppercase font-black shadow-sm", statusConfig[task.status]?.color)}>
+                    <Badge className={cn("text-[10px] uppercase font-black", statusConfig[task.status]?.color)}>
                       {statusConfig[task.status]?.label || task.subCategory}
                     </Badge>
                   </div>
                 ))
               ) : (
-                <div className="py-20 flex flex-col items-center justify-center text-center opacity-30 grayscale gap-4">
+                <div className="py-20 flex flex-col items-center justify-center text-center opacity-30 gap-4">
                   <CheckCircle2 className="w-16 h-16 text-primary" />
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em]">Sérénité totale • Studio à jour</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest">Studio à jour</p>
                 </div>
               )}
             </CardContent>
@@ -217,22 +213,19 @@ export default function Home() {
 
           <Card className="border-none shadow-xl rounded-[2rem] overflow-hidden bg-white h-full relative group flex flex-col">
             <CardHeader className="pb-4 border-b border-muted/50 flex flex-row items-center justify-between space-y-0 bg-muted/5">
-              <div className="flex flex-col gap-1">
-                <CardTitle className="text-xl font-black uppercase tracking-tighter flex items-center gap-3">
-                  <div className="p-2 bg-primary/10 rounded-xl text-primary">
-                    <CalendarIcon className="w-5 h-5" />
-                  </div>
-                  Agenda Partagé
-                </CardTitle>
-              </div>
+              <CardTitle className="text-xl font-black uppercase tracking-tighter flex items-center gap-3">
+                <div className="p-2 bg-primary/10 rounded-xl text-primary">
+                  <CalendarIcon className="w-5 h-5" />
+                </div>
+                Agenda Studio
+              </CardTitle>
               <Button 
                 variant="outline" 
                 size="sm" 
-                className="rounded-full font-black uppercase text-[9px] tracking-widest gap-2 h-8 px-4 border-primary/20 text-primary hover:bg-primary hover:text-white transition-all shadow-sm"
+                className="rounded-full font-black uppercase text-[9px] h-8 px-4 border-primary/20"
                 onClick={() => setIsCalendarFull(true)}
               >
                 <Maximize2 className="w-3.5 h-3.5" />
-                Agrandir
               </Button>
             </CardHeader>
             <CardContent className="p-0 flex-1">
@@ -257,12 +250,12 @@ export default function Home() {
 
         {isSuperAdmin && (
           <div className="pt-12 border-t border-dashed border-primary/10">
-            <div className="bg-primary/5 p-12 rounded-[3rem] border-2 border-dashed border-primary/20 flex flex-col items-center text-center gap-6 shadow-inner">
-              <ShieldCheck className="w-16 h-16 text-primary/20 animate-pulse" />
+            <div className="bg-primary/5 p-12 rounded-[3rem] border-2 border-dashed border-primary/20 flex flex-col items-center text-center gap-6">
+              <ShieldCheck className="w-16 h-16 text-primary/20" />
               <div className="space-y-2">
                 <h2 className="text-2xl font-black uppercase tracking-tight text-primary">Console Super Admin</h2>
                 <p className="text-sm text-muted-foreground font-medium max-w-lg mx-auto">
-                  Gestion globale des accès et des entreprises. Les dossiers de travail sont réservés aux espaces Studios.
+                  Gestion globale des accès. Les dossiers de travail sont réservés aux espaces Studios.
                 </p>
               </div>
             </div>
@@ -271,23 +264,21 @@ export default function Home() {
       </div>
 
       <Dialog open={isCalendarFull} onOpenChange={setIsCalendarFull}>
-        <DialogContent className="max-w-[98vw] w-full h-[95vh] p-0 overflow-hidden bg-background border-none shadow-[0_0_100px_rgba(0,0,0,0.3)] rounded-[2.5rem]">
+        <DialogContent className="max-w-[98vw] w-full h-[95vh] p-0 overflow-hidden bg-background rounded-[2.5rem]">
           <div className="sr-only">
             <DialogTitle>Agenda Partagé Studio</DialogTitle>
           </div>
           <div className="h-full flex flex-col">
-            <div className="p-6 border-b flex justify-between items-center bg-primary text-primary-foreground shadow-lg z-10">
+            <div className="p-6 border-b flex justify-between items-center bg-primary text-primary-foreground">
               <div className="flex items-center gap-4">
-                <div className="p-3 bg-white/20 rounded-2xl shadow-inner">
-                   <CalendarIcon className="w-7 h-7" />
-                </div>
-                <h2 className="font-black text-2xl uppercase tracking-tighter leading-none">AGENDA DU STUDIO</h2>
+                <CalendarIcon className="w-7 h-7" />
+                <h2 className="font-black text-2xl uppercase tracking-tighter">AGENDA DU STUDIO</h2>
               </div>
-              <Button variant="ghost" size="icon" className="rounded-full h-12 w-12 hover:bg-white/10 text-white" onClick={() => setIsCalendarFull(false)}>
+              <Button variant="ghost" size="icon" className="text-white" onClick={() => setIsCalendarFull(false)}>
                 <X className="w-7 h-7" />
               </Button>
             </div>
-            <div className="flex-1 overflow-auto bg-muted/[0.02]">
+            <div className="flex-1 overflow-auto">
               {companyId && <SharedCalendar companyId={companyId} defaultView="month" />}
             </div>
           </div>
