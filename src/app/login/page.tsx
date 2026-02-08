@@ -9,17 +9,16 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { useAuth, useFirestore, useUser } from '@/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Lock, UserCircle, UserPlus, Eye, EyeOff, Mail } from 'lucide-react';
+import { Loader2, Lock, UserCircle, UserPlus, Eye, EyeOff, Building2 } from 'lucide-react';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
+  const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [loginId, setLoginId] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -66,12 +65,14 @@ export default function LoginPage() {
 
     try {
       if (isSignUp) {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        // Enregistrement : on génère un email interne unique basé sur l'ID
+        const internalEmail = `${loginId.toLowerCase().trim()}@studio.internal`;
+        const userCredential = await createUserWithEmailAndPassword(auth, internalEmail, password);
         const newUser = userCredential.user;
         
-        const isTargetSuperAdmin = loginId === 'JSecchi' || email === 'julien.secchi@hotmail.com';
-        const companyId = isTargetSuperAdmin ? 'growandgo-hq' : 'Default Studio';
-        const companyName = isTargetSuperAdmin ? 'Grow&Go HQ' : 'Nouveau Studio';
+        const isTargetSuperAdmin = loginId.toLowerCase() === 'jsecchi';
+        const companyId = isTargetSuperAdmin ? 'growandgo-hq' : 'default-studio';
+        const companyName = isTargetSuperAdmin ? 'Grow&Go HQ' : 'Mon Studio';
 
         await ensureCompanyExists(companyId, companyName);
         
@@ -84,20 +85,34 @@ export default function LoginPage() {
           isCategoryModifier: isTargetSuperAdmin,
           name: name || loginId,
           loginId: loginId,
-          email: email
+          email: internalEmail // Sera modifiable plus tard
         });
 
         toast({ title: "Bienvenue !", description: "Votre studio Grow&Go est prêt." });
       } else {
-        await signInWithEmailAndPassword(auth, email, password);
-        toast({ title: "Connexion réussie", description: "Accès au studio..." });
+        // Connexion : on cherche l'email associé à l'ID dans Firestore
+        const usersRef = collection(db, 'users');
+        const q = query(usersRef, where('loginId', '==', loginId));
+        const querySnapshot = await getDocs(q);
+
+        if (querySnapshot.empty) {
+          throw new Error("Identifiant inconnu.");
+        }
+
+        const userData = querySnapshot.docs[0].data();
+        const internalEmail = userData.email;
+
+        await signInWithEmailAndPassword(auth, internalEmail, password);
+        toast({ title: "Connexion réussie", description: "Chargement de votre studio..." });
         router.push('/');
       }
     } catch (error: any) {
       console.error("Auth Error:", error);
       let message = "Identifiant ou mot de passe incorrect.";
       if (error.code === 'auth/email-already-in-use') {
-        message = "Cet e-mail est déjà utilisé.";
+        message = "Cet identifiant est déjà utilisé.";
+      } else if (error.message === "Identifiant inconnu.") {
+        message = "Cet identifiant n'existe pas.";
       }
       toast({ 
         variant: "destructive", 
@@ -124,7 +139,7 @@ export default function LoginPage() {
           <div>
             <CardTitle className="text-2xl font-bold text-[#1E4D3B] uppercase tracking-tighter">Grow&Go Studio</CardTitle>
             <CardDescription className="text-[#1E4D3B]/60 font-medium">
-              Accès réservé aux membres.
+              Accès réservé via votre Identifiant.
             </CardDescription>
           </div>
         </CardHeader>
@@ -137,7 +152,7 @@ export default function LoginPage() {
                   <UserPlus className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
                   <Input 
                     id="name" 
-                    placeholder="Votre nom..." 
+                    placeholder="Ex: Julien Secchi..." 
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     className="pl-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-medium"
@@ -148,37 +163,19 @@ export default function LoginPage() {
             )}
             
             <div className="space-y-1.5">
-              <Label htmlFor="email" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">E-mail</Label>
+              <Label htmlFor="loginId" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Identifiant Studio</Label>
               <div className="relative">
-                <Mail className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
+                <UserCircle className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
                 <Input 
-                  id="email" 
-                  type="email"
-                  placeholder="votre@email.com" 
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  id="loginId" 
+                  placeholder="Votre identifiant (ex: JSecchi)" 
+                  value={loginId}
+                  onChange={(e) => setLoginId(e.target.value)}
                   className="pl-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-medium"
                   required
                 />
               </div>
             </div>
-
-            {isSignUp && (
-              <div className="space-y-1.5">
-                <Label htmlFor="loginId" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Identifiant Studio</Label>
-                <div className="relative">
-                  <UserCircle className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
-                  <Input 
-                    id="loginId" 
-                    placeholder="Ex: JSecchi" 
-                    value={loginId}
-                    onChange={(e) => setLoginId(e.target.value)}
-                    className="pl-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-medium"
-                    required
-                  />
-                </div>
-              </div>
-            )}
 
             <div className="space-y-1.5">
               <Label htmlFor="pass" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Mot de passe</Label>
@@ -217,7 +214,7 @@ export default function LoginPage() {
                 className="w-full text-xs font-bold uppercase tracking-widest text-[#1E4D3B]/60 hover:bg-[#1E4D3B]/5 py-2 rounded-xl"
                 onClick={() => {
                   setIsSignUp(!isSignUp);
-                  setEmail('');
+                  setLoginId('');
                   setPassword('');
                   setName('');
                 }}

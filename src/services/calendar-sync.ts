@@ -32,7 +32,7 @@ export function mapExternalEvent(event: any, companyId: string, userId: string, 
   const start = event.start?.dateTime || event.start?.date || event.start || new Date().toISOString();
   const end = event.end?.dateTime || event.end?.date || event.end || new Date().toISOString();
   
-  // Formatage spécifique Outlook
+  // Formatage spécifique Outlook / Microsoft
   const attendees = source === 'outlook' 
     ? (event.attendees?.map((a: any) => a.emailAddress?.address || '') || [])
     : (event.attendees?.filter((a: any) => a?.email).map((a: any) => a.email) || []);
@@ -60,7 +60,7 @@ export function mapGoogleEvent(event: any, companyId: string, userId: string) {
 }
 
 /**
- * Support spécifique Microsoft.
+ * Support spécifique Microsoft / Outlook.
  */
 export function mapOutlookEvent(event: any, companyId: string, userId: string) {
   return mapExternalEvent(event, companyId, userId, 'outlook');

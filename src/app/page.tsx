@@ -76,10 +76,12 @@ export default function Home() {
 
   const { data: meetings } = useCollection<CalendarEvent>(meetingsQuery);
 
+  // Hook pour monter le composant côté client
   useEffect(() => {
     setMounted(true);
   }, []);
 
+  // Hook de redirection sécurisé
   useEffect(() => {
     if (mounted && !isUserLoading && !user) {
       router.push('/login');
@@ -135,12 +137,13 @@ export default function Home() {
     return tasks.sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [mounted, documents, meetings]);
 
+  // Rendu de chargement unique
   if (!mounted || isUserLoading || isProfileLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="text-center space-y-4">
           <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto" />
-          <p className="text-muted-foreground font-black uppercase text-[10px] tracking-widest">Initialisation du studio...</p>
+          <p className="text-muted-foreground font-black uppercase text-[10px] tracking-widest">Chargement du studio...</p>
         </div>
       </div>
     );
