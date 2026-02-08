@@ -88,7 +88,7 @@ export default function LoginPage() {
         createdAt: new Date().toISOString()
       });
 
-      // Si c'est un patron, on initialise les catégories par défaut
+      // Si c'est un patron, on initialise les catégories par défaut avec les IDs standardisés
       if (finalRole !== 'employee') {
         const batch = writeBatch(db);
         const defaultCategories = [
@@ -136,7 +136,7 @@ export default function LoginPage() {
             id: cat.id,
             label: cat.label,
             badgeCount: 0,
-            visibleToEmployees: true,
+            visibleToEmployees: cat.id !== 'finance',
             type: 'standard',
             companyId: finalCompanyId,
             icon: cat.icon,
@@ -177,7 +177,6 @@ export default function LoginPage() {
       const userCredential = await signInAnonymously(auth);
       const sessionUid = userCredential.user.uid;
 
-      // Force la normalisation du companyId pour garantir la liaison
       const normalizedCompanyId = normalizeId(profileData.companyName || profileData.companyId);
 
       await setDoc(doc(db, 'users', sessionUid), {

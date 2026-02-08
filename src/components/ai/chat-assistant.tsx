@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -6,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { cn } from '@/lib/utils';
+import { cn, normalizeId } from '@/lib/utils';
 import { bossAiDataAnalysis } from '@/ai/flows/boss-ai-data-analysis';
 import { useUser, useFirestore, setDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
@@ -37,7 +38,7 @@ export function ChatAssistant() {
   }, [db, user]);
 
   const { data: profile } = useDoc<User>(userProfileRef);
-  const companyId = profile?.companyId;
+  const companyId = profile?.companyId ? normalizeId(profile.companyId) : null;
   const isPatron = profile?.role === 'admin' || profile?.role === 'super_admin';
 
   React.useEffect(() => {
@@ -84,8 +85,9 @@ export function ChatAssistant() {
     if (!db || !companyId || !isPatron) return;
 
     const { type, categoryId, label, icon, subCategories } = action;
-    const rawId = label || categoryId || '';
-    const targetId = rawId.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '_');
+    const targetId = normalizeId(label || categoryId || '');
+
+    if (!targetId) return;
 
     try {
       if (type === 'create_category' && label) {
@@ -109,7 +111,7 @@ export function ChatAssistant() {
         updateDocumentNonBlocking(ref, { label });
       }
 
-      setMessages(prev => [...prev, { role: 'assistant', content: `C'est fait ! Le dossier "${label}" a été créé avec ses sous-dossiers.` }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: `C'est fait ! Le dossier "${label}" a été configuré.` }]);
     } catch (error: any) {
       setMessages(prev => [...prev, { 
         role: 'assistant', 

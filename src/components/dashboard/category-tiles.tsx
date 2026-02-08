@@ -59,7 +59,6 @@ export function CategoryTiles({ profile }: CategoryTilesProps) {
   const { toast } = useToast();
   const [isInitializing, setIsInitializing] = React.useState(false);
   
-  // Normalise systématiquement le companyId pour garantir la synchronisation
   const companyId = profile.companyId ? normalizeId(profile.companyId) : null;
 
   const categoriesQuery = useMemoFirebase(() => {
@@ -121,7 +120,7 @@ export function CategoryTiles({ profile }: CategoryTilesProps) {
           id: cat.id,
           label: cat.label,
           badgeCount: 0,
-          visibleToEmployees: true,
+          visibleToEmployees: cat.id !== 'finance', // Par défaut, finance masqué pour les tests
           type: 'standard',
           companyId: companyId,
           icon: cat.icon,
@@ -151,12 +150,11 @@ export function CategoryTiles({ profile }: CategoryTilesProps) {
   const displayableCategories = (categories || []).filter(cat => {
     if (cat.id === 'agenda') return false; 
     
-    // Si l'utilisateur est un employé, on vérifie strictement la visibilité
     if (!isAdminOrSuper) {
+      // Filtrage strict : si ce n'est pas explicitement true, c'est masqué
       return cat.visibleToEmployees === true;
     }
     
-    // Les admins voient tout
     return true;
   });
 
@@ -200,7 +198,7 @@ export function CategoryTiles({ profile }: CategoryTilesProps) {
               label={category.label}
               icon={Icon}
               badgeCount={category.badgeCount || 0}
-              isVisible={category.visibleToEmployees !== false}
+              isVisible={category.visibleToEmployees === true}
               isAdminMode={isAdminOrSuper}
               canModify={isAdminOrSuper}
               colorClass={COLOR_MAP[category.id] || COLOR_MAP[iconKey] || COLOR_MAP.default}
