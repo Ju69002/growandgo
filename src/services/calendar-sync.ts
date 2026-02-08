@@ -2,7 +2,7 @@
 'use client';
 
 /**
- * @fileOverview Service de synchronisation des calendriers (Focus Google).
+ * @fileOverview Service de synchronisation des calendriers (Focus Google uniquement).
  */
 
 import { CalendarEvent } from '@/lib/types';
@@ -32,7 +32,7 @@ export function mapGoogleEvent(event: any, companyId: string, userId: string): P
   const start = event.start?.dateTime || event.start?.date || new Date().toISOString();
   const end = event.end?.dateTime || event.end?.date || new Date().toISOString();
   
-  // Sécurisation de l'extraction des participants
+  // Sécurisation de l'extraction des participants (chaînage optionnel)
   const attendees = event.attendees?.map((a: any) => a.email || a.displayName || '').filter(Boolean) || [];
 
   return {

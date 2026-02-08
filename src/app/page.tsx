@@ -41,7 +41,7 @@ export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [isCalendarFull, setIsCalendarFull] = useState(false);
 
-  // 1. ALL HOOKS MUST BE DECLARED AT THE TOP
+  // 1. ALL HOOKS MUST BE DECLARED AT THE TOP (Rules of Hooks)
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user) return null;
     return doc(db, 'users', user.uid);
@@ -139,13 +139,13 @@ export default function Home() {
 
   if (!user) return null;
 
-  // Si le profil est encore vide, on affiche un message d'attente
+  // Si le profil n'est pas trouvé (nouvel inscrit pas encore prêt)
   if (!profile) {
     return (
       <DashboardLayout>
         <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
           <Loader2 className="w-12 h-12 animate-spin text-primary opacity-30" />
-          <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Création de votre espace...</p>
+          <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Création de votre profil...</p>
         </div>
       </DashboardLayout>
     );
@@ -258,7 +258,7 @@ export default function Home() {
               <div className="space-y-2">
                 <h2 className="text-2xl font-black uppercase tracking-tight text-primary">Console Super Admin</h2>
                 <p className="text-sm text-muted-foreground font-medium max-w-lg mx-auto">
-                  Gestion globale des accès et des entreprises.
+                  Gestion globale des accès et des entreprises. Les nouveaux inscrits apparaissent ici automatiquement.
                 </p>
               </div>
             </div>

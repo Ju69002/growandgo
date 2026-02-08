@@ -87,7 +87,7 @@ export default function LoginPage() {
 
         await ensureCompanyExists(companyId, companyName);
         
-        // 3. Création Profil Firestore (Crucial: le faire AVANT de finir)
+        // 3. Création Profil Firestore (Immédiate et Cruciale)
         const userRef = doc(db, 'users', newUser.uid);
         await setDoc(userRef, {
           uid: newUser.uid,
