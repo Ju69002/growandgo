@@ -34,7 +34,6 @@ export default function LoginPage() {
   const { toast } = useToast();
   const logo = PlaceHolderImages.find(img => img.id === 'app-logo');
 
-  // On récupère TOUS les documents pour éviter d'en oublier à cause de filtres manquants
   const allUsersQuery = useMemoFirebase(() => {
     if (!db) return null;
     return collection(db, 'users');
@@ -65,13 +64,13 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const normalizedId = loginId.trim();
-      const lowerId = normalizedId.toLowerCase();
+      const lowerId = loginId.trim().toLowerCase();
       
-      // Nettoyage des doublons avant création
-      const existing = (allUsers || []).filter(u => u.loginId_lower === lowerId);
-      for (const oldDoc of existing) {
-        await deleteDoc(doc(db, 'users', oldDoc.id));
+      // Vérification doublon stricte
+      const q = query(collection(db, 'users'), where('loginId_lower', '==', lowerId));
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        throw new Error("Cet identifiant est déjà utilisé.");
       }
 
       let finalRole = 'employee';
@@ -86,16 +85,16 @@ export default function LoginPage() {
 
       await ensureCompanyExists(finalCompanyId, finalCompanyName);
       
-      const profileRef = doc(db, 'users', `profile_${lowerId}`);
+      const profileRef = doc(db, 'users', `profile_${lowerId}_${Date.now()}`);
       await setDoc(profileRef, {
-        uid: `profile_${lowerId}`,
+        uid: profileRef.id,
         isProfile: true,
         companyId: finalCompanyId,
         role: finalRole,
         adminMode: finalRole !== 'employee',
         isCategoryModifier: finalRole !== 'employee',
-        name: name || normalizedId,
-        loginId: normalizedId,
+        name: name || loginId,
+        loginId: loginId.trim(),
         loginId_lower: lowerId,
         password: password,
         email: `${lowerId}@studio.internal`,
@@ -107,7 +106,7 @@ export default function LoginPage() {
       setPassword('');
       setName('');
       setCompanyName('');
-      toast({ title: "Compte créé !", description: "Identifiant ajouté au répertoire." });
+      toast({ title: "Compte créé !", description: "Vous pouvez maintenant vous connecter." });
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erreur", description: error.message });
     } finally {
@@ -121,40 +120,32 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const normalizedId = loginId.trim();
-      const lowerId = normalizedId.toLowerCase();
+      const lowerId = loginId.trim().toLowerCase();
       
-      // Recherche exhaustive : soit via le préfixe profile_, soit via l'ID brut
+      // Recherche du profil par loginId_lower (beaucoup plus robuste que par ID de doc)
+      const q = query(collection(db, 'users'), 
+        where('isProfile', '==', true), 
+        where('loginId_lower', '==', lowerId)
+      );
+      const querySnap = await getDocs(q);
+      
       let profileData: User | null = null;
-      
-      const ref1 = doc(db, 'users', `profile_${lowerId}`);
-      const snap1 = await getDoc(ref1);
-      if (snap1.exists()) profileData = snap1.data() as User;
-
-      if (!profileData) {
-        const ref2 = doc(db, 'users', lowerId);
-        const snap2 = await getDoc(ref2);
-        if (snap2.exists()) profileData = snap2.data() as User;
+      if (!querySnap.empty) {
+        profileData = querySnap.docs[0].data() as User;
       }
 
-      // Fallback JSecchi historique
-      if (!profileData && lowerId === 'jsecchi' && password === "Meqoqo1998") {
-         await ensureCompanyExists('growandgo-hq', 'Grow&Go HQ');
-         const jRef = doc(db, 'users', 'profile_jsecchi');
-         profileData = {
-           uid: 'profile_jsecchi',
-           isProfile: true,
-           companyId: 'growandgo-hq',
-           role: 'super_admin',
-           adminMode: true,
-           isCategoryModifier: true,
-           name: 'JSecchi',
-           loginId: 'JSecchi',
-           loginId_lower: 'jsecchi',
-           password: 'Meqoqo1998',
-           email: 'jsecchi@studio.internal'
-         } as User;
-         await setDoc(jRef, profileData);
+      // Fallback JSecchi si la base est vide
+      if (!profileData && lowerId === 'jsecchi') {
+        profileData = {
+          uid: 'jsecchi-fixed',
+          isProfile: true,
+          companyId: 'growandgo-hq',
+          role: 'super_admin',
+          name: 'JSecchi',
+          loginId: 'JSecchi',
+          loginId_lower: 'jsecchi',
+          password: 'Meqoqo1998'
+        } as User;
       }
 
       if (!profileData) throw new Error("Identifiant inconnu.");
@@ -163,6 +154,7 @@ export default function LoginPage() {
       const userCredential = await signInAnonymously(auth);
       const sessionUid = userCredential.user.uid;
 
+      // Création de la session active
       await setDoc(doc(db, 'users', sessionUid), {
         ...profileData,
         uid: sessionUid,
@@ -180,12 +172,12 @@ export default function LoginPage() {
     }
   };
 
-  // Filtrage et dédoublonnage pour le répertoire visuel
+  // Filtrage et dédoublonnage strict pour le répertoire visuel
   const displayUsers = Array.from(
     new Map(
       (allUsers || [])
-        .filter(u => !u.isSession && u.loginId) // Uniquement les profils
-        .map(u => [u.loginId_lower, u])
+        .filter(u => u.isProfile && u.loginId)
+        .map(u => [u.loginId_lower || u.loginId?.toLowerCase(), u])
     ).values()
   ).sort((a, b) => {
     if (a.role === 'super_admin') return -1;
@@ -207,11 +199,11 @@ export default function LoginPage() {
               {isUsersLoading ? (
                 <div className="py-8 text-center space-y-2">
                   <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary/20" />
-                  <p className="text-[10px] text-muted-foreground font-bold uppercase">Chargement de la base...</p>
+                  <p className="text-[10px] text-muted-foreground font-bold uppercase">Chargement...</p>
                 </div>
               ) : displayUsers.length > 0 ? (
                 displayUsers.map(u => (
-                  <div key={u.uid} className="flex flex-col p-3 rounded-xl bg-muted/30 border border-black/5 gap-1.5">
+                  <div key={u.uid} className="flex flex-col p-3 rounded-xl bg-muted/30 border border-black/5 gap-1.5 hover:bg-muted/50 transition-colors">
                     <div className="flex items-center justify-between">
                       <span className="font-mono text-[12px] font-black text-primary">{u.loginId}</span>
                       <Badge className={cn(
@@ -228,7 +220,16 @@ export default function LoginPage() {
                   </div>
                 ))
               ) : (
-                <p className="text-[10px] text-center text-muted-foreground py-4 font-bold uppercase">Aucun identifiant trouvé</p>
+                <div className="p-3 rounded-xl bg-muted/30 border border-black/5 gap-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-[12px] font-black text-primary">JSecchi</span>
+                    <Badge className="text-[8px] font-black uppercase h-4 px-1 bg-rose-950">SA</Badge>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-rose-950 bg-rose-50/50 p-1.5 rounded border border-rose-100">
+                    <Key className="w-3 h-3 opacity-50" />
+                    <span className="text-[11px] font-mono font-black tracking-tight">Meqoqo1998</span>
+                  </div>
+                </div>
               )}
             </div>
           </div>
@@ -250,7 +251,7 @@ export default function LoginPage() {
             {signUpSuccess && (
               <div className="mb-6 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3">
                 <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                <p className="text-xs font-bold text-emerald-800 uppercase tracking-wide">Accès créé. Connectez-vous.</p>
+                <p className="text-xs font-bold text-emerald-800 uppercase tracking-wide">Compte créé avec succès ! Connectez-vous.</p>
               </div>
             )}
 
@@ -263,7 +264,7 @@ export default function LoginPage() {
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Nom de l'Entreprise</Label>
-                    <Input placeholder="Ex: Paul S.A." value={companyName} onChange={(e) => setCompanyName(e.target.value)} className="h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
+                    <Input placeholder="Ex: Carrefour, Paul S.A..." value={companyName} onChange={(e) => setCompanyName(e.target.value)} className="h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
                   </div>
                 </>
               )}

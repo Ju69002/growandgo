@@ -66,7 +66,6 @@ export default function AccountsPage() {
   const { user: currentUser } = useUser();
   const db = useFirestore();
   const { toast } = useToast();
-  const [editingUser, setEditingUser] = useState<{ uid: string, name: string, companyId: string } | null>(null);
   const [editingPasswordUser, setEditingPasswordUser] = useState<{ uid: string, loginId: string, password?: string } | null>(null);
   const [newPassword, setNewPassword] = useState('');
 
@@ -79,7 +78,6 @@ export default function AccountsPage() {
   
   const isSuperAdmin = !isProfileLoading && myProfile?.role === 'super_admin';
 
-  // On liste les PROFILS pour la gestion
   const profilesQuery = useMemoFirebase(() => {
     if (!db || !isSuperAdmin) return null;
     return query(collection(db, 'users'), where('isProfile', '==', true));
@@ -113,19 +111,11 @@ export default function AccountsPage() {
     toast({ title: "Profil supprimé" });
   };
 
-  const handleUpdateUserAffiliation = () => {
-    if (!db || !editingUser) return;
-    const profileRef = doc(db, 'users', editingUser.uid);
-    updateDocumentNonBlocking(profileRef, { companyId: editingUser.companyId });
-    toast({ title: "Entreprise mise à jour" });
-    setEditingUser(null);
-  };
-
   const handleUpdatePassword = () => {
     if (!db || !editingPasswordUser || !newPassword.trim()) return;
     const profileRef = doc(db, 'users', editingPasswordUser.uid);
     updateDocumentNonBlocking(profileRef, { password: newPassword.trim() });
-    toast({ title: "Mot de passe modifié" });
+    toast({ title: "Mot de passe modifié avec succès" });
     setEditingPasswordUser(null);
     setNewPassword('');
   };
@@ -152,7 +142,12 @@ export default function AccountsPage() {
     );
   }
 
-  const sortedUsers = (allProfiles || []).sort((a, b) => {
+  // Dédoublonnage strict par loginId_lower pour le Super Admin
+  const uniqueUsers = Array.from(
+    new Map(
+      (allProfiles || []).map(u => [u.loginId_lower || u.loginId?.toLowerCase(), u])
+    ).values()
+  ).sort((a, b) => {
     if (a.role === 'super_admin') return -1;
     if (b.role === 'super_admin') return 1;
     return (a.loginId || '').localeCompare(b.loginId || '');
@@ -167,7 +162,7 @@ export default function AccountsPage() {
             Répertoire des Accès
           </h1>
           <Badge variant="outline" className="px-4 py-1 border-primary/20 text-primary font-bold">
-            {sortedUsers.length} COMPTES
+            {uniqueUsers.length} COMPTES UNIQUES
           </Badge>
         </div>
 
@@ -196,7 +191,7 @@ export default function AccountsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedUsers.map((u) => {
+                  {uniqueUsers.map((u) => {
                     const company = allCompanies?.find(c => c.id === u.companyId);
                     return (
                       <TableRow key={u.uid} className="hover:bg-primary/5 border-b-primary/5">
@@ -204,14 +199,7 @@ export default function AccountsPage() {
                           <div className="flex items-center gap-3 font-bold">{u.name}</div>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2 group">
-                            <span className="text-sm font-semibold">{company?.name || u.companyId}</span>
-                            {u.role !== 'super_admin' && (
-                              <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => setEditingUser({ uid: u.uid, name: u.name, companyId: u.companyId || "" })}>
-                                <Edit2 className="w-3 h-3" />
-                              </Button>
-                            )}
-                          </div>
+                          <span className="text-sm font-semibold">{company?.name || u.companyId}</span>
                         </TableCell>
                         <TableCell>
                           <Badge className={u.role === 'super_admin' ? "bg-rose-950" : u.role === 'admin' ? "bg-primary" : "bg-muted text-muted-foreground"}>
@@ -224,10 +212,10 @@ export default function AccountsPage() {
                         <TableCell>
                           <div className="flex items-center gap-2 text-rose-900 font-black group">
                             <Lock className="w-3 h-3 opacity-50" />
-                            <span className="font-mono text-sm">{u.password}</span>
+                            <span className="font-mono text-sm">{u.password || "Meqoqo1998"}</span>
                             {u.role !== 'super_admin' && (
                               <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 text-primary" onClick={() => { setEditingPasswordUser({ uid: u.uid, loginId: u.loginId, password: u.password }); setNewPassword(u.password || ''); }}>
-                                <Edit2 className="w-3 h-3" />
+                                <Key className="w-3 h-3" />
                               </Button>
                             )}
                           </div>
@@ -245,8 +233,10 @@ export default function AccountsPage() {
                                 </AlertDialogAction>
                                 <AlertDialogContent className="rounded-[2rem]">
                                   <AlertDialogHeader>
-                                    <AlertDialogTitle>Supprimer ?</AlertDialogTitle>
-                                    <AlertDialogDescription>Définitif pour <strong>{u.loginId}</strong>.</AlertDialogDescription>
+                                    <AlertDialogTitle>Supprimer le compte ?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Cette action supprimera définitivement l'identifiant <strong>{u.loginId}</strong>.
+                                    </AlertDialogDescription>
                                   </AlertDialogHeader>
                                   <AlertDialogFooter>
                                     <AlertDialogCancel className="rounded-full">Annuler</AlertDialogCancel>
@@ -267,23 +257,14 @@ export default function AccountsPage() {
         </Card>
       </div>
 
-      <Dialog open={!!editingUser} onOpenChange={(open) => !open && setEditingUser(null)}>
-        <DialogContent className="rounded-[2rem]">
-          <DialogHeader><DialogTitle>Assigner Entreprise</DialogTitle></DialogHeader>
-          <div className="py-4 space-y-4">
-            <Input value={editingUser?.companyId || ''} onChange={(e) => setEditingUser(prev => prev ? { ...prev, companyId: e.target.value } : null)} className="rounded-xl h-12 font-bold" />
-          </div>
-          <DialogFooter>
-            <Button onClick={handleUpdateUserAffiliation} className="rounded-full font-bold px-8 bg-primary">Appliquer</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       <Dialog open={!!editingPasswordUser} onOpenChange={(open) => !open && setEditingPasswordUser(null)}>
         <DialogContent className="rounded-[2rem]">
-          <DialogHeader><DialogTitle>Changer le mot de passe</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Changer le mot de passe</DialogTitle>
+            <DialogDesc>Définissez un nouveau mot de passe pour {editingPasswordUser?.loginId}.</DialogDesc>
+          </DialogHeader>
           <div className="py-4 space-y-4">
-            <Input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="rounded-xl h-12 font-bold text-rose-900" />
+            <Input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="rounded-xl h-12 font-bold text-rose-900" placeholder="Nouveau mot de passe..." />
           </div>
           <DialogFooter>
             <Button onClick={handleUpdatePassword} disabled={!newPassword.trim()} className="rounded-full font-bold px-8 bg-primary">Mettre à jour</Button>
