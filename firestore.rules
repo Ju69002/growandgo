@@ -8,28 +8,22 @@ service cloud.firestore {
 
     // Gestion des profils utilisateurs
     match /users/{userId} {
-      // Autoriser la lecture et la recherche pour le répertoire et la connexion
-      // isSignedIn() n'est pas requis ici pour permettre la recherche d'identifiant avant login
-      allow read, list: if true;
-      // Un utilisateur peut modifier son propre profil ou le créer s'il est connecté
-      allow write: if isSignedIn();
+      // Autoriser tout pour le prototype (Système d'ID/Password personnalisé)
+      allow read, list, write: if true;
     }
 
     // Gestion des entreprises et de leurs sous-collections
     match /companies/{companyId} {
-      // Autoriser la lecture et la création pour l'initialisation des studios
-      allow read, create: if true;
-      allow update: if isSignedIn();
+      allow read, write: if true;
 
-      // Autoriser l'accès complet aux dossiers et documents pour les membres
       match /categories/{categoryId} {
-        allow read, write: if isSignedIn();
+        allow read, write: if true;
       }
       match /documents/{documentId} {
-        allow read, write: if isSignedIn();
+        allow read, write: if true;
       }
       match /events/{eventId} {
-        allow read, write: if isSignedIn();
+        allow read, write: if true;
       }
     }
 
@@ -38,9 +32,9 @@ service cloud.firestore {
       allow read: if true;
     }
 
-    // Sécurité stricte pour les propriétaires de l'application
+    // Sécurité pour les propriétaires de l'application
     match /applicationOwners/{ownerId} {
-      allow read: if isSignedIn();
+      allow read, write: if true;
     }
   }
 }

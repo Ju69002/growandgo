@@ -86,7 +86,6 @@ export default function AccountsPage() {
     if (!db || !allProfiles) return;
     const lowerId = loginId.toLowerCase();
     
-    // On met à jour tous les documents qui ont cet identifiant (maître et sessions)
     const related = allProfiles.filter(u => 
       (u.loginId_lower === lowerId) || 
       (u.loginId?.toLowerCase() === lowerId)
@@ -106,7 +105,7 @@ export default function AccountsPage() {
       adminMode: newRole === 'admin',
       isCategoryModifier: newRole === 'admin'
     });
-    toast({ title: "Rôle mis à jour avec succès" });
+    toast({ title: "Rôle mis à jour" });
   };
 
   const handleDeleteUser = (loginId: string) => {
@@ -121,13 +120,13 @@ export default function AccountsPage() {
       const ref = doc(db, 'users', uDoc.uid);
       deleteDocumentNonBlocking(ref);
     });
-    toast({ title: "Compte supprimé définitivement" });
+    toast({ title: "Compte supprimé" });
   };
 
   const handleUpdatePassword = () => {
     if (!db || !editingPasswordUser || !newPassword.trim()) return;
     updateAllUserDocs(editingPasswordUser.loginId, { password: newPassword.trim() });
-    toast({ title: "Mot de passe modifié partout" });
+    toast({ title: "Mot de passe modifié" });
     setEditingPasswordUser(null);
     setNewPassword('');
   };
@@ -145,7 +144,7 @@ export default function AccountsPage() {
       <DashboardLayout>
         <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
           <Loader2 className="w-12 h-12 animate-spin text-primary opacity-30" />
-          <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Vérification Super Admin...</p>
+          <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Vérification Admin...</p>
         </div>
       </DashboardLayout>
     );
@@ -156,18 +155,17 @@ export default function AccountsPage() {
       <DashboardLayout>
         <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
           <ShieldAlert className="w-20 h-20 text-rose-950 opacity-20" />
-          <h1 className="text-2xl font-black uppercase tracking-tighter">Accès Réservé</h1>
+          <h1 className="text-2xl font-black uppercase tracking-tighter">Accès Super Admin</h1>
         </div>
       </DashboardLayout>
     );
   }
 
-  // Filtrage strict par loginId pour garantir AUCUN DOUBLON dans l'affichage
   const uniqueUsers = Array.from(
     new Map(
       (allProfiles || [])
         .filter(u => u.loginId || u.loginId_lower)
-        .sort((a, b) => (a.isProfile ? -1 : 1)) // Priorité aux profils de référence
+        .sort((a, b) => (a.isProfile ? -1 : 1))
         .map(u => [u.loginId_lower || u.loginId?.toLowerCase(), u])
     ).values()
   ).sort((a, b) => {
@@ -193,7 +191,7 @@ export default function AccountsPage() {
           <CardHeader className="bg-primary text-primary-foreground p-8">
             <CardTitle className="text-xl flex items-center gap-2">
               <ShieldCheck className="w-6 h-6" />
-              Gestion des Identifiants
+              Gestion des Studios
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -247,7 +245,7 @@ export default function AccountsPage() {
                           <span className="font-mono text-xs font-black text-primary">{u.loginId}</span>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2 text-rose-900 font-black group">
+                          <div className="flex items-center gap-2 text-rose-950 font-black group">
                             <Lock className="w-3 h-3 opacity-50" />
                             <span className="font-mono text-sm">{u.password || "••••••••"}</span>
                             {u.role !== 'super_admin' && (
