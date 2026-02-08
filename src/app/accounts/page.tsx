@@ -84,39 +84,59 @@ export default function AccountsPage() {
 
   const { data: allProfiles, isLoading: isUsersLoading } = useCollection<User>(profilesQuery);
 
-  const handleRoleChange = (userId: string, currentRole: UserRole) => {
+  // Helper pour mettre à jour tous les documents liés à un loginId (Maître + Sessions)
+  const updateAllUserDocs = (loginId: string, updates: Partial<User>) => {
+    if (!db || !allProfiles) return;
+    const lowerId = loginId.toLowerCase();
+    const related = allProfiles.filter(u => 
+      (u.loginId_lower === lowerId) || 
+      (u.loginId?.toLowerCase() === lowerId)
+    );
+    
+    related.forEach(uDoc => {
+      const ref = doc(db, 'users', uDoc.uid);
+      updateDocumentNonBlocking(ref, updates);
+    });
+  };
+
+  const handleRoleChange = (userId: string, loginId: string, currentRole: UserRole) => {
     if (!db) return;
     const newRole: UserRole = currentRole === 'admin' ? 'employee' : 'admin';
-    const profileRef = doc(db, 'users', userId);
-    updateDocumentNonBlocking(profileRef, { 
+    updateAllUserDocs(loginId, { 
       role: newRole,
       adminMode: newRole === 'admin',
       isCategoryModifier: newRole === 'admin'
     });
-    toast({ title: "Rôle mis à jour" });
+    toast({ title: "Rôle mis à jour pour tous les profils" });
   };
 
-  const handleDeleteUser = (userId: string) => {
-    if (!db) return;
-    const profileRef = doc(db, 'users', userId);
-    deleteDocumentNonBlocking(profileRef);
-    toast({ title: "Profil supprimé" });
+  const handleDeleteUser = (loginId: string) => {
+    if (!db || !allProfiles) return;
+    const lowerId = loginId.toLowerCase();
+    const related = allProfiles.filter(u => 
+      (u.loginId_lower === lowerId) || 
+      (u.loginId?.toLowerCase() === lowerId)
+    );
+    
+    related.forEach(uDoc => {
+      const ref = doc(db, 'users', uDoc.uid);
+      deleteDocumentNonBlocking(ref);
+    });
+    toast({ title: "Compte supprimé intégralement" });
   };
 
   const handleUpdatePassword = () => {
     if (!db || !editingPasswordUser || !newPassword.trim()) return;
-    const profileRef = doc(db, 'users', editingPasswordUser.uid);
-    updateDocumentNonBlocking(profileRef, { password: newPassword.trim() });
-    toast({ title: "Mot de passe modifié" });
+    updateAllUserDocs(editingPasswordUser.loginId, { password: newPassword.trim() });
+    toast({ title: "Mot de passe modifié partout" });
     setEditingPasswordUser(null);
     setNewPassword('');
   };
 
   const handleUpdateCompany = () => {
     if (!db || !editingCompanyUser || !newCompanyName.trim()) return;
-    const profileRef = doc(db, 'users', editingCompanyUser.uid);
-    updateDocumentNonBlocking(profileRef, { companyName: newCompanyName.trim() });
-    toast({ title: "Entreprise mise à jour pour cet utilisateur" });
+    updateAllUserDocs(editingCompanyUser.loginId, { companyName: newCompanyName.trim() });
+    toast({ title: "Entreprise mise à jour instantanément" });
     setEditingCompanyUser(null);
     setNewCompanyName('');
   };
@@ -143,10 +163,12 @@ export default function AccountsPage() {
     );
   }
 
+  // On dédoublonne l'affichage mais on garde la préférence pour le profil maître
   const uniqueUsers = Array.from(
     new Map(
       (allProfiles || [])
         .filter(u => u.loginId || u.loginId_lower)
+        .sort((a, b) => (a.isProfile ? -1 : 1)) 
         .map(u => [u.loginId_lower || u.loginId?.toLowerCase(), u])
     ).values()
   ).sort((a, b) => {
@@ -185,7 +207,7 @@ export default function AccountsPage() {
                 <TableHeader className="bg-muted/50">
                   <TableRow>
                     <TableHead className="w-[200px] pl-8">Utilisateur</TableHead>
-                    <TableHead>Entreprise (Indépendante)</TableHead>
+                    <TableHead>Entreprise</TableHead>
                     <TableHead>Rôle</TableHead>
                     <TableHead>Identifiant</TableHead>
                     <TableHead>Mot de passe</TableHead>
@@ -239,7 +261,7 @@ export default function AccountsPage() {
                         <TableCell className="text-right pr-8">
                           {u.role !== 'super_admin' && (
                             <div className="flex items-center justify-end gap-2">
-                              <Button variant="outline" size="sm" className="rounded-full font-bold text-[9px] uppercase h-8 px-3 gap-1.5" onClick={() => handleRoleChange(u.uid, u.role)}>
+                              <Button variant="outline" size="sm" className="rounded-full font-bold text-[9px] uppercase h-8 px-3 gap-1.5" onClick={() => handleRoleChange(u.uid, u.loginId, u.role)}>
                                 <RefreshCcw className="w-3 h-3" />
                                 {u.role === 'admin' ? 'Employé' : 'Patron'}
                               </Button>
@@ -251,12 +273,12 @@ export default function AccountsPage() {
                                   <AlertDialogHeader>
                                     <AlertDialogTitle>Supprimer le compte ?</AlertDialogTitle>
                                     <AlertDialogDescription>
-                                      Cette action supprimera définitivement l'identifiant <strong>{u.loginId}</strong> ({u.name}).
+                                      Cette action supprimera définitivement l'identifiant <strong>{u.loginId}</strong> et toutes ses sessions actives.
                                     </AlertDialogDescription>
                                   </AlertDialogHeader>
                                   <AlertDialogFooter>
                                     <AlertDialogCancel className="rounded-full">Annuler</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleDeleteUser(u.uid)} className="bg-rose-950 rounded-full">Confirmer</AlertDialogAction>
+                                    <AlertDialogAction onClick={() => handleDeleteUser(u.loginId)} className="bg-rose-950 rounded-full">Confirmer</AlertDialogAction>
                                   </AlertDialogFooter>
                                 </AlertDialogContent>
                               </AlertDialog>
@@ -292,7 +314,7 @@ export default function AccountsPage() {
         <DialogContent className="rounded-[2rem]">
           <DialogHeader>
             <DialogTitle>Modifier l'entreprise</DialogTitle>
-            <DialogDesc>Change le nom d'entreprise pour {editingCompanyUser?.loginId} uniquement.</DialogDesc>
+            <DialogDesc>Change le nom d'entreprise pour {editingCompanyUser?.loginId}.</DialogDesc>
           </DialogHeader>
           <div className="py-4">
             <Input 
