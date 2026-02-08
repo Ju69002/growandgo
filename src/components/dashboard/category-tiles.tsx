@@ -146,20 +146,20 @@ export function CategoryTiles({ profile }: CategoryTilesProps) {
 
   const isAdminOrSuper = profile.role === 'admin' || profile.role === 'super_admin';
 
+  // Filtrer l'agenda car il est affiché en haut du dashboard désormais
   const displayableCategories = (categories || []).filter(cat => {
+    if (cat.id === 'agenda') return false; 
     if (isAdminOrSuper) return true;
     return cat.visibleToEmployees === true;
   });
 
   const sortedCategories = [...displayableCategories].sort((a, b) => {
-    if (a.id === 'agenda') return -1;
-    if (b.id === 'agenda') return 1;
     if (a.type === 'standard' && b.type !== 'standard') return -1;
     if (a.type !== 'standard' && b.type === 'standard') return 1;
     return a.label.localeCompare(b.label);
   });
 
-  const isStudioIncomplete = isAdminOrSuper && sortedCategories.length < 5;
+  const isStudioIncomplete = isAdminOrSuper && (categories || []).length < 5;
 
   return (
     <div className="space-y-8">
@@ -167,7 +167,7 @@ export function CategoryTiles({ profile }: CategoryTilesProps) {
         <div className="bg-primary/5 border-2 border-dashed border-primary/20 p-8 rounded-[2rem] text-center space-y-4 animate-in fade-in slide-in-from-top-4">
           <Wand2 className="w-12 h-12 text-primary mx-auto opacity-40" />
           <div className="space-y-1">
-            <h3 className="text-xl font-bold text-primary">Initialisez votre Studio Carrefour</h3>
+            <h3 className="text-xl font-bold text-primary">Initialisez votre Studio</h3>
             <p className="text-sm text-muted-foreground max-w-md mx-auto">Configurez instantanément vos 7 dossiers experts (RH, Finance, Juridique...) et votre Agenda.</p>
           </div>
           <Button 
@@ -207,7 +207,7 @@ export function CategoryTiles({ profile }: CategoryTilesProps) {
             onClick={() => {
               window.dispatchEvent(new CustomEvent('open-chat-category-creation'));
             }}
-            className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-muted-foreground/20 rounded-2xl hover:bg-muted/50 hover:border-primary/50 transition-all group h-full min-h-[220px]"
+            className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-muted-foreground/20 rounded-[2rem] hover:bg-muted/50 hover:border-primary/50 transition-all group h-full min-h-[220px]"
           >
             <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4 group-hover:scale-110 group-hover:bg-primary/10 transition-transform">
               <Plus className="w-6 h-6 text-muted-foreground group-hover:text-primary" />

@@ -7,7 +7,18 @@ import { doc, collection, query, where, limit } from 'firebase/firestore';
 import { User, BusinessDocument } from '@/lib/types';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { CategoryTiles } from '@/components/dashboard/category-tiles';
-import { Loader2, ShieldCheck, FileText, LogOut, AlertTriangle, ListTodo, Clock, ChevronRight } from 'lucide-react';
+import { SharedCalendar } from '@/components/agenda/shared-calendar';
+import { 
+  Loader2, 
+  FileText, 
+  LogOut, 
+  AlertTriangle, 
+  ListTodo, 
+  Calendar as CalendarIcon, 
+  ChevronRight, 
+  CheckCircle2,
+  Maximize2
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -40,7 +51,6 @@ export default function Home() {
   const { data: profile, isLoading: isProfileLoading } = useDoc<User>(userRef);
   const companyId = profile?.companyId;
 
-  // Récupération des tâches (documents en attente)
   const pendingDocsQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
     return query(
@@ -103,11 +113,11 @@ export default function Home() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-500">
+      <div className="space-y-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-500">
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-3">
-              <h1 className="text-4xl font-black tracking-tighter text-primary uppercase">Tableau de bord</h1>
+              <h1 className="text-4xl font-black tracking-tighter text-primary uppercase leading-none">Tableau de bord</h1>
               {profile && (
                 <Badge className={cn(
                   "font-black uppercase text-[10px] h-5 px-2",
@@ -123,18 +133,10 @@ export default function Home() {
           </div>
         </header>
 
+        {/* Section Supérieure : Tâches à gauche, Agenda à droite */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          <div className="lg:col-span-3 space-y-8">
-            <section>
-              <h2 className="text-2xl font-black uppercase tracking-tighter mb-6 flex items-center gap-3">
-                <FileText className="w-6 h-6 text-primary" />
-                Dossiers du Studio
-              </h2>
-              {profile && <CategoryTiles profile={profile} />}
-            </section>
-          </div>
-
-          <aside className="space-y-6">
+          {/* Colonne Tâches (1/4) */}
+          <aside className="lg:col-span-1 space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-black uppercase tracking-tighter flex items-center gap-2">
                 <ListTodo className="w-5 h-5 text-primary" />
@@ -149,7 +151,7 @@ export default function Home() {
                     <Card className="border-none shadow-sm hover:shadow-md transition-all rounded-2xl overflow-hidden group">
                       <CardContent className="p-4 flex items-center gap-3">
                         <div className="p-2 bg-primary/5 rounded-lg text-primary">
-                          <Clock className="w-4 h-4" />
+                          <CheckCircle2 className="w-4 h-4" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-bold truncate group-hover:text-primary transition-colors">{task.name}</p>
@@ -161,22 +163,53 @@ export default function Home() {
                   </Link>
                 ))
               ) : (
-                <div className="p-8 border-2 border-dashed rounded-[2rem] text-center space-y-2 opacity-50">
+                <div className="p-10 border-2 border-dashed rounded-[2rem] text-center space-y-2 bg-muted/5">
                   <CheckCircle2 className="w-8 h-8 text-primary/30 mx-auto" />
-                  <p className="text-[10px] font-black uppercase tracking-widest">Tout est à jour</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Tout est à jour</p>
                 </div>
               )}
               {pendingTasks && pendingTasks.length > 0 && (
                 <Button asChild variant="ghost" className="w-full font-black uppercase text-[10px] tracking-widest h-10 rounded-xl">
-                  <Link href="/notifications">Voir toutes les tâches</Link>
+                  <Link href="/notifications">Voir tout</Link>
                 </Button>
               )}
             </div>
           </aside>
+
+          {/* Colonne Agenda (3/4) */}
+          <div className="lg:col-span-3 space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-black uppercase tracking-tighter flex items-center gap-2">
+                <CalendarIcon className="w-5 h-5 text-primary" />
+                Agenda Collaboratif (3 jours)
+              </h2>
+              <Button asChild variant="outline" size="sm" className="rounded-full h-8 px-4 font-black uppercase text-[10px] tracking-widest gap-2">
+                <Link href="/categories/agenda">
+                  <Maximize2 className="w-3 h-3" /> Agrandir
+                </Link>
+              </Button>
+            </div>
+            <div className="h-[500px] border-none shadow-xl rounded-[2rem] overflow-hidden bg-white">
+              {companyId ? (
+                <SharedCalendar companyId={companyId} isCompact={true} />
+              ) : (
+                <div className="h-full flex items-center justify-center text-muted-foreground animate-pulse">
+                   Initialisation du calendrier...
+                </div>
+              )}
+            </div>
+          </div>
         </div>
+
+        {/* Section Inférieure : Dossiers */}
+        <section className="pt-8 border-t">
+          <h2 className="text-2xl font-black uppercase tracking-tighter mb-8 flex items-center gap-3">
+            <FileText className="w-7 h-7 text-primary" />
+            Dossiers du Studio
+          </h2>
+          {profile && <CategoryTiles profile={profile} />}
+        </section>
       </div>
     </DashboardLayout>
   );
 }
-
-import { CheckCircle2 } from 'lucide-react';
