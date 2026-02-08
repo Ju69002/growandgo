@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { X, Send, Bot, Sparkles, Loader2, Check, Ban } from 'lucide-react';
+import { X, Send, Bot, Sparkles, Loader2, Check, Ban, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -16,6 +16,7 @@ type Message = {
   role: 'user' | 'assistant';
   content: string;
   action?: any;
+  isError?: boolean;
 };
 
 const THEME_COLOR_MAP: Record<string, { primary: string; background: string; foreground: string }> = {
@@ -31,13 +32,14 @@ const THEME_COLOR_MAP: Record<string, { primary: string; background: string; for
 const getColorStyle = (color?: string) => {
   if (!color) return undefined;
   const c = color.toLowerCase();
-  if (c === 'rouge') return 'bg-red-600 text-white shadow-lg';
-  if (c === 'vert') return 'bg-emerald-600 text-white shadow-lg';
-  if (c === 'bleu') return 'bg-blue-600 text-white shadow-lg';
-  if (c === 'jaune') return 'bg-amber-400 text-amber-950 shadow-lg';
-  if (c === 'noir') return 'bg-slate-900 text-white shadow-lg';
-  if (c === 'violet' || c === 'pourpre') return 'bg-purple-600 text-white shadow-lg';
-  if (c === 'orange') return 'bg-orange-500 text-white shadow-lg';
+  if (c.includes('rouge')) return 'bg-red-600 text-white shadow-lg';
+  if (c.includes('vert')) return 'bg-emerald-600 text-white shadow-lg';
+  if (c.includes('bleu')) return 'bg-blue-600 text-white shadow-lg';
+  if (c.includes('jaune')) return 'bg-amber-400 text-amber-950 shadow-lg';
+  if (c.includes('noir') || c.includes('sombre')) return 'bg-slate-900 text-white shadow-lg';
+  if (c.includes('violet') || c.includes('pourpre')) return 'bg-purple-600 text-white shadow-lg';
+  if (c.includes('orange')) return 'bg-orange-500 text-white shadow-lg';
+  if (c.includes('rose')) return 'bg-rose-500 text-white shadow-lg';
   return undefined;
 };
 
@@ -87,14 +89,25 @@ export function ChatAssistant() {
   }, [isPatron]);
 
   const executeAction = (action: any) => {
-    if (!db || !companyId || !isPatron) return;
+    if (!db) {
+      setMessages(prev => [...prev, { role: 'assistant', content: "Erreur : La base de données n'est pas prête.", isError: true }]);
+      return;
+    }
+    if (!companyId) {
+      setMessages(prev => [...prev, { role: 'assistant', content: "Erreur : Impossible d'identifier votre entreprise. Veuillez patienter.", isError: true }]);
+      return;
+    }
+    if (!isPatron) {
+      setMessages(prev => [...prev, { role: 'assistant', content: "Erreur : Accès réservé au Patron pour ces modifications.", isError: true }]);
+      return;
+    }
 
     const { type, categoryId, label, color, icon, moduleName, enabled } = action;
     const rawId = categoryId || label || '';
-    const targetId = rawId.toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
+    const targetId = rawId.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '_');
 
     if (!targetId && type !== 'change_theme_color' && type !== 'toggle_module') {
-      setMessages(prev => [...prev, { role: 'assistant', content: "Je n'ai pas pu identifier la cible de l'action." }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: "Je n'ai pas pu identifier la cible de l'action (Nom invalide ?).", isError: true }]);
       return;
     }
 
@@ -107,7 +120,7 @@ export function ChatAssistant() {
           badgeCount: 0,
           visibleToEmployees: true,
           type: 'custom',
-          aiInstructions: `Analyse spécialisée pour Grow&Go - ${label}.`,
+          aiInstructions: `Analyse spécialisée pour le dossier ${label}.`,
           companyId,
           color: getColorStyle(color),
           icon: icon || 'maison'
@@ -133,9 +146,13 @@ export function ChatAssistant() {
         updateDocumentNonBlocking(companyRef, { [`modulesConfig.${key}`]: enabled ?? true });
       }
 
-      setMessages(prev => [...prev, { role: 'assistant', content: "C'est fait ! La transformation a été appliquée à votre studio." }]);
-    } catch (error) {
-      setMessages(prev => [...prev, { role: 'assistant', content: "Désolé, je n'ai pas pu appliquer ce changement technique." }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: "C'est fait ! La transformation a été appliquée avec succès." }]);
+    } catch (error: any) {
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: `Erreur technique : ${error.message || 'Impossible d\'écrire dans la base.'}`,
+        isError: true 
+      }]);
     }
     setPendingAction(null);
   };
@@ -169,10 +186,13 @@ export function ChatAssistant() {
 
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: result.analysisResult || "Plan de design établi. Souhaitez-vous valider ?" 
+        content: result.analysisResult || "Plan établi. Souhaitez-vous valider ?" 
       }]);
-    } catch (error) {
-      setMessages(prev => [...prev, { role: 'assistant', content: "Je suis à votre écoute Patron. Quelle modification de design souhaitez-vous ?" }]);
+    } catch (error: any) {
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: `Je n'ai pas pu analyser votre demande : ${error.message || 'Erreur IA'}` 
+      }]);
     } finally {
       setIsLoading(false);
     }
@@ -201,9 +221,12 @@ export function ChatAssistant() {
               <div className="space-y-4">
                 {messages.map((m, i) => (
                   <div key={i} className={cn("flex", m.role === 'user' ? "justify-end" : "justify-start")}>
-                    <div className={cn( m.role === 'user' ? "bg-primary text-primary-foreground" : "bg-muted border",
-                      "max-w-[85%] p-3 rounded-2xl text-sm shadow-sm font-medium"
+                    <div className={cn( 
+                      m.role === 'user' ? "bg-primary text-primary-foreground" : 
+                      m.isError ? "bg-destructive/10 text-destructive border-destructive/20 border" : "bg-muted border",
+                      "max-w-[85%] p-3 rounded-2xl text-sm shadow-sm font-medium flex gap-2"
                     )}>
+                      {m.isError && <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />}
                       {m.content}
                     </div>
                   </div>
