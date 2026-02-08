@@ -33,7 +33,6 @@ export default function LoginPage() {
   const { toast } = useToast();
   const logo = PlaceHolderImages.find(img => img.id === 'app-logo');
 
-  // Récupération de TOUS les identifiants pour le répertoire de test
   const usersQuery = useMemoFirebase(() => {
     if (!db) return null;
     return query(collection(db, 'users'));
@@ -63,7 +62,7 @@ export default function LoginPage() {
     if (!db) return;
     const lowerId = loginId.toLowerCase().trim();
     
-    // NETTOYAGE DES DOUBLONS : On s'assure qu'un seul doc existe pour ce loginId_lower
+    // Nettoyage des doublons éventuels
     const usersRef = collection(db, 'users');
     const q = query(usersRef, where('loginId_lower', '==', lowerId));
     const snap = await getDocs(q);
@@ -73,7 +72,7 @@ export default function LoginPage() {
         try {
           await deleteDoc(doc(db, 'users', d.id));
         } catch (e) {
-          // Silencieux si pas de permission
+          // Ignorer les erreurs de suppression
         }
       }
     }
@@ -108,7 +107,7 @@ export default function LoginPage() {
       name: displayName || loginId,
       loginId: loginId.trim(),
       loginId_lower: lowerId,
-      password: pass, 
+      password: pass, // On stocke en clair pour les tests comme demandé
       email: `${lowerId}@studio.internal`,
       updatedAt: new Date().toISOString()
     }, { merge: true });
@@ -128,11 +127,10 @@ export default function LoginPage() {
       if (isSignUp) {
         if (!companyName.trim()) throw new Error("Le nom de l'entreprise est requis.");
         
-        // Vérification d'unicité STRICTE avant création
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('loginId_lower', '==', lowerId));
         const checkSnap = await getDocs(q);
-        if (!checkSnap.empty) throw new Error("Cet identifiant est déjà utilisé dans la base.");
+        if (!checkSnap.empty) throw new Error("Cet identifiant est déjà utilisé.");
 
         const userCredential = await createUserWithEmailAndPassword(auth, internalEmail, password);
         await createProfile(userCredential.user.uid, normalizedId, 'employee', name || normalizedId, password, companyName);
@@ -143,11 +141,12 @@ export default function LoginPage() {
         setPassword('');
         setName('');
         setCompanyName('');
-        toast({ title: "Compte créé !" });
+        toast({ title: "Compte créé avec succès !" });
       } else {
         const userCredential = await signInWithEmailAndPassword(auth, internalEmail, password);
         const isSA = lowerId === 'jsecchi';
         
+        // Mise à jour/Restauration forcée du profil pour garantir que le mot de passe est en base
         await createProfile(
           userCredential.user.uid, 
           normalizedId, 
@@ -160,19 +159,16 @@ export default function LoginPage() {
         router.push('/');
       }
     } catch (error: any) {
-      let message = "Identifiant ou mot de passe incorrect.";
-      if (error.message.includes('déjà utilisé')) message = error.message;
-      toast({ variant: "destructive", title: "Erreur d'accès", description: message });
+      toast({ variant: "destructive", title: "Erreur d'accès", description: error.message || "Identifiant ou mot de passe incorrect." });
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Dédoublonnage visuel pour le répertoire latéral
   const displayUsers = Array.from(
     new Map(
       (allUsers || [])
-        .filter(u => u.loginId) // Filtre les documents sans ID (résidus)
+        .filter(u => u.loginId)
         .map(u => [u.loginId?.toLowerCase().trim(), u])
     ).values()
   ).sort((a, b) => {
@@ -185,7 +181,6 @@ export default function LoginPage() {
     <div className="min-h-screen bg-[#F5F2EA] flex items-center justify-center p-4">
       <div className="flex flex-col md:flex-row gap-8 items-start max-w-5xl w-full">
         
-        {/* REPERTOIRE DES ACCÈS EN TEMPS RÉEL */}
         <div className="w-full md:w-80 space-y-4 md:sticky md:top-10">
           <div className="bg-white p-6 rounded-[2rem] shadow-xl border-none">
             <div className="flex items-center gap-2 mb-4 text-[#1E4D3B]">
@@ -224,7 +219,6 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* FORMULAIRE D'ACCÈS */}
         <Card className="flex-1 w-full shadow-2xl border-none p-4 rounded-[2.5rem] bg-white">
           <CardHeader className="text-center space-y-4">
             <div className="relative w-20 h-20 mx-auto overflow-hidden rounded-2xl border bg-white shadow-xl">
