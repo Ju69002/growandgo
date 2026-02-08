@@ -24,7 +24,7 @@ import {
   updateDocumentNonBlocking,
   deleteDocumentNonBlocking
 } from '@/firebase';
-import { collection, doc, query } from 'firebase/firestore';
+import { collection, doc, query, where } from 'firebase/firestore';
 import { User, UserRole, Company } from '@/lib/types';
 import { 
   ShieldCheck, 
@@ -79,12 +79,13 @@ export default function AccountsPage() {
   
   const isSuperAdmin = !isProfileLoading && myProfile?.role === 'super_admin';
 
-  const usersQuery = useMemoFirebase(() => {
+  // On liste les PROFILS pour la gestion
+  const profilesQuery = useMemoFirebase(() => {
     if (!db || !isSuperAdmin) return null;
-    return query(collection(db, 'users'));
+    return query(collection(db, 'users'), where('isProfile', '==', true));
   }, [db, isSuperAdmin]);
 
-  const { data: allUsers, isLoading: isUsersLoading } = useCollection<User>(usersQuery);
+  const { data: allProfiles, isLoading: isUsersLoading } = useCollection<User>(profilesQuery);
 
   const companiesQuery = useMemoFirebase(() => {
     if (!db || !isSuperAdmin) return null;
@@ -96,47 +97,35 @@ export default function AccountsPage() {
   const handleRoleChange = (userId: string, currentRole: UserRole) => {
     if (!db) return;
     const newRole: UserRole = currentRole === 'admin' ? 'employee' : 'admin';
-    const userRef = doc(db, 'users', userId);
-    updateDocumentNonBlocking(userRef, { 
+    const profileRef = doc(db, 'users', userId);
+    updateDocumentNonBlocking(profileRef, { 
       role: newRole,
       adminMode: newRole === 'admin',
       isCategoryModifier: newRole === 'admin'
     });
-    toast({ 
-      title: "Rôle mis à jour", 
-      description: `L'utilisateur est désormais ${newRole === 'admin' ? 'Patron' : 'Employé'}.` 
-    });
+    toast({ title: "Rôle mis à jour" });
   };
 
   const handleDeleteUser = (userId: string) => {
     if (!db) return;
-    const userRef = doc(db, 'users', userId);
-    deleteDocumentNonBlocking(userRef);
-    toast({ 
-      title: "Utilisateur supprimé", 
-      description: "Le profil a été retiré définitivement." 
-    });
+    const profileRef = doc(db, 'users', userId);
+    deleteDocumentNonBlocking(profileRef);
+    toast({ title: "Profil supprimé" });
   };
 
   const handleUpdateUserAffiliation = () => {
     if (!db || !editingUser) return;
-    const userRef = doc(db, 'users', editingUser.uid);
-    updateDocumentNonBlocking(userRef, { companyId: editingUser.companyId });
-    toast({ 
-      title: "Entreprise mise à jour", 
-      description: `${editingUser.name} est désormais rattaché à : ${editingUser.companyId}` 
-    });
+    const profileRef = doc(db, 'users', editingUser.uid);
+    updateDocumentNonBlocking(profileRef, { companyId: editingUser.companyId });
+    toast({ title: "Entreprise mise à jour" });
     setEditingUser(null);
   };
 
   const handleUpdatePassword = () => {
     if (!db || !editingPasswordUser || !newPassword.trim()) return;
-    const userRef = doc(db, 'users', editingPasswordUser.uid);
-    updateDocumentNonBlocking(userRef, { password: newPassword.trim() });
-    toast({ 
-      title: "Mot de passe modifié", 
-      description: `Le mot de passe de ${editingPasswordUser.loginId} a été mis à jour.` 
-    });
+    const profileRef = doc(db, 'users', editingPasswordUser.uid);
+    updateDocumentNonBlocking(profileRef, { password: newPassword.trim() });
+    toast({ title: "Mot de passe modifié" });
     setEditingPasswordUser(null);
     setNewPassword('');
   };
@@ -146,7 +135,7 @@ export default function AccountsPage() {
       <DashboardLayout>
         <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
           <Loader2 className="w-12 h-12 animate-spin text-primary opacity-30" />
-          <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Vérification des droits...</p>
+          <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Vérification...</p>
         </div>
       </DashboardLayout>
     );
@@ -158,22 +147,12 @@ export default function AccountsPage() {
         <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
           <ShieldAlert className="w-20 h-20 text-rose-950 opacity-20" />
           <h1 className="text-2xl font-black uppercase tracking-tighter">Accès Réservé</h1>
-          <p className="text-muted-foreground">Seul le Super Administrateur peut gérer les accès globaux.</p>
         </div>
       </DashboardLayout>
     );
   }
 
-  // Dédoublonnage stricte par Identifiant unique (insensible à la casse)
-  const deduplicatedUsers = allUsers ? Array.from(
-    new Map(
-      allUsers
-        .filter(u => u.loginId)
-        .map(u => [u.loginId?.toLowerCase().trim(), u])
-    ).values()
-  ) : [];
-
-  const sortedUsers = deduplicatedUsers.sort((a, b) => {
+  const sortedUsers = (allProfiles || []).sort((a, b) => {
     if (a.role === 'super_admin') return -1;
     if (b.role === 'super_admin') return 1;
     return (a.loginId || '').localeCompare(b.loginId || '');
@@ -183,15 +162,12 @@ export default function AccountsPage() {
     <DashboardLayout>
       <div className="max-w-6xl mx-auto py-10 px-6 space-y-8">
         <div className="flex items-center justify-between">
-          <div className="space-y-1">
-            <h1 className="text-4xl font-black tracking-tighter text-primary uppercase flex items-center gap-3">
-              <UserCog className="w-10 h-10" />
-              Répertoire des Accès
-            </h1>
-            <p className="text-muted-foreground font-medium">Liste unique de tous les identifiants créés dans le Studio (Dédoublonnés).</p>
-          </div>
+          <h1 className="text-4xl font-black tracking-tighter text-primary uppercase flex items-center gap-3">
+            <UserCog className="w-10 h-10" />
+            Répertoire des Accès
+          </h1>
           <Badge variant="outline" className="px-4 py-1 border-primary/20 text-primary font-bold">
-            {sortedUsers.length} COMPTES UNIQUES
+            {sortedUsers.length} COMPTES
           </Badge>
         </div>
 
@@ -199,93 +175,58 @@ export default function AccountsPage() {
           <CardHeader className="bg-primary text-primary-foreground p-8">
             <CardTitle className="text-xl flex items-center gap-2">
               <ShieldCheck className="w-6 h-6" />
-              Gestion des Comptes Utilisateurs
+              Gestion des Profils
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             {isUsersLoading ? (
               <div className="p-20 flex flex-col items-center justify-center gap-4">
                 <Loader2 className="w-12 h-12 animate-spin text-primary opacity-30" />
-                <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Chargement de la base...</p>
               </div>
             ) : (
               <Table>
                 <TableHeader className="bg-muted/50">
                   <TableRow>
-                    <TableHead className="w-[200px] font-black uppercase text-[10px] tracking-widest pl-8">Nom / Utilisateur</TableHead>
-                    <TableHead className="font-black uppercase text-[10px] tracking-widest">Entreprise</TableHead>
-                    <TableHead className="font-black uppercase text-[10px] tracking-widest">Rôle</TableHead>
-                    <TableHead className="font-black uppercase text-[10px] tracking-widest">Identifiant</TableHead>
-                    <TableHead className="font-black uppercase text-[10px] tracking-widest">Mot de passe</TableHead>
-                    <TableHead className="text-right font-black uppercase text-[10px] tracking-widest pr-8">Actions</TableHead>
+                    <TableHead className="w-[200px] pl-8">Utilisateur</TableHead>
+                    <TableHead>Entreprise</TableHead>
+                    <TableHead>Rôle</TableHead>
+                    <TableHead>Identifiant</TableHead>
+                    <TableHead>Mot de passe</TableHead>
+                    <TableHead className="text-right pr-8">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {sortedUsers.map((u) => {
                     const company = allCompanies?.find(c => c.id === u.companyId);
-                    const companyDisplayName = company?.name || u.companyId || "Non assigné";
-                    const displayPassword = u.password || (u.loginId?.toLowerCase() === 'jsecchi' ? 'Meqoqo1998' : 'Non défini');
-
                     return (
-                      <TableRow key={u.uid} className="hover:bg-primary/5 transition-colors border-b-primary/5">
+                      <TableRow key={u.uid} className="hover:bg-primary/5 border-b-primary/5">
                         <TableCell className="pl-8 py-6">
-                          <div className="flex items-center gap-3">
-                            <div className="p-2 bg-primary/10 rounded-xl text-primary">
-                              <UserIcon className="w-4 h-4" />
-                            </div>
-                            <p className="font-bold">{u.name}</p>
-                          </div>
+                          <div className="flex items-center gap-3 font-bold">{u.name}</div>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2 group">
-                            <Building2 className="w-3.5 h-3.5 text-muted-foreground" />
-                            <span className="text-sm font-semibold">{companyDisplayName}</span>
+                            <span className="text-sm font-semibold">{company?.name || u.companyId}</span>
                             {u.role !== 'super_admin' && (
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-6 w-6 opacity-0 group-hover:opacity-100"
-                                onClick={() => setEditingUser({ uid: u.uid, name: u.name, companyId: u.companyId || "" })}
-                              >
+                              <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => setEditingUser({ uid: u.uid, name: u.name, companyId: u.companyId || "" })}>
                                 <Edit2 className="w-3 h-3" />
                               </Button>
                             )}
                           </div>
                         </TableCell>
                         <TableCell>
-                          {u.role === 'super_admin' ? (
-                            <Badge className="bg-rose-950 text-white font-black uppercase text-[9px] px-2">
-                              Super Admin
-                            </Badge>
-                          ) : (
-                            <Badge 
-                              className={u.role === 'admin' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}
-                              variant={u.role === 'admin' ? "default" : "outline"}
-                            >
-                              {u.role === 'admin' ? "PATRON" : "EMPLOYÉ"}
-                            </Badge>
-                          )}
+                          <Badge className={u.role === 'super_admin' ? "bg-rose-950" : u.role === 'admin' ? "bg-primary" : "bg-muted text-muted-foreground"}>
+                            {u.role.toUpperCase()}
+                          </Badge>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2 px-3 py-1 bg-muted rounded-lg w-fit border border-black/5">
-                            <Key className="w-3 h-3 text-muted-foreground" />
-                            <span className="font-mono text-xs font-black text-primary">{u.loginId}</span>
-                          </div>
+                          <span className="font-mono text-xs font-black text-primary">{u.loginId}</span>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2 text-rose-900 font-black group">
                             <Lock className="w-3 h-3 opacity-50" />
-                            <span className="font-mono text-sm tracking-tight">{displayPassword}</span>
+                            <span className="font-mono text-sm">{u.password}</span>
                             {u.role !== 'super_admin' && (
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-6 w-6 opacity-0 group-hover:opacity-100 text-primary"
-                                onClick={() => {
-                                  setEditingPasswordUser({ uid: u.uid, loginId: u.loginId, password: u.password });
-                                  setNewPassword(u.password || '');
-                                }}
-                              >
+                              <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 text-primary" onClick={() => { setEditingPasswordUser({ uid: u.uid, loginId: u.loginId, password: u.password }); setNewPassword(u.password || ''); }}>
                                 <Edit2 className="w-3 h-3" />
                               </Button>
                             )}
@@ -294,40 +235,22 @@ export default function AccountsPage() {
                         <TableCell className="text-right pr-8">
                           {u.role !== 'super_admin' && (
                             <div className="flex items-center justify-end gap-2">
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className="rounded-full font-bold text-[9px] uppercase h-8 px-3 gap-1.5 hover:bg-primary hover:text-primary-foreground border-primary/20"
-                                onClick={() => handleRoleChange(u.uid, u.role)}
-                              >
+                              <Button variant="outline" size="sm" className="rounded-full font-bold text-[9px] uppercase h-8 px-3 gap-1.5" onClick={() => handleRoleChange(u.uid, u.role)}>
                                 <RefreshCcw className="w-3 h-3" />
-                                {u.role === 'admin' ? 'Passer Employé' : 'Passer Patron'}
+                                {u.role === 'admin' ? 'Employé' : 'Patron'}
                               </Button>
-
                               <AlertDialog>
                                 <AlertDialogAction asChild>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-950 hover:bg-rose-100 hover:text-rose-950 rounded-full">
-                                    <Trash2 className="w-4 h-4" />
-                                  </Button>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-950"><Trash2 className="w-4 h-4" /></Button>
                                 </AlertDialogAction>
-                                <AlertDialogContent className="rounded-[2rem] border-none shadow-2xl">
+                                <AlertDialogContent className="rounded-[2rem]">
                                   <AlertDialogHeader>
-                                    <AlertDialogTitle className="text-2xl font-black uppercase flex items-center gap-2">
-                                      <AlertTriangle className="text-rose-950 w-6 h-6" />
-                                      Supprimer le compte ?
-                                    </AlertDialogTitle>
-                                    <AlertDialogDescription className="text-base">
-                                      Cette action supprimera définitivement l'identifiant <strong>{u.loginId}</strong> ({u.name}).
-                                    </AlertDialogDescription>
+                                    <AlertDialogTitle>Supprimer ?</AlertDialogTitle>
+                                    <AlertDialogDescription>Définitif pour <strong>{u.loginId}</strong>.</AlertDialogDescription>
                                   </AlertDialogHeader>
-                                  <AlertDialogFooter className="mt-6 gap-3">
-                                    <AlertDialogCancel className="rounded-full font-bold h-11 px-8 border-primary/20">Annuler</AlertDialogCancel>
-                                    <AlertDialogAction 
-                                      onClick={() => handleDeleteUser(u.uid)}
-                                      className="bg-rose-950 hover:bg-rose-900 text-white rounded-full font-bold h-11 px-8 border-none"
-                                    >
-                                      Confirmer
-                                    </AlertDialogAction>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel className="rounded-full">Annuler</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleDeleteUser(u.uid)} className="bg-rose-950 rounded-full">Confirmer</AlertDialogAction>
                                   </AlertDialogFooter>
                                 </AlertDialogContent>
                               </AlertDialog>
@@ -345,63 +268,25 @@ export default function AccountsPage() {
       </div>
 
       <Dialog open={!!editingUser} onOpenChange={(open) => !open && setEditingUser(null)}>
-        <DialogContent className="rounded-[2rem] border-none shadow-2xl max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-black uppercase tracking-tighter">Assigner Entreprise</DialogTitle>
-            <DialogDesc className="text-xs">
-              Mettez à jour l'ID de l'entreprise pour <strong>{editingUser?.name}</strong>.
-            </DialogDesc>
-          </DialogHeader>
+        <DialogContent className="rounded-[2rem]">
+          <DialogHeader><DialogTitle>Assigner Entreprise</DialogTitle></DialogHeader>
           <div className="py-4 space-y-4">
-            <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">ID Entreprise</Label>
-              <Input 
-                value={editingUser?.companyId || ''} 
-                onChange={(e) => setEditingUser(prev => prev ? { ...prev, companyId: e.target.value } : null)}
-                placeholder="Ex: default-studio..."
-                className="rounded-xl border-primary/10 h-12 font-bold"
-              />
-            </div>
+            <Input value={editingUser?.companyId || ''} onChange={(e) => setEditingUser(prev => prev ? { ...prev, companyId: e.target.value } : null)} className="rounded-xl h-12 font-bold" />
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setEditingUser(null)} className="rounded-full font-bold">Annuler</Button>
             <Button onClick={handleUpdateUserAffiliation} className="rounded-full font-bold px-8 bg-primary">Appliquer</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={!!editingPasswordUser} onOpenChange={(open) => !open && setEditingPasswordUser(null)}>
-        <DialogContent className="rounded-[2rem] border-none shadow-2xl max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-black uppercase tracking-tighter flex items-center gap-2">
-              <Key className="w-5 h-5" />
-              Changer le mot de passe
-            </DialogTitle>
-            <DialogDesc className="text-xs">
-              Modifier l'accès de l'identifiant <strong>{editingPasswordUser?.loginId}</strong>.
-            </DialogDesc>
-          </DialogHeader>
+        <DialogContent className="rounded-[2rem]">
+          <DialogHeader><DialogTitle>Changer le mot de passe</DialogTitle></DialogHeader>
           <div className="py-4 space-y-4">
-            <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Nouveau mot de passe (En clair)</Label>
-              <Input 
-                value={newPassword} 
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Ex: Secret123..."
-                className="rounded-xl border-primary/10 h-12 font-bold text-rose-900"
-              />
-            </div>
+            <Input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="rounded-xl h-12 font-bold text-rose-900" />
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setEditingPasswordUser(null)} className="rounded-full font-bold">Annuler</Button>
-            <Button 
-              onClick={handleUpdatePassword} 
-              disabled={!newPassword.trim()}
-              className="rounded-full font-bold px-8 bg-primary gap-2"
-            >
-              <Save className="w-4 h-4" />
-              Mettre à jour
-            </Button>
+            <Button onClick={handleUpdatePassword} disabled={!newPassword.trim()} className="rounded-full font-bold px-8 bg-primary">Mettre à jour</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
