@@ -54,8 +54,6 @@ export function AppSidebar() {
   ];
 
   const configItems = [
-    { title: 'Entreprise', icon: Building2, url: '/company' },
-    { title: 'Modules', icon: Briefcase, url: '/modules' },
     { title: 'Abonnement', icon: CreditCard, url: '/billing' },
     { title: 'Sécurité & Sync', icon: KeyRound, url: '/settings/security' },
   ];
