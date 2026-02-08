@@ -23,7 +23,7 @@ import {
   deleteDocumentNonBlocking
 } from '@/firebase';
 import { collection, doc, query } from 'firebase/firestore';
-import { User, UserRole } from '@/lib/types';
+import { User } from '@/lib/types';
 import { 
   ShieldCheck, 
   Trash2, 
@@ -31,8 +31,6 @@ import {
   ShieldAlert, 
   UserCog, 
   Loader2,
-  RefreshCcw,
-  Lock,
   Edit2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -46,6 +44,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogDescription,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
   Dialog,
@@ -53,7 +52,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  DialogDescription as DialogDesc,
 } from "@/components/ui/dialog";
 
 export default function AccountsPage() {
