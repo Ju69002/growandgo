@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Search, Bell, UserCircle, LogOut, Clock, AlertCircle, CheckCircle2, ShieldCheck } from 'lucide-react';
@@ -60,7 +59,7 @@ export function Header() {
   };
 
   return (
-    <header className="h-16 border-b bg-card px-4 flex items-center justify-between sticky top-0 z-50 shadow-sm">
+    <header className="h-16 border-b bg-card px-4 flex items-center justify-between sticky top-0 z-30 shadow-sm">
       <div className="flex items-center gap-4 flex-1">
         <SidebarTrigger />
         <div className="relative w-full max-w-md hidden md:block">
