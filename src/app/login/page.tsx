@@ -34,6 +34,8 @@ export default function LoginPage() {
   const { toast } = useToast();
   const logo = PlaceHolderImages.find(img => img.id === 'app-logo');
 
+  const normalizeId = (name: string) => name.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
+
   const allUsersQuery = useMemoFirebase(() => {
     if (!db) return null;
     return query(collection(db, 'users'));
@@ -57,10 +59,8 @@ export default function LoginPage() {
       }
 
       let finalRole = 'admin';
-      // Normalisation stricte pour garantir que "Ma Boite" et "ma boite" sont identiques
-      const normalizedCompanyName = companyName.trim();
-      const finalCompanyId = normalizedCompanyName.toLowerCase().replace(/[^a-z0-9]/g, '-');
-      const finalCompanyName = normalizedCompanyName;
+      const finalCompanyName = companyName.trim();
+      const finalCompanyId = normalizeId(finalCompanyName);
 
       if (lowerId === 'jsecchi') {
         finalRole = 'super_admin';
@@ -128,7 +128,7 @@ export default function LoginPage() {
           id: cat.id,
           label: cat.label,
           badgeCount: 0,
-          visibleToEmployees: true, // Visible par défaut pour toute l'équipe
+          visibleToEmployees: true,
           type: 'standard',
           companyId: finalCompanyId,
           icon: cat.icon,

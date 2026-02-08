@@ -61,9 +61,9 @@ export function CategoryTiles({ profile }: CategoryTilesProps) {
 
   const categoriesQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
+    // On retire le filtre 'where' redondant qui peut causer des problèmes si les données internes sont légèrement décalées
     return query(
-      collection(db, 'companies', companyId, 'categories'),
-      where('companyId', '==', companyId)
+      collection(db, 'companies', companyId, 'categories')
     );
   }, [db, companyId]);
 
@@ -146,11 +146,9 @@ export function CategoryTiles({ profile }: CategoryTilesProps) {
 
   const isAdminOrSuper = profile.role === 'admin' || profile.role === 'super_admin';
 
-  // Filtrer les catégories : l'agenda est en haut, les autres sont ici
   const displayableCategories = (categories || []).filter(cat => {
     if (cat.id === 'agenda') return false; 
     if (isAdminOrSuper) return true;
-    // Par défaut, tout est visible pour l'équipe sauf si explicitement mis à false
     return cat.visibleToEmployees !== false;
   });
 

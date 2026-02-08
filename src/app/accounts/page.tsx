@@ -33,7 +33,8 @@ import {
   UserCog, 
   Loader2,
   Edit2,
-  Building
+  Building,
+  RefreshCw
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
@@ -82,6 +83,8 @@ export default function AccountsPage() {
 
   const { data: allProfiles, isLoading: isUsersLoading } = useCollection<User>(profilesQuery);
 
+  const normalizeId = (name: string) => name.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
+
   const updateAllUserDocs = async (loginId: string, updates: Partial<User>) => {
     if (!db || !allProfiles) return;
     const lowerId = loginId.toLowerCase();
@@ -112,13 +115,12 @@ export default function AccountsPage() {
 
   const handleUpdateCompany = () => {
     if (!db || !editingCompanyUser || !newCompanyName.trim()) return;
-    // Normalisation de l'ID pour forcer la synchronisation entre employés
-    const newId = newCompanyName.toLowerCase().trim().replace(/[^a-z0-9]/g, '-');
+    const newId = normalizeId(newCompanyName);
     updateAllUserDocs(editingCompanyUser.loginId, { 
       companyName: newCompanyName.trim(),
       companyId: newId 
     });
-    toast({ title: "Entreprise et ID synchronisés" });
+    toast({ title: "Entreprise et ID technique synchronisés" });
     setEditingCompanyUser(null);
   };
 
@@ -235,7 +237,7 @@ export default function AccountsPage() {
                 <Building className="w-4 h-4 text-primary" />
                 <div className="flex flex-col">
                   <span className="text-[8px] font-black uppercase text-muted-foreground">Nouvel ID technique</span>
-                  <span className="text-xs font-mono font-bold text-primary">{newCompanyName.toLowerCase().trim().replace(/[^a-z0-9]/g, '-')}</span>
+                  <span className="text-xs font-mono font-bold text-primary">{normalizeId(newCompanyName)}</span>
                 </div>
               </div>
             )}
