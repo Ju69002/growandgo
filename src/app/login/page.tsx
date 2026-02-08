@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -9,10 +9,10 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useAuth, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { signInAnonymously, signOut } from 'firebase/auth';
+import { signInAnonymously } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, query, where, getDocs, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Lock, UserCircle, UserPlus, Eye, EyeOff, CheckCircle2, Building2, Users, Key } from 'lucide-react';
+import { Loader2, Lock, UserCircle, Users, Key, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { User } from '@/lib/types';
@@ -34,13 +34,13 @@ export default function LoginPage() {
   const { toast } = useToast();
   const logo = PlaceHolderImages.find(img => img.id === 'app-logo');
 
-  // On récupère uniquement les PROFILS pour le répertoire
-  const profilesQuery = useMemoFirebase(() => {
+  // On récupère TOUS les documents pour éviter d'en oublier à cause de filtres manquants
+  const allUsersQuery = useMemoFirebase(() => {
     if (!db) return null;
-    return query(collection(db, 'users'), where('isProfile', '==', true));
+    return collection(db, 'users');
   }, [db]);
 
-  const { data: allProfiles } = useCollection<User>(profilesQuery);
+  const { data: allUsers, isLoading: isUsersLoading } = useCollection<User>(allUsersQuery);
 
   const ensureCompanyExists = async (companyId: string, companyName: string) => {
     if (!db) return;
@@ -68,10 +68,11 @@ export default function LoginPage() {
       const normalizedId = loginId.trim();
       const lowerId = normalizedId.toLowerCase();
       
-      // Vérification doublon Firestore
-      const profileRef = doc(db, 'users', `profile_${lowerId}`);
-      const checkSnap = await getDoc(profileRef);
-      if (checkSnap.exists()) throw new Error("Cet identifiant est déjà utilisé.");
+      // Nettoyage des doublons avant création
+      const existing = (allUsers || []).filter(u => u.loginId_lower === lowerId);
+      for (const oldDoc of existing) {
+        await deleteDoc(doc(db, 'users', oldDoc.id));
+      }
 
       let finalRole = 'employee';
       let finalCompanyId = companyName.toLowerCase().trim().replace(/[^a-z0-9]/g, '-');
@@ -85,7 +86,7 @@ export default function LoginPage() {
 
       await ensureCompanyExists(finalCompanyId, finalCompanyName);
       
-      // Création du PROFIL MAITRE
+      const profileRef = doc(db, 'users', `profile_${lowerId}`);
       await setDoc(profileRef, {
         uid: `profile_${lowerId}`,
         isProfile: true,
@@ -106,7 +107,7 @@ export default function LoginPage() {
       setPassword('');
       setName('');
       setCompanyName('');
-      toast({ title: "Compte créé !", description: "Vous pouvez maintenant vous connecter." });
+      toast({ title: "Compte créé !", description: "Identifiant ajouté au répertoire." });
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erreur", description: error.message });
     } finally {
@@ -123,44 +124,46 @@ export default function LoginPage() {
       const normalizedId = loginId.trim();
       const lowerId = normalizedId.toLowerCase();
       
-      // 1. Vérification Firestore First
-      const profileRef = doc(db, 'users', `profile_${lowerId}`);
-      const profileSnap = await getDoc(profileRef);
+      // Recherche exhaustive : soit via le préfixe profile_, soit via l'ID brut
+      let profileData: User | null = null;
       
-      if (!profileSnap.exists()) {
-        // Fallback pour JSecchi si le document n'existe pas encore (premier lancement)
-        if (lowerId === 'jsecchi' && password === "Meqoqo1998") {
-           await ensureCompanyExists('growandgo-hq', 'Grow&Go HQ');
-           await setDoc(profileRef, {
-             uid: `profile_${lowerId}`,
-             isProfile: true,
-             companyId: 'growandgo-hq',
-             role: 'super_admin',
-             adminMode: true,
-             isCategoryModifier: true,
-             name: 'JSecchi',
-             loginId: 'JSecchi',
-             loginId_lower: 'jsecchi',
-             password: 'Meqoqo1998',
-             email: 'jsecchi@studio.internal'
-           });
-           return handleLogin(e); // On relance
-        }
-        throw new Error("Identifiant inconnu.");
+      const ref1 = doc(db, 'users', `profile_${lowerId}`);
+      const snap1 = await getDoc(ref1);
+      if (snap1.exists()) profileData = snap1.data() as User;
+
+      if (!profileData) {
+        const ref2 = doc(db, 'users', lowerId);
+        const snap2 = await getDoc(ref2);
+        if (snap2.exists()) profileData = snap2.data() as User;
       }
 
-      const profileData = profileSnap.data() as User;
-      if (profileData.password !== password) {
-        throw new Error("Mot de passe incorrect.");
+      // Fallback JSecchi historique
+      if (!profileData && lowerId === 'jsecchi' && password === "Meqoqo1998") {
+         await ensureCompanyExists('growandgo-hq', 'Grow&Go HQ');
+         const jRef = doc(db, 'users', 'profile_jsecchi');
+         profileData = {
+           uid: 'profile_jsecchi',
+           isProfile: true,
+           companyId: 'growandgo-hq',
+           role: 'super_admin',
+           adminMode: true,
+           isCategoryModifier: true,
+           name: 'JSecchi',
+           loginId: 'JSecchi',
+           loginId_lower: 'jsecchi',
+           password: 'Meqoqo1998',
+           email: 'jsecchi@studio.internal'
+         } as User;
+         await setDoc(jRef, profileData);
       }
 
-      // 2. Connexion Anonyme pour le service Auth
+      if (!profileData) throw new Error("Identifiant inconnu.");
+      if (profileData.password !== password) throw new Error("Mot de passe incorrect.");
+
       const userCredential = await signInAnonymously(auth);
       const sessionUid = userCredential.user.uid;
 
-      // 3. Création du document de session (ce que les règles de sécurité lisent)
-      const sessionRef = doc(db, 'users', sessionUid);
-      await setDoc(sessionRef, {
+      await setDoc(doc(db, 'users', sessionUid), {
         ...profileData,
         uid: sessionUid,
         isProfile: false,
@@ -177,9 +180,11 @@ export default function LoginPage() {
     }
   };
 
+  // Filtrage et dédoublonnage pour le répertoire visuel
   const displayUsers = Array.from(
     new Map(
-      (allProfiles || [])
+      (allUsers || [])
+        .filter(u => !u.isSession && u.loginId) // Uniquement les profils
         .map(u => [u.loginId_lower, u])
     ).values()
   ).sort((a, b) => {
@@ -199,13 +204,18 @@ export default function LoginPage() {
               <h3 className="font-black uppercase text-[10px] tracking-widest">Répertoire (Tests)</h3>
             </div>
             <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2 scrollbar-thin">
-              {displayUsers.length > 0 ? (
+              {isUsersLoading ? (
+                <div className="py-8 text-center space-y-2">
+                  <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary/20" />
+                  <p className="text-[10px] text-muted-foreground font-bold uppercase">Chargement de la base...</p>
+                </div>
+              ) : displayUsers.length > 0 ? (
                 displayUsers.map(u => (
-                  <div key={u.uid} className="flex flex-col p-3 rounded-xl bg-muted/30 border border-black/5 gap-1.5 animate-in fade-in duration-300">
+                  <div key={u.uid} className="flex flex-col p-3 rounded-xl bg-muted/30 border border-black/5 gap-1.5">
                     <div className="flex items-center justify-between">
                       <span className="font-mono text-[12px] font-black text-primary">{u.loginId}</span>
                       <Badge className={cn(
-                        "text-[8px] font-black uppercase h-4 px-1 shrink-0",
+                        "text-[8px] font-black uppercase h-4 px-1",
                         u.role === 'super_admin' ? "bg-rose-950" : u.role === 'admin' ? "bg-primary" : "bg-muted text-muted-foreground"
                       )}>
                         {u.role === 'super_admin' ? 'SA' : u.role === 'admin' ? 'P' : 'E'}
@@ -213,15 +223,12 @@ export default function LoginPage() {
                     </div>
                     <div className="flex items-center gap-1.5 text-rose-950 bg-rose-50/50 p-1.5 rounded border border-rose-100">
                       <Key className="w-3 h-3 opacity-50" />
-                      <span className="text-[11px] font-mono font-black tracking-tight">{u.password || 'Non défini'}</span>
+                      <span className="text-[11px] font-mono font-black tracking-tight">{u.password || 'Meqoqo1998'}</span>
                     </div>
                   </div>
                 ))
               ) : (
-                <div className="py-8 text-center space-y-2">
-                  <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary/20" />
-                  <p className="text-[10px] text-muted-foreground font-bold uppercase">Chargement de la base...</p>
-                </div>
+                <p className="text-[10px] text-center text-muted-foreground py-4 font-bold uppercase">Aucun identifiant trouvé</p>
               )}
             </div>
           </div>
@@ -243,7 +250,7 @@ export default function LoginPage() {
             {signUpSuccess && (
               <div className="mb-6 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3">
                 <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                <p className="text-xs font-bold text-emerald-800 uppercase tracking-wide">Connectez-vous maintenant.</p>
+                <p className="text-xs font-bold text-emerald-800 uppercase tracking-wide">Accès créé. Connectez-vous.</p>
               </div>
             )}
 
@@ -252,7 +259,7 @@ export default function LoginPage() {
                 <>
                   <div className="space-y-1.5">
                     <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Nom Complet</Label>
-                    <Input placeholder="Ex: Marc Lavoine" value={name} onChange={(e) => setName(e.target.value)} className="h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
+                    <Input placeholder="Prénom Nom" value={name} onChange={(e) => setName(e.target.value)} className="h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Nom de l'Entreprise</Label>
@@ -265,7 +272,7 @@ export default function LoginPage() {
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Identifiant Studio</Label>
                 <div className="relative">
                   <UserCircle className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
-                  <Input placeholder="Ex: MLavoine" value={loginId} onChange={(e) => setLoginId(e.target.value)} className="pl-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
+                  <Input placeholder="Identifiant" value={loginId} onChange={(e) => setLoginId(e.target.value)} className="pl-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
                 </div>
               </div>
 
