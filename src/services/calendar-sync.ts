@@ -1,4 +1,3 @@
-
 'use client';
 
 /**
@@ -32,8 +31,12 @@ export function mapGoogleEvent(event: any, companyId: string, userId: string): P
   const start = event.start?.dateTime || event.start?.date || new Date().toISOString();
   const end = event.end?.dateTime || event.end?.date || new Date().toISOString();
   
-  // Safe participants mapping
-  const attendees = event.attendees?.map((a: any) => a.email || a.displayName || '').filter(Boolean) || [];
+  // Safe participants mapping with optional chaining for protection
+  const attendees = event.attendees?.map((a: any) => {
+    // Support for both Google and potential legacy address objects
+    const email = a.email || a.emailAddress?.address || '';
+    return email || a.displayName || '';
+  }).filter(Boolean) || [];
 
   return {
     id_externe: event.id || Math.random().toString(36).substring(7),

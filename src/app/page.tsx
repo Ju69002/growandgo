@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -43,6 +42,8 @@ export default function Home() {
   const [isCalendarFull, setIsCalendarFull] = useState(false);
 
   // 1. DÉCLARATION DE TOUS LES HOOKS (Indispensable au sommet)
+  // On s'assure que les références sont null si l'utilisateur n'est pas connecté
+  // pour éviter de déclencher des appels Firestore sans permissions.
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user) return null;
     return doc(db, 'users', user.uid);
@@ -53,20 +54,20 @@ export default function Home() {
   const companyId = profile?.companyId;
 
   const documentsQuery = useMemoFirebase(() => {
-    if (!db || !companyId) return null;
+    if (!db || !companyId || !user) return null;
     return query(
       collection(db, 'companies', companyId, 'documents'),
       where('status', 'in', ['waiting_verification', 'waiting_validation']),
       limit(20)
     );
-  }, [db, companyId]);
+  }, [db, companyId, user]);
 
   const { data: documents } = useCollection<BusinessDocument>(documentsQuery);
 
   const meetingsQuery = useMemoFirebase(() => {
-    if (!db || !companyId) return null;
+    if (!db || !companyId || !user) return null;
     return query(collection(db, 'companies', companyId, 'events'), limit(20));
-  }, [db, companyId]);
+  }, [db, companyId, user]);
 
   const { data: meetings } = useCollection<CalendarEvent>(meetingsQuery);
 
@@ -76,7 +77,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    // Redirection immédiate si non connecté
+    // Redirection immédiate si non connecté pour que la page de connexion soit la première chose vue
     if (mounted && !isUserLoading && !user) {
       router.push('/login');
     }
@@ -84,7 +85,7 @@ export default function Home() {
 
   // 3. CALCULS MEMOÏSÉS
   const weeklyTasks = useMemo(() => {
-    if (!mounted || (!documents && !meetings)) return [];
+    if (!mounted || !user || (!documents && !meetings)) return [];
     const today = startOfToday();
     const endOfWeekDate = addDays(today, 7);
     const interval = { start: today, end: endOfWeekDate };
@@ -128,7 +129,7 @@ export default function Home() {
       } catch (e) { }
     });
     return tasks.sort((a, b) => a.date.getTime() - b.date.getTime());
-  }, [mounted, documents, meetings]);
+  }, [mounted, user, documents, meetings]);
 
   // 4. RENDUS CONDITIONNELS SÉCURISÉS
   if (!mounted || isUserLoading) {
@@ -139,8 +140,9 @@ export default function Home() {
     );
   }
 
+  // Si pas d'utilisateur, on ne rend rien (la redirection vers /login est en cours)
   if (!user) {
-    return null; // Redirection gérée par useEffect
+    return null;
   }
 
   if (isProfileLoading) {
@@ -151,27 +153,26 @@ export default function Home() {
     );
   }
 
+  // Si l'utilisateur est connecté mais que le profil est introuvable (problème Firestore)
   if (!profile) {
     return (
-      <DashboardLayout>
-        <div className="flex flex-col items-center justify-center min-h-[60vh] p-8 text-center space-y-6">
-          <div className="p-6 bg-destructive/10 rounded-[2.5rem]">
-             <AlertTriangle className="w-16 h-16 text-destructive" />
-          </div>
-          <div className="space-y-2">
-            <h2 className="text-3xl font-black uppercase tracking-tighter text-primary">Accès Studio en cours</h2>
-            <p className="text-muted-foreground max-w-md mx-auto font-medium">
-              Nous préparons votre espace. Si cette page persiste, veuillez vous reconnecter.
-            </p>
-          </div>
-          <Button 
-            onClick={() => router.push('/login')}
-            className="rounded-full px-12 h-14 bg-primary font-bold shadow-xl text-lg uppercase"
-          >
-            Retour à la connexion
-          </Button>
+      <div className="flex flex-col items-center justify-center min-h-screen bg-[#F5F2EA] p-8 text-center space-y-6">
+        <div className="p-6 bg-destructive/10 rounded-[2.5rem]">
+           <AlertTriangle className="w-16 h-16 text-destructive" />
         </div>
-      </DashboardLayout>
+        <div className="space-y-2">
+          <h2 className="text-3xl font-black uppercase tracking-tighter text-primary">Profil Inaccessible</h2>
+          <p className="text-muted-foreground max-w-md mx-auto font-medium">
+            Votre compte existe mais vos données de profil n'ont pas pu être récupérées.
+          </p>
+        </div>
+        <Button 
+          onClick={() => router.push('/login')}
+          className="rounded-full px-12 h-14 bg-primary font-bold shadow-xl text-lg uppercase"
+        >
+          Retour à la connexion
+        </Button>
+      </div>
     );
   }
 
