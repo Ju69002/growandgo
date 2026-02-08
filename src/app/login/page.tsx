@@ -30,9 +30,10 @@ export default function LoginPage() {
   const { toast } = useToast();
   const logo = PlaceHolderImages.find(img => img.id === 'app-logo');
 
-  // Redirection automatique si déjà connecté
+  // Redirection automatique seulement si le profil est confirmé
   useEffect(() => {
     if (!isUserLoading && user) {
+      // On laisse faire la vérification du profil sur la page Home
       router.push('/');
     }
   }, [user, isUserLoading, router]);
@@ -61,7 +62,7 @@ export default function LoginPage() {
   const createProfile = async (uid: string, loginId: string, role: string, displayName: string) => {
     if (!db) return;
     const lowerId = loginId.toLowerCase().trim();
-    // Logic d'ID Super Admin en dur
+    // Logic d'ID Super Admin JSecchi
     const isTargetSuperAdmin = lowerId === 'jsecchi';
     const companyId = isTargetSuperAdmin ? 'growandgo-hq' : 'default-studio';
     const companyName = isTargetSuperAdmin ? 'Grow&Go HQ' : 'Mon Studio';
@@ -97,20 +98,17 @@ export default function LoginPage() {
       // LOGIQUE PRIORITAIRE JSECCHI (IDENTIFIANTS EN DUR)
       if (!isSignUp && lowerId === 'jsecchi' && password === 'Meqoqo1998') {
         try {
-          // Tentative de connexion normale
           const userCredential = await signInWithEmailAndPassword(auth, internalEmail, password);
-          // Auto-réparation du profil Super Admin si manquant
+          // Restauration forcée du profil
           await createProfile(userCredential.user.uid, 'JSecchi', 'super_admin', 'Julien Secchi');
-          toast({ title: "Accès Super Admin", description: "Profil restauré et synchronisé." });
+          toast({ title: "Accès Super Admin", description: "Profil synchronisé." });
           return;
         } catch (authError: any) {
-          // Si le compte technique n'existe pas encore (première fois)
           if (authError.code === 'auth/user-not-found' || authError.code === 'auth/invalid-credential' || authError.code === 'auth/wrong-password') {
              if (password === 'Meqoqo1998') {
-               // Création forcée du compte technique JSecchi
                const userCredential = await createUserWithEmailAndPassword(auth, internalEmail, password);
                await createProfile(userCredential.user.uid, 'JSecchi', 'super_admin', 'Julien Secchi');
-               toast({ title: "Initialisation JSecchi", description: "Accès Super Administrateur créé." });
+               toast({ title: "Initialisation JSecchi", description: "Accès Super Admin créé." });
                return;
              }
           }
@@ -134,15 +132,15 @@ export default function LoginPage() {
         await createProfile(
           userCredential.user.uid, 
           normalizedId, 
-          'employee', // Rôle par défaut, modifiable par Super Admin
+          'employee', 
           name || normalizedId
         );
 
-        // OBLIGATION DE CONNEXION MANUELLE APRÈS INSCRIPTION
+        // REDIRECTION MANUELLE VERS CONNEXION APRÈS INSCRIPTION
         await signOut(auth);
         setIsSignUp(false);
         setPassword('');
-        toast({ title: "Inscription réussie !", description: "Connectez-vous maintenant avec vos identifiants." });
+        toast({ title: "Inscription réussie !", description: "Veuillez maintenant saisir vos identifiants pour entrer." });
         
       } else {
         // CONNEXION NORMALE

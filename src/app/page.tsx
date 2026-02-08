@@ -42,7 +42,7 @@ export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [isCalendarFull, setIsCalendarFull] = useState(false);
 
-  // 1. DÉCLARATION DE TOUS LES HOOKS (Rules of Hooks)
+  // 1. DÉCLARATION DE TOUS LES HOOKS (Rules of Hooks) - TOUJOURS EN HAUT
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user) return null;
     return doc(db, 'users', user.uid);
@@ -70,12 +70,13 @@ export default function Home() {
 
   const { data: meetings } = useCollection<CalendarEvent>(meetingsQuery);
 
-  // 2. EFFETS DE NAVIGATION
+  // 2. EFFETS DE NAVIGATION ET SYNC
   useEffect(() => {
     setMounted(true);
   }, []);
 
   useEffect(() => {
+    // Redirection forcée vers la connexion si non authentifié ou si le profil est manquant après chargement
     if (mounted && !isUserLoading && !user) {
       router.push('/login');
     }
@@ -150,7 +151,7 @@ export default function Home() {
     );
   }
 
-  // Cas critique : Utilisateur authentifié mais profil Firestore manquant (Error auto-repair en cours côté Login)
+  // Cas critique : Utilisateur authentifié mais profil Firestore manquant
   if (!profile) {
     return (
       <DashboardLayout>
