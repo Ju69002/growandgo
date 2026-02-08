@@ -2,7 +2,7 @@
 
 /**
  * @fileOverview Assistant IA Expert Design pour Grow&Go via Gemini 2.5 Flash Lite.
- * Gère les transformations visuelles et structurelles en Mode Patron.
+ * Gère les transformations structurelles et le choix des icônes en Mode Patron.
  */
 
 import {ai} from '@/ai/genkit';
@@ -14,15 +14,12 @@ const BossActionSchema = z.object({
     'delete_category', 
     'rename_category', 
     'toggle_visibility', 
-    'update_category_style',
-    'change_theme_color',
     'toggle_module'
   ]).describe('Le type d\'action à effectuer.'),
   categoryId: z.string().optional().describe('L\'identifiant de la catégorie.'),
-  label: z.string().optional().describe('Le nom affiché (ex: "Maison", "Signature").'),
+  label: z.string().optional().describe('Le nom affiché (ex: "Juridique", "Marketing").'),
   visibleToEmployees: z.boolean().optional().describe('Statut de visibilité.'),
-  color: z.string().optional().describe('La couleur demandée ou suggérée (ex: "bleu", "vert", "orange").'),
-  icon: z.string().optional().describe('L\'icône suggérée (ex: "maison", "finance", "rh", "signatures", "travail").'),
+  icon: z.string().optional().describe('L\'icône suggérée (ex: "juridique", "travail", "finance", "rh", "admin").'),
   moduleName: z.string().optional().describe('Le nom du module concerné.'),
   enabled: z.boolean().optional().describe('Activation/Désactivation.'),
 });
@@ -44,16 +41,18 @@ const bossPrompt = ai.definePrompt({
   model: 'googleai/gemini-2.5-flash-lite',
   input: {schema: BossAiDataAnalysisInputSchema},
   output: {schema: BossAiDataAnalysisOutputSchema},
-  system: `Tu es l'Expert Design IA de Grow&Go Studio. Tu accompagnes le Patron dans la personnalisation de son espace.
+  system: `Tu es l'Expert Organisation de Grow&Go Studio. Tu accompagnes le Patron dans la création de ses dossiers.
   
   RÈGLES CRITIQUES :
-  1. Tu ne dis JAMAIS non. Tu agis toujours en faveur du design demandé.
-  2. Tu es AUTONOME : si le patron demande de créer un dossier (ex: "Juridique") sans préciser de couleur ou d'icône, tu DOIS les déterminer toi-même de manière cohérente.
-  3. Mappe les icônes de manière logique : 
-     - "Juridique" -> icône 'admin' ou 'signatures', couleur 'bleu' ou 'sombre'.
-     - "Marketing" -> icône 'default', couleur 'orange' ou 'rose'.
-     - "Travaux" -> icône 'travail', couleur 'jaune'.
-  4. Tu dois TOUJOURS expliquer ton plan de transformation (quelle icône et couleur tu as choisi et pourquoi) dans analysisResult.
+  1. Tu es AUTONOME pour le choix de l'icône. Choisis l'icône la plus adaptée au nom du dossier.
+  2. Mappe les icônes de manière logique : 
+     - "Juridique", "Contrats", "Légal" -> icône 'juridique'.
+     - "Travaux", "Chantier", "Technique" -> icône 'travail'.
+     - "Marketing", "Communication" -> icône 'default'.
+     - "RH", "Équipe", "Salariés" -> icône 'rh'.
+     - "Factures", "Compta", "Argent" -> icône 'finance'.
+  3. Ne parle plus de couleurs de tuiles, le design doit rester sobre et uniforme.
+  4. Explique pourquoi tu as choisi cette icône dans analysisResult.
   5. Réponds exclusivement en français.`,
   prompt: `Demande du patron : {{{query}}} (Entreprise ID : {{{companyId}}})`,
 });
@@ -65,7 +64,7 @@ export async function bossAiDataAnalysis(input: BossAiDataAnalysisInput): Promis
     return output;
   } catch (error) {
     return {
-      analysisResult: "Je suis prêt à transformer votre studio Grow&Go ! Que souhaitez-vous changer dans votre interface ?",
+      analysisResult: "Je suis prêt à organiser votre studio ! Quel nouveau dossier souhaitez-vous créer ?",
     };
   }
 }

@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -37,11 +36,10 @@ interface CategoryTileProps {
   icon: LucideIcon;
   badgeCount: number;
   isVisible: boolean;
-  isAdminMode: boolean; // Si le mode Patron/Admin est activé visuellement
-  canModify: boolean; // Si l'utilisateur a REELLEMENT le droit de modifier (SuperAdmin ou Admin autorisé)
+  isAdminMode: boolean;
+  canModify: boolean;
   colorClass: string;
   companyId: string;
-  customColor?: string;
 }
 
 export function CategoryTile({
@@ -54,7 +52,6 @@ export function CategoryTile({
   canModify,
   colorClass,
   companyId,
-  customColor
 }: CategoryTileProps) {
   const db = useFirestore();
   const [isRenameOpen, setIsRenameOpen] = React.useState(false);
@@ -85,21 +82,18 @@ export function CategoryTile({
     }
   };
 
-  const isCustomStyle = !!customColor;
-
   return (
     <>
       <Card className={cn(
-        "relative group overflow-hidden border-none shadow-md transition-all hover:shadow-lg h-full min-h-[220px]",
+        "relative group overflow-hidden border-none shadow-md transition-all hover:shadow-lg h-full min-h-[220px] bg-white",
         !isVisible && !isAdminMode && "hidden",
-        !isVisible && isAdminMode && "opacity-60 grayscale-[0.5]",
-        isCustomStyle ? customColor : "bg-card"
+        !isVisible && isAdminMode && "opacity-60 grayscale-[0.5]"
       )}>
         <CardContent className="p-6 h-full flex flex-col">
           <div className="flex items-start justify-between mb-8">
             <div className={cn(
               "p-4 rounded-2xl transition-transform group-hover:scale-110 shadow-sm", 
-              isCustomStyle ? "bg-white/20 text-white" : colorClass
+              colorClass
             )}>
               <Icon className="w-8 h-8" />
             </div>
@@ -111,8 +105,8 @@ export function CategoryTile({
           </div>
 
           <div className="space-y-1 flex-1">
-            <h3 className={cn("text-xl font-bold tracking-tight", isCustomStyle ? "text-white" : "text-foreground")}>{label}</h3>
-            <p className={cn("text-xs font-medium uppercase tracking-widest", isCustomStyle ? "text-white/70" : "text-muted-foreground/60")}>
+            <h3 className="text-xl font-bold tracking-tight text-foreground">{label}</h3>
+            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground/60">
               {badgeCount > 0 
                 ? `${badgeCount} documents à traiter` 
                 : "Dossier à jour"}
@@ -120,7 +114,7 @@ export function CategoryTile({
           </div>
 
           <div className="mt-8 flex items-center justify-between">
-            <Button asChild variant="link" className={cn("p-0 font-black uppercase text-[11px] tracking-widest group/link h-auto", isCustomStyle ? "text-white hover:text-white/90" : "text-primary")}>
+            <Button asChild variant="link" className="p-0 font-black uppercase text-[11px] tracking-widest group/link h-auto text-primary">
               <Link href={`/categories/${id}`} className="flex items-center gap-2">
                 Ouvrir
                 <ArrowRight className="w-3.5 h-3.5 group-hover/link:translate-x-1 transition-transform" />
@@ -132,7 +126,7 @@ export function CategoryTile({
                 <Button 
                   size="icon" 
                   variant="ghost" 
-                  className={cn("h-7 w-7 rounded-full hover:bg-black/10", isCustomStyle && "text-white hover:bg-white/20")}
+                  className="h-7 w-7 rounded-full hover:bg-black/10"
                   onClick={toggleVisibility}
                   title={isVisible ? "Masquer pour les employés" : "Rendre visible pour les employés"}
                 >
@@ -144,7 +138,7 @@ export function CategoryTile({
                     <Button 
                       size="icon" 
                       variant="ghost" 
-                      className={cn("h-7 w-7 rounded-full hover:bg-black/10", isCustomStyle && "text-white hover:bg-white/20")}
+                      className="h-7 w-7 rounded-full hover:bg-black/10"
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
@@ -157,7 +151,7 @@ export function CategoryTile({
                     <Button 
                       size="icon" 
                       variant="ghost" 
-                      className={cn("h-7 w-7 rounded-full hover:bg-destructive/10 text-destructive", isCustomStyle && "text-white hover:bg-destructive/20")}
+                      className="h-7 w-7 rounded-full hover:bg-destructive/10 text-destructive"
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();

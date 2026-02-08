@@ -13,7 +13,10 @@ import {
   Home,
   Briefcase,
   Settings,
-  Bell
+  Bell,
+  Scale,
+  HardHat,
+  ShieldCheck
 } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
@@ -33,6 +36,11 @@ const ICON_MAP: Record<string, any> = {
   home: Home,
   travail: Briefcase,
   work: Briefcase,
+  juridique: Scale,
+  legal: Scale,
+  chantier: HardHat,
+  construction: HardHat,
+  securite: ShieldCheck,
   parametres: Settings,
   settings: Settings,
   notifications: Bell,
@@ -45,6 +53,8 @@ const COLOR_MAP: Record<string, string> = {
   rh: 'text-indigo-600 bg-indigo-50',
   agenda: 'text-amber-600 bg-amber-50',
   signatures: 'text-purple-600 bg-purple-50',
+  juridique: 'text-slate-600 bg-slate-50',
+  travail: 'text-orange-600 bg-orange-50',
   default: 'text-gray-600 bg-gray-50'
 };
 
@@ -52,7 +62,6 @@ export function CategoryTiles({ profile }: CategoryTilesProps) {
   const db = useFirestore();
   const companyId = profile.companyId;
 
-  // Règle forte : On ne récupère QUE les catégories de l'entreprise de l'utilisateur
   const categoriesQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
     return query(
@@ -75,18 +84,13 @@ export function CategoryTiles({ profile }: CategoryTilesProps) {
 
   const isAdminOrSuper = profile.role === 'admin' || profile.role === 'super_admin';
 
-  // Règle de visibilité : Les employés voient exactement les mêmes catégories que le Patron
-  // Sauf si une catégorie est spécifiquement cachée (mais par défaut elles sont visibles)
   const displayableCategories = (categories || []).filter(cat => {
-    // Un patron voit tout pour gestion
     if (isAdminOrSuper) return true;
-    
-    // Un employé voit tout ce qui appartient à son entreprise et est marqué visible
     return cat.visibleToEmployees === true;
   });
 
   const sortedCategories = [...displayableCategories].sort((a, b) => {
-    if (a.id === 'agenda') return -1; // Toujours l'agenda en premier
+    if (a.id === 'agenda') return -1;
     if (a.type === 'standard' && b.type !== 'standard') return -1;
     if (a.type !== 'standard' && b.type === 'standard') return 1;
     return a.label.localeCompare(b.label);
@@ -108,9 +112,8 @@ export function CategoryTiles({ profile }: CategoryTilesProps) {
             isVisible={category.visibleToEmployees}
             isAdminMode={isAdminOrSuper}
             canModify={isAdminOrSuper}
-            colorClass={COLOR_MAP[category.id] || COLOR_MAP.default}
+            colorClass={COLOR_MAP[category.id] || COLOR_MAP[iconKey] || COLOR_MAP.default}
             companyId={companyId}
-            customColor={category.color}
           />
         );
       })}
