@@ -48,30 +48,13 @@ export default function Home() {
   const router = useRouter();
   const db = useFirestore();
   const [mounted, setMounted] = useState(false);
+  const [isCalendarFull, setIsCalendarFull] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Sécurité au début de la fonction comme demandé
-  if (isUserLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="text-center space-y-4">
-          <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto" />
-          <p className="text-muted-foreground animate-pulse font-black uppercase text-[10px] tracking-widest">Chargement...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Force l'affichage du Login si aucune session n'est détectée
-  useEffect(() => {
-    if (mounted && !isUserLoading && !user) {
-      router.push('/login');
-    }
-  }, [user, isUserLoading, router, mounted]);
-
+  // Move all hooks BEFORE any conditional returns to satisfy Rules of Hooks
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user) return null;
     return doc(db, 'users', user.uid);
@@ -147,18 +130,29 @@ export default function Home() {
     return tasks.sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [documents, meetings]);
 
-  const [isCalendarFull, setIsCalendarFull] = useState(false);
+  // Handle redirects in useEffect
+  useEffect(() => {
+    if (mounted && !isUserLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, isUserLoading, router, mounted]);
 
-  if (!mounted || isProfileLoading || !user) {
+  // Early returns for loading states (AFTER all hooks)
+  if (isUserLoading || !mounted || isProfileLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="text-center space-y-4">
           <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto" />
-          <p className="text-muted-foreground animate-pulse font-black uppercase text-[10px] tracking-widest">Initialisation...</p>
+          <p className="text-muted-foreground animate-pulse font-black uppercase text-[10px] tracking-widest">
+            {isUserLoading ? 'Authentification...' : 'Chargement du studio...'}
+          </p>
         </div>
       </div>
     );
   }
+
+  // Final session check
+  if (!user) return null;
 
   const isSuperAdmin = profile?.role === 'super_admin';
 

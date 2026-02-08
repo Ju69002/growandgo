@@ -59,7 +59,6 @@ export function mapGoogleEvent(googleEvent: any, companyId: string, userId: stri
 
 /**
  * Mappe un événement Microsoft Outlook (Azure) vers le schéma Grow&Go.
- * Utilise le chaînage optionnel sécurisé pour les adresses participants.
  */
 export function mapOutlookEvent(outlookEvent: any, companyId: string, userId: string): Partial<CalendarEvent> {
   const start = outlookEvent.start?.dateTime || new Date().toISOString();
@@ -75,7 +74,7 @@ export function mapOutlookEvent(outlookEvent: any, companyId: string, userId: st
     debut: start,
     fin: end,
     attendees: outlookEvent.attendees?.map((a: any) => a.emailAddress?.address || '') || [],
-    source: 'google', // On garde Google comme source technique pour le stockage unifié
+    source: 'google', // We use 'google' source label for unified external storage
     type: 'meeting',
     derniere_maj: outlookEvent.lastModifiedDateTime || new Date().toISOString()
   };

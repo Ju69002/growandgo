@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -8,10 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { useAuth, useFirestore, useUser } from '@/firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Lock, UserCircle, UserPlus, Eye, EyeOff, Sparkles } from 'lucide-react';
+import { Loader2, Lock, UserCircle, UserPlus, Eye, EyeOff } from 'lucide-react';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 
@@ -66,7 +65,7 @@ export default function LoginPage() {
 
     setIsLoading(true);
 
-    // Firebase Auth requires an email. We generate one internally from the ID.
+    // Internal email for Firebase Auth
     const internalEmail = `${trimmedId.toLowerCase()}@studio.internal`;
 
     try {
@@ -91,8 +90,7 @@ export default function LoginPage() {
           loginId: trimmedId
         });
 
-        toast({ title: "Compte créé !", description: "Connexion en cours..." });
-        // After signup, user is already logged in, so useEffect will redirect.
+        toast({ title: "Compte créé !", description: "Accès au studio..." });
       } else {
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('loginId', '==', trimmedId));
@@ -139,7 +137,7 @@ export default function LoginPage() {
           <div>
             <CardTitle className="text-2xl font-bold text-[#1E4D3B] uppercase tracking-tighter">Grow&Go Design Studio</CardTitle>
             <CardDescription className="text-[#1E4D3B]/60 font-medium">
-              {isSignUp ? "Créez votre accès personnel." : "Authentification requise pour vos dossiers."}
+              Authentification requise pour vos dossiers.
             </CardDescription>
           </div>
         </CardHeader>
@@ -163,7 +161,7 @@ export default function LoginPage() {
             )}
             
             <div className="space-y-1.5">
-              <Label htmlFor="id" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Identifiant (Respectez la casse)</Label>
+              <Label htmlFor="id" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Identifiant</Label>
               <div className="relative">
                 <UserCircle className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
                 <Input 
@@ -190,15 +188,13 @@ export default function LoginPage() {
                   className="pl-11 pr-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-medium"
                   required
                 />
-                <Button
+                <button
                   type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-2 top-2 h-8 w-8 p-0 hover:bg-transparent"
+                  className="absolute right-2 top-2 h-8 w-8 p-0 flex items-center justify-center hover:bg-transparent"
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
-                </Button>
+                </button>
               </div>
             </div>
 
@@ -211,10 +207,9 @@ export default function LoginPage() {
                 {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (isSignUp ? "Créer un compte" : "Se connecter")}
               </Button>
 
-              <Button
+              <button
                 type="button"
-                variant="ghost"
-                className="w-full text-xs font-bold uppercase tracking-widest text-[#1E4D3B]/60 hover:bg-[#1E4D3B]/5 rounded-xl"
+                className="w-full text-xs font-bold uppercase tracking-widest text-[#1E4D3B]/60 hover:bg-[#1E4D3B]/5 py-2 rounded-xl transition-colors"
                 onClick={() => {
                   setIsSignUp(!isSignUp);
                   setId('');
@@ -223,11 +218,11 @@ export default function LoginPage() {
                 }}
               >
                 {isSignUp ? "Déjà inscrit ? Se connecter" : "Nouveau ? Créer un compte"}
-              </Button>
+              </button>
             </div>
           </form>
           <div className="mt-8 pt-6 border-t border-[#F5F2EA] text-center text-[10px] text-muted-foreground uppercase tracking-widest font-bold">
-            BusinessPilot SaaS • Sécurité Propriétaire
+            BusinessPilot SaaS • Sécurité Studio
           </div>
         </CardContent>
       </Card>
