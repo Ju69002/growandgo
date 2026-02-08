@@ -89,7 +89,6 @@ export default function Home() {
 
     return pendingTasks
       .filter(task => {
-        // Only show v4 billing tasks to avoid clutter from old versions
         if (task.isBillingTask && !task.id.startsWith('billing_v4')) return false;
         try {
           const taskDate = parse(task.createdAt, 'dd/MM/yyyy', new Date());
@@ -114,7 +113,7 @@ export default function Home() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-500">
+      <div className="space-y-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-500">
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-3">
@@ -137,90 +136,91 @@ export default function Home() {
           </div>
         </header>
 
+        {/* Tâches de la semaine en haut, pleine largeur */}
         <section className="space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-black uppercase tracking-tighter flex items-center gap-2">
-              <ListTodo className="w-5 h-5 text-primary" />
+            <h2 className="text-2xl font-black uppercase tracking-tighter flex items-center gap-2">
+              <ListTodo className="w-6 h-6 text-primary" />
               Tâches de la semaine
             </h2>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
             {isTasksLoading ? (
-              Array(4).fill(0).map((_, i) => (
+              Array(2).fill(0).map((_, i) => (
                 <div key={i} className="h-24 bg-muted/50 rounded-2xl animate-pulse" />
               ))
             ) : weeklyTasks.length > 0 ? (
               weeklyTasks.map((task) => {
                 return (
                   <Link 
-                    href={task.isBillingTask 
-                      ? `/billing` 
-                      : `/categories/${task.categoryId}`} 
+                    href={task.isBillingTask ? `/billing` : `/categories/${task.categoryId}`} 
                     key={task.id}
                     className="block"
                   >
                     <Card className={cn(
-                      "border-none shadow-sm hover:shadow-md transition-all rounded-2xl overflow-hidden group h-full",
+                      "border-none shadow-sm hover:shadow-md transition-all rounded-2xl overflow-hidden group h-full min-h-[100px]",
                       task.isBillingTask && "bg-amber-50/50 border border-amber-100"
                     )}>
-                      <CardContent className="p-4 flex items-center gap-4 h-full">
+                      <CardContent className="p-6 flex items-center gap-6 h-full">
                         <div className={cn(
-                          "p-2 rounded-lg shrink-0",
+                          "p-3 rounded-xl shrink-0",
                           task.isBillingTask ? "bg-amber-100 text-amber-600" : "bg-primary/5 text-primary"
                         )}>
-                          {task.isBillingTask ? <Zap className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
+                          {task.isBillingTask ? <Zap className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold leading-tight line-clamp-2 group-hover:text-primary transition-colors">
+                          <p className="text-lg font-bold leading-tight line-clamp-2 group-hover:text-primary transition-colors">
                             {task.name}
                           </p>
-                          <div className="flex items-center justify-between mt-1.5">
-                            <p className="text-[10px] font-black uppercase text-muted-foreground opacity-60">
+                          <div className="flex items-center justify-between mt-2">
+                            <p className="text-[11px] font-black uppercase text-muted-foreground opacity-60 tracking-wider">
                               {task.isBillingTask ? "Action requise" : task.status.replace('_', ' ')}
                             </p>
-                            <p className="text-[9px] font-bold text-primary/40">{task.createdAt}</p>
+                            <p className="text-[10px] font-bold text-primary/40">{task.createdAt}</p>
                           </div>
                         </div>
-                        <ChevronRight className="w-4 h-4 text-muted-foreground/30 group-hover:translate-x-1 transition-transform shrink-0" />
+                        <ChevronRight className="w-5 h-5 text-muted-foreground/30 group-hover:translate-x-1 transition-transform shrink-0" />
                       </CardContent>
                     </Card>
                   </Link>
                 );
               })
             ) : (
-              <div className="col-span-full p-10 border-2 border-dashed rounded-[2rem] text-center space-y-2 bg-muted/5">
-                <CheckCircle2 className="w-8 h-8 text-primary/30 mx-auto" />
-                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Aucune tâche cette semaine</p>
+              <div className="col-span-full p-12 border-2 border-dashed rounded-[3rem] text-center space-y-3 bg-muted/5">
+                <CheckCircle2 className="w-10 h-10 text-primary/30 mx-auto" />
+                <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Aucune tâche en attente</p>
               </div>
             )}
           </div>
         </section>
 
+        {/* Agenda en dessous, pleine largeur */}
         <section className="space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-black uppercase tracking-tighter flex items-center gap-2">
-              <CalendarIcon className="w-5 h-5 text-primary" />
+            <h2 className="text-2xl font-black uppercase tracking-tighter flex items-center gap-2">
+              <CalendarIcon className="w-6 h-6 text-primary" />
               {isParticulier ? "Mon Agenda" : "Agenda collaboratif"}
             </h2>
-            <Button asChild variant="outline" size="sm" className="rounded-full h-8 px-4 font-black uppercase text-[10px] tracking-widest gap-2">
+            <Button asChild variant="outline" size="sm" className="rounded-full h-9 px-5 font-black uppercase text-[11px] tracking-widest gap-2">
               <Link href="/categories/agenda">
-                <Maximize2 className="w-3 h-3" /> Agrandir
+                <Maximize2 className="w-4 h-4" /> Agrandir l'agenda
               </Link>
             </Button>
           </div>
-          <div className="h-[600px] border-none shadow-xl rounded-[2rem] overflow-hidden bg-white">
+          <div className="h-[800px] border-none shadow-2xl rounded-[3rem] overflow-hidden bg-white border border-primary/5">
             {companyId ? (
-              <SharedCalendar companyId={companyId} isCompact={false} />
+              <SharedCalendar companyId={companyId} isCompact={false} defaultView="3day" />
             ) : (
               <div className="h-full flex items-center justify-center text-muted-foreground bg-muted/5">
-                 Chargement...
+                 <Loader2 className="w-8 h-8 animate-spin text-primary/20" />
               </div>
             )}
           </div>
         </section>
 
-        <section className="pt-8 border-t">
+        {/* Categories en bas */}
+        <section className="pt-10 border-t border-primary/10">
           <h2 className="text-2xl font-black uppercase tracking-tighter mb-8 flex items-center gap-3">
             <FileText className="w-7 h-7 text-primary" />
             {isParticulier ? "Mes Dossiers Personnels" : "Dossiers de l'espace de travail"}
