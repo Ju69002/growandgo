@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { X, Send, Bot, Loader2, Check, Ban, AlertCircle } from 'lucide-react';
+import { X, Send, Bot, Loader2, Check, Ban, AlertCircle, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -27,6 +27,7 @@ export function ChatAssistant() {
     { role: 'assistant', content: 'Bonjour ! Je suis votre Expert Organisation Grow&Go. Quel dossier souhaitez-vous que je crée pour votre équipe ?' }
   ]);
   const [input, setInput] = React.useState('');
+  const [newSubCat, setNewSubCat] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
   const [pendingAction, setPendingAction] = React.useState<any | null>(null);
 
@@ -58,6 +59,26 @@ export function ChatAssistant() {
     window.addEventListener('open-chat-category-creation', handleOpenChat);
     return () => window.removeEventListener('open-chat-category-creation', handleOpenChat);
   }, [isPatron]);
+
+  const handleAddSubCat = () => {
+    if (!newSubCat.trim() || !pendingAction) return;
+    const updatedAction = {
+      ...pendingAction,
+      subCategories: [...(pendingAction.subCategories || []), newSubCat.trim()]
+    };
+    setPendingAction(updatedAction);
+    setNewSubCat('');
+  };
+
+  const handleRemoveSubCat = (index: number) => {
+    if (!pendingAction) return;
+    const updatedSubs = [...(pendingAction.subCategories || [])];
+    updatedSubs.splice(index, 1);
+    setPendingAction({
+      ...pendingAction,
+      subCategories: updatedSubs
+    });
+  };
 
   const executeAction = (action: any) => {
     if (!db || !companyId || !isPatron) return;
@@ -147,7 +168,7 @@ export function ChatAssistant() {
           <Bot className="h-6 w-6 text-white" />
         </Button>
       ) : (
-        <Card className="w-[350px] sm:w-[380px] h-[500px] flex flex-col shadow-2xl border-none animate-in slide-in-from-bottom-5 rounded-[2rem] bg-white">
+        <Card className="w-[350px] sm:w-[380px] h-[550px] flex flex-col shadow-2xl border-none animate-in slide-in-from-bottom-5 rounded-[2rem] bg-white">
           <CardHeader className="bg-primary text-primary-foreground rounded-t-[2rem] p-5 flex flex-row items-center justify-between space-y-0">
             <div className="flex items-center gap-2">
               <Bot className="h-5 w-5" />
@@ -173,22 +194,38 @@ export function ChatAssistant() {
                 
                 {pendingAction && !isLoading && (
                   <div className="flex justify-start">
-                    <div className="flex flex-col gap-2 p-4 bg-primary/5 border-2 border-dashed border-primary/20 rounded-2xl max-w-[85%]">
-                      <p className="text-[10px] font-black text-primary uppercase tracking-widest">Confirmation Action</p>
-                      {pendingAction.subCategories && pendingAction.subCategories.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mb-2">
-                          {pendingAction.subCategories.map((sub: string) => (
-                            <span key={sub} className="text-[8px] bg-white px-1.5 py-0.5 rounded border border-primary/10 font-bold uppercase">{sub}</span>
-                          ))}
-                        </div>
-                      )}
-                      <div className="flex gap-2">
-                        <Button size="sm" onClick={() => executeAction(pendingAction)} className="bg-emerald-600 hover:bg-emerald-700 h-8 rounded-full font-bold px-4">
-                          <Check className="w-4 h-4 mr-1" />
+                    <div className="flex flex-col gap-3 p-4 bg-primary/5 border-2 border-dashed border-primary/20 rounded-2xl w-[90%]">
+                      <p className="text-[10px] font-black text-primary uppercase tracking-widest">Configuration des dossiers</p>
+                      
+                      <div className="flex flex-wrap gap-1">
+                        {(pendingAction.subCategories || []).map((sub: string, idx: number) => (
+                          <span key={idx} className="text-[8px] bg-white px-2 py-1 rounded-lg border border-primary/10 font-bold uppercase flex items-center gap-1.5 shadow-sm">
+                            {sub}
+                            <X className="w-2.5 h-2.5 cursor-pointer hover:text-destructive transition-colors" onClick={() => handleRemoveSubCat(idx)} />
+                          </span>
+                        ))}
+                      </div>
+
+                      <div className="flex gap-1">
+                        <Input 
+                          placeholder="Ajouter un sous-dossier..." 
+                          value={newSubCat}
+                          onChange={(e) => setNewSubCat(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleAddSubCat()}
+                          className="h-8 text-[9px] font-bold uppercase rounded-lg border-primary/10"
+                        />
+                        <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" onClick={handleAddSubCat}>
+                          <Plus className="w-4 h-4" />
+                        </Button>
+                      </div>
+
+                      <div className="flex gap-2 pt-2">
+                        <Button size="sm" onClick={() => executeAction(pendingAction)} className="flex-1 bg-emerald-600 hover:bg-emerald-700 h-9 rounded-xl font-bold">
+                          <Check className="w-4 h-4 mr-2" />
                           Appliquer
                         </Button>
-                        <Button size="sm" variant="outline" onClick={() => setPendingAction(null)} className="h-8 rounded-full font-bold px-4">
-                          <Ban className="w-4 h-4 mr-1" />
+                        <Button size="sm" variant="outline" onClick={() => setPendingAction(null)} className="h-9 rounded-xl font-bold">
+                          <Ban className="w-4 h-4 mr-2" />
                           Annuler
                         </Button>
                       </div>
@@ -209,12 +246,12 @@ export function ChatAssistant() {
           <CardFooter className="p-4 border-t rounded-b-[2rem] bg-white">
             <div className="flex w-full items-center gap-2">
               <Input
-                placeholder={!isPatron ? "Accès réservé au Patron" : (pendingAction ? "Action en attente..." : "Ex: Créer dossier Juridique")}
+                placeholder={!isPatron ? "Accès réservé au Patron" : (pendingAction ? "Ajustez vos dossiers ci-dessus..." : "Ex: Créer dossier Juridique")}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                 disabled={isLoading || !!pendingAction || !isPatron}
-                className="flex-1 rounded-xl h-11 bg-muted/30 border-none"
+                className="flex-1 rounded-xl h-11 bg-muted/30 border-none font-medium"
               />
               <Button size="icon" className="rounded-xl h-11 w-11 bg-primary" onClick={handleSend} disabled={isLoading || !input.trim() || !!pendingAction || !isPatron}>
                 <Send className="h-4 w-4" />
