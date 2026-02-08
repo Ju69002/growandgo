@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -62,7 +63,7 @@ export default function LoginPage() {
     if (!db) return;
     const lowerId = loginId.toLowerCase().trim();
     
-    // Nettoyage des doublons éventuels
+    // Nettoyage radical des doublons : on cherche tout document avec ce loginId (même casse ou pas)
     const usersRef = collection(db, 'users');
     const q = query(usersRef, where('loginId_lower', '==', lowerId));
     const snap = await getDocs(q);
@@ -71,9 +72,7 @@ export default function LoginPage() {
       if (d.id !== uid) {
         try {
           await deleteDoc(doc(db, 'users', d.id));
-        } catch (e) {
-          // Ignorer les erreurs de suppression
-        }
+        } catch (e) {}
       }
     }
 
@@ -91,7 +90,8 @@ export default function LoginPage() {
         const data = existingDoc.data();
         finalCompanyId = data.companyId || finalCompanyId;
       } else if (cName) {
-        finalCompanyId = finalCompanyName.toLowerCase().trim().replace(/[^a-z0-9]/g, '-');
+        finalCompanyId = cName.toLowerCase().trim().replace(/[^a-z0-9]/g, '-');
+        finalCompanyName = cName;
       }
     }
 
@@ -107,7 +107,7 @@ export default function LoginPage() {
       name: displayName || loginId,
       loginId: loginId.trim(),
       loginId_lower: lowerId,
-      password: pass, // On stocke en clair pour les tests comme demandé
+      password: pass, // STOCKAGE EN CLAIR POUR LES TESTS
       email: `${lowerId}@studio.internal`,
       updatedAt: new Date().toISOString()
     }, { merge: true });
@@ -146,7 +146,6 @@ export default function LoginPage() {
         const userCredential = await signInWithEmailAndPassword(auth, internalEmail, password);
         const isSA = lowerId === 'jsecchi';
         
-        // Mise à jour/Restauration forcée du profil pour garantir que le mot de passe est en base
         await createProfile(
           userCredential.user.uid, 
           normalizedId, 
@@ -192,7 +191,7 @@ export default function LoginPage() {
                 displayUsers.map(u => (
                   <div key={u.uid} className="flex flex-col p-3 rounded-xl bg-muted/30 border border-black/5 gap-1.5 animate-in fade-in duration-300">
                     <div className="flex items-center justify-between">
-                      <span className="font-mono text-[11px] font-black text-primary">{u.loginId}</span>
+                      <span className="font-mono text-[12px] font-black text-primary">{u.loginId}</span>
                       <Badge className={cn(
                         "text-[8px] font-black uppercase h-4 px-1 shrink-0",
                         u.role === 'super_admin' ? "bg-rose-950" : u.role === 'admin' ? "bg-primary" : "bg-muted text-muted-foreground"
@@ -200,13 +199,10 @@ export default function LoginPage() {
                         {u.role === 'super_admin' ? 'SA' : u.role === 'admin' ? 'P' : 'E'}
                       </Badge>
                     </div>
-                    <div className="flex items-center gap-1.5 text-rose-950">
+                    <div className="flex items-center gap-1.5 text-rose-950 bg-rose-50/50 p-1 rounded border border-rose-100">
                       <Key className="w-3 h-3 opacity-50" />
-                      <span className="text-[11px] font-mono font-black">{u.password || (u.loginId?.toLowerCase() === 'jsecchi' ? 'Meqoqo1998' : 'Non défini')}</span>
+                      <span className="text-[12px] font-mono font-black">{u.password || (u.loginId?.toLowerCase() === 'jsecchi' ? 'Meqoqo1998' : 'Non défini')}</span>
                     </div>
-                    <span className="text-[8px] text-muted-foreground truncate opacity-70 italic font-bold">
-                      {u.name}
-                    </span>
                   </div>
                 ))
               ) : (

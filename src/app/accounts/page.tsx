@@ -1,3 +1,4 @@
+
 'use client';
 
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
@@ -147,7 +148,6 @@ export default function AccountsPage() {
     );
   }
 
-  // Tri pour avoir JSecchi en haut, puis par loginId
   const sortedUsers = allUsers ? [...allUsers].sort((a, b) => {
     if (a.role === 'super_admin') return -1;
     if (b.role === 'super_admin') return 1;
@@ -247,9 +247,9 @@ export default function AccountsPage() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2 text-primary">
+                          <div className="flex items-center gap-2 text-rose-900 font-bold">
                             <Lock className="w-3 h-3 opacity-50" />
-                            <span className="font-mono text-xs font-bold">{u.password || (u.loginId?.toLowerCase() === 'jsecchi' ? 'Meqoqo1998' : 'Non stocké')}</span>
+                            <span className="font-mono text-xs">{u.password || (u.loginId?.toLowerCase() === 'jsecchi' ? 'Meqoqo1998' : 'Non défini')}</span>
                           </div>
                         </TableCell>
                         <TableCell className="text-right pr-8">
