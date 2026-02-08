@@ -23,6 +23,7 @@ import {
   TableHeader, 
   TableRow 
 } from '@/components/ui/table';
+import { useMemo } from 'react';
 
 export default function BillingPage() {
   const { user } = useUser();
@@ -59,10 +60,21 @@ export default function BillingPage() {
     return "EMPLOYÉ";
   };
 
-  // Filtrage pour n'avoir que les profils uniques (pas les sessions anonymes)
-  const uniqueProfiles = (allUsers || [])
-    .filter(u => u.isProfile)
-    .sort((a, b) => (a.role === 'super_admin' ? -1 : 1));
+  // Logique de dédoublonnage pour afficher tous les comptes uniques (comme dans le répertoire)
+  const uniqueProfiles = useMemo(() => {
+    if (!allUsers) return [];
+    return Array.from(
+      new Map(
+        allUsers
+          .filter(u => u.loginId || u.loginId_lower)
+          .sort((a, b) => (a.isProfile ? 1 : -1))
+          .map(u => {
+            const lowerId = (u.loginId_lower || u.loginId?.toLowerCase());
+            return [lowerId, u];
+          })
+      ).values()
+    ).sort((a, b) => (a.role === 'super_admin' ? -1 : 1));
+  }, [allUsers]);
 
   return (
     <DashboardLayout>
