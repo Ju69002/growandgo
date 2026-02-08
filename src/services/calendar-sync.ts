@@ -32,6 +32,7 @@ export function mapGoogleEvent(event: any, companyId: string, userId: string): P
   const start = event.start?.dateTime || event.start?.date || new Date().toISOString();
   const end = event.end?.dateTime || event.end?.date || new Date().toISOString();
   
+  // Safe participants mapping
   const attendees = event.attendees?.map((a: any) => a.email || a.displayName || '').filter(Boolean) || [];
 
   return {
@@ -53,20 +54,25 @@ export function mapGoogleEvent(event: any, companyId: string, userId: string): P
  * Exporte un événement local vers Google Calendar.
  */
 export async function pushEventToGoogle(token: string, event: CalendarEvent) {
-  const url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
-  const body = {
-    summary: event.titre,
-    description: event.description || '',
-    start: { dateTime: event.debut },
-    end: { dateTime: event.fin },
-  };
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!response.ok) throw new Error(`Erreur lors de l'exportation Google Calendar`);
-  return response.json();
+  try {
+    const url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
+    const body = {
+      summary: event.titre,
+      description: event.description || '',
+      start: { dateTime: event.debut },
+      end: { dateTime: event.fin },
+    };
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) throw new Error(`Erreur lors de l'exportation Google Calendar`);
+    return response.json();
+  } catch (error) {
+    console.error("Google Calendar Push Error:", error);
+    throw error;
+  }
 }
 
 /**

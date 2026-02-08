@@ -50,7 +50,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
   Dialog,
@@ -185,7 +184,7 @@ export default function AccountsPage() {
                     <TableHead className="w-[250px] font-black uppercase text-[10px] tracking-widest pl-8">Utilisateur</TableHead>
                     <TableHead className="font-black uppercase text-[10px] tracking-widest">Entreprise</TableHead>
                     <TableHead className="font-black uppercase text-[10px] tracking-widest">Rôle</TableHead>
-                    <TableHead className="font-black uppercase text-[10px] tracking-widest">ID Connexion</TableHead>
+                    <TableHead className="font-black uppercase text-[10px] tracking-widest">Identifiant</TableHead>
                     <TableHead className="text-right font-black uppercase text-[10px] tracking-widest pr-8">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -254,15 +253,9 @@ export default function AccountsPage() {
                               </Button>
 
                               <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    className="h-8 w-8 text-rose-950 hover:bg-rose-100 hover:text-rose-950 rounded-full"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </Button>
-                                </AlertDialogTrigger>
+                                <Button asChild variant="ghost" size="icon" className="h-8 w-8 text-rose-950 hover:bg-rose-100 hover:text-rose-950 rounded-full">
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
                                 <AlertDialogContent className="rounded-[2rem] border-none shadow-2xl">
                                   <AlertDialogHeader>
                                     <AlertDialogTitle className="text-2xl font-black uppercase flex items-center gap-2">
@@ -270,7 +263,7 @@ export default function AccountsPage() {
                                       Supprimer le compte ?
                                     </AlertDialogTitle>
                                     <AlertDialogDescription className="text-base">
-                                      Cette action supprimera définitivement <strong>{u.name}</strong>. Il devra se réinscrire pour accéder à nouveau au studio.
+                                      Cette action supprimera définitivement <strong>{u.name}</strong>.
                                     </AlertDialogDescription>
                                   </AlertDialogHeader>
                                   <AlertDialogFooter className="mt-6 gap-3">

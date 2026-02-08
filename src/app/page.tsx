@@ -34,7 +34,6 @@ import { format, startOfToday, addDays, parseISO, isValid, isWithinInterval } fr
 import { fr } from 'date-fns/locale';
 
 export default function Home() {
-  // --- 1. DECLARE ALL HOOKS AT THE TOP (RULES OF HOOKS) ---
   const router = useRouter();
   const { user, isUserLoading } = useUser();
   const db = useFirestore();
@@ -42,6 +41,7 @@ export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [isCalendarFull, setIsCalendarFull] = useState(false);
 
+  // 1. ALL HOOKS MUST BE CALLED AT THE TOP LEVEL
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user) return null;
     return doc(db, 'users', user.uid);
@@ -68,7 +68,6 @@ export default function Home() {
 
   const { data: meetings } = useCollection<CalendarEvent>(meetingsQuery);
 
-  // --- 2. LOGIC & EFFECTS ---
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -126,7 +125,7 @@ export default function Home() {
     return tasks.sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [mounted, documents, meetings]);
 
-  // --- 3. RENDER CONDITIONS (AFTER HOOKS) ---
+  // 2. CONDITIONAL RENDERING AFTER ALL HOOKS
   if (!mounted || isUserLoading || isProfileLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
@@ -145,7 +144,7 @@ export default function Home() {
       <DashboardLayout>
         <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
           <Loader2 className="w-12 h-12 animate-spin text-primary opacity-30" />
-          <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Création de votre profil...</p>
+          <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Chargement du profil...</p>
         </div>
       </DashboardLayout>
     );

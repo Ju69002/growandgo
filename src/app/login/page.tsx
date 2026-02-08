@@ -67,7 +67,7 @@ export default function LoginPage() {
       const normalizedId = loginId.toLowerCase().trim();
       
       if (isSignUp) {
-        // 1. Vérifier si l'identifiant existe déjà (SÉCURITÉ ANTI-DOUBLON)
+        // 1. Check for duplicates
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('loginId', '==', normalizedId));
         const checkSnap = await getDocs(q);
@@ -76,7 +76,7 @@ export default function LoginPage() {
           throw new Error("Cet identifiant est déjà utilisé par un autre membre.");
         }
 
-        // 2. Création Auth
+        // 2. Auth Creation
         const internalEmail = `${normalizedId}@studio.internal`;
         const userCredential = await createUserWithEmailAndPassword(auth, internalEmail, password);
         const newUser = userCredential.user;
@@ -87,7 +87,7 @@ export default function LoginPage() {
 
         await ensureCompanyExists(companyId, companyName);
         
-        // 3. Création Profil Firestore (Immédiate)
+        // 3. Firestore Profile Creation (IMMEDIATE)
         const userRef = doc(db, 'users', newUser.uid);
         await setDoc(userRef, {
           uid: newUser.uid,
@@ -103,7 +103,7 @@ export default function LoginPage() {
 
         toast({ title: "Bienvenue !", description: "Votre compte studio a été créé avec succès." });
       } else {
-        // 4. Recherche de l'e-mail technique via l'Identifiant (LOGIN)
+        // 4. Find technical email via ID
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('loginId', '==', normalizedId));
         const querySnapshot = await getDocs(q);
@@ -115,7 +115,7 @@ export default function LoginPage() {
         const userData = querySnapshot.docs[0].data();
         const emailToUse = userData.email;
 
-        // 5. Connexion Firebase Auth
+        // 5. Auth Login
         await signInWithEmailAndPassword(auth, emailToUse, password);
         toast({ title: "Connexion réussie", description: "Chargement de votre espace..." });
       }
