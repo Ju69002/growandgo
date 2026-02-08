@@ -50,6 +50,7 @@ export default function Home() {
   const router = useRouter();
   const db = useFirestore();
 
+  // Tous les Hooks doivent être appelés avant toute condition de retour précoce
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user) return null;
     return doc(db, 'users', user.uid);
@@ -76,12 +77,10 @@ export default function Home() {
 
   const { data: meetings } = useCollection<CalendarEvent>(meetingsQuery);
 
-  // Hook pour monter le composant côté client
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Hook de redirection sécurisé
   useEffect(() => {
     if (mounted && !isUserLoading && !user) {
       router.push('/login');
@@ -137,7 +136,6 @@ export default function Home() {
     return tasks.sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [mounted, documents, meetings]);
 
-  // Rendu de chargement unique
   if (!mounted || isUserLoading || isProfileLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">

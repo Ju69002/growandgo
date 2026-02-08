@@ -2,7 +2,7 @@
 'use client';
 
 /**
- * @fileOverview Service de synchronisation des calendriers.
+ * @fileOverview Service de synchronisation des calendriers (Focus Google).
  */
 
 import { CalendarEvent } from '@/lib/types';
@@ -26,29 +26,26 @@ export async function fetchGoogleEvents(token: string, timeMin: string, timeMax:
 }
 
 /**
- * Mappe un événement externe (Google ou Outlook).
+ * Mappe un événement externe.
  */
-export function mapExternalEvent(event: any, companyId: string, userId: string, source: 'google' | 'outlook'): Partial<CalendarEvent> {
+export function mapExternalEvent(event: any, companyId: string, userId: string): Partial<CalendarEvent> {
   const start = event.start?.dateTime || event.start?.date || event.start || new Date().toISOString();
   const end = event.end?.dateTime || event.end?.date || event.end || new Date().toISOString();
   
-  // Formatage spécifique Outlook / Microsoft
-  const attendees = source === 'outlook' 
-    ? (event.attendees?.map((a: any) => a.emailAddress?.address || '') || [])
-    : (event.attendees?.filter((a: any) => a?.email).map((a: any) => a.email) || []);
+  const attendees = event.attendees?.filter((a: any) => a?.email).map((a: any) => a.email) || [];
 
   return {
     id_externe: event.id || Math.random().toString(36).substring(7),
     companyId,
     userId,
-    titre: event.summary || event.subject || 'Sans titre',
-    description: event.description || event.bodyPreview || '',
+    titre: event.summary || 'Sans titre',
+    description: event.description || '',
     debut: start,
     fin: end,
     attendees,
-    source,
+    source: 'google',
     type: 'meeting',
-    derniere_maj: event.updated || event.lastModifiedDateTime || new Date().toISOString()
+    derniere_maj: event.updated || new Date().toISOString()
   };
 }
 
@@ -56,14 +53,7 @@ export function mapExternalEvent(event: any, companyId: string, userId: string, 
  * Alias pour compatibilité.
  */
 export function mapGoogleEvent(event: any, companyId: string, userId: string) {
-  return mapExternalEvent(event, companyId, userId, 'google');
-}
-
-/**
- * Support spécifique Microsoft / Outlook.
- */
-export function mapOutlookEvent(event: any, companyId: string, userId: string) {
-  return mapExternalEvent(event, companyId, userId, 'outlook');
+  return mapExternalEvent(event, companyId, userId);
 }
 
 /**

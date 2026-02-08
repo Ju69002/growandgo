@@ -11,7 +11,7 @@ import { useAuth, useFirestore, useUser } from '@/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Lock, UserCircle, UserPlus, Eye, EyeOff, Building2 } from 'lucide-react';
+import { Loader2, Lock, UserCircle, UserPlus, Eye, EyeOff } from 'lucide-react';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 
@@ -65,7 +65,7 @@ export default function LoginPage() {
 
     try {
       if (isSignUp) {
-        // Enregistrement : on génère un email interne unique basé sur l'ID
+        // Enregistrement : email interne par défaut
         const internalEmail = `${loginId.toLowerCase().trim()}@studio.internal`;
         const userCredential = await createUserWithEmailAndPassword(auth, internalEmail, password);
         const newUser = userCredential.user;
@@ -85,12 +85,12 @@ export default function LoginPage() {
           isCategoryModifier: isTargetSuperAdmin,
           name: name || loginId,
           loginId: loginId,
-          email: internalEmail // Sera modifiable plus tard
+          email: internalEmail
         });
 
         toast({ title: "Bienvenue !", description: "Votre studio Grow&Go est prêt." });
       } else {
-        // Connexion : on cherche l'email associé à l'ID dans Firestore
+        // Connexion : on cherche l'email associé à l'Identifiant Studio
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('loginId', '==', loginId));
         const querySnapshot = await getDocs(q);
@@ -100,10 +100,10 @@ export default function LoginPage() {
         }
 
         const userData = querySnapshot.docs[0].data();
-        const internalEmail = userData.email;
+        const emailToUse = userData.email;
 
-        await signInWithEmailAndPassword(auth, internalEmail, password);
-        toast({ title: "Connexion réussie", description: "Chargement de votre studio..." });
+        await signInWithEmailAndPassword(auth, emailToUse, password);
+        toast({ title: "Connexion réussie", description: "Chargement du studio..." });
         router.push('/');
       }
     } catch (error: any) {
