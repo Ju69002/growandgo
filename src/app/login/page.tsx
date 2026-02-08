@@ -204,8 +204,13 @@ export default function LoginPage() {
                 <div key={u.uid} className="flex flex-col p-3 rounded-xl bg-muted/30 border border-black/5 gap-1.5 hover:bg-muted/50 transition-colors">
                   <div className="flex items-center justify-between">
                     <span className="font-mono text-[12px] font-black text-primary">{u.loginId}</span>
-                    <Badge className={cn("text-[8px] font-black uppercase h-4 px-1", u.role === 'super_admin' ? "bg-rose-950" : u.role === 'admin' ? "bg-primary" : "bg-muted text-muted-foreground")}>
-                      {u.role === 'super_admin' ? 'A' : u.role === 'admin' ? 'P' : 'E'}
+                    <Badge className={cn("text-[8px] font-black uppercase h-4 px-1", 
+                      u.role === 'super_admin' ? "bg-rose-950" : 
+                      u.role === 'admin' ? "bg-primary" : 
+                      u.role === 'particulier' ? "bg-amber-600" :
+                      "bg-muted text-muted-foreground"
+                    )}>
+                      {u.role === 'super_admin' ? 'A' : u.role === 'admin' ? 'P' : u.role === 'particulier' ? 'PR' : 'E'}
                     </Badge>
                   </div>
                   <p className="text-[8px] font-black uppercase text-muted-foreground/60 truncate">
@@ -252,6 +257,7 @@ export default function LoginPage() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="admin">Patron</SelectItem>
+                          <SelectItem value="particulier">Particulier</SelectItem>
                           <SelectItem value="employee">Employé</SelectItem>
                         </SelectContent>
                       </Select>

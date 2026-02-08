@@ -221,8 +221,13 @@ export default function AccountsPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge className={u.role === 'super_admin' ? "bg-rose-950" : "bg-primary"}>
-                        {u.role === 'super_admin' ? 'ADMIN' : u.role === 'admin' ? 'PATRON' : 'EMPLOYÉ'}
+                      <Badge className={
+                        u.role === 'super_admin' ? "bg-rose-950" : 
+                        u.role === 'admin' ? "bg-primary" : 
+                        u.role === 'particulier' ? "bg-amber-600" :
+                        "bg-primary"
+                      }>
+                        {u.role === 'super_admin' ? 'ADMIN' : u.role === 'admin' ? 'PATRON' : u.role === 'particulier' ? 'PARTICULIER' : 'EMPLOYÉ'}
                       </Badge>
                     </TableCell>
                     <TableCell>

@@ -69,7 +69,7 @@ export default function CompanyPage() {
     }, 500);
   };
 
-  const isPatron = profile?.role === 'admin' || profile?.role === 'super_admin';
+  const isPatron = profile?.role === 'admin' || profile?.role === 'super_admin' || profile?.role === 'particulier';
 
   if (!isPatron && !isLoading) {
     return (

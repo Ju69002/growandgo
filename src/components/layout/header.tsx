@@ -62,6 +62,7 @@ export function Header() {
   const getRoleLabel = (role?: string) => {
     if (role === 'super_admin') return 'ADMIN';
     if (role === 'admin') return 'PATRON';
+    if (role === 'particulier') return 'PARTICULIER';
     return 'EMPLOYÉ';
   };
 

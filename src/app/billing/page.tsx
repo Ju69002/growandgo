@@ -69,12 +69,14 @@ export default function BillingPage() {
   const getPrice = (role?: string) => {
     if (role === 'super_admin') return "0,00";
     if (role === 'admin') return "99,99";
+    if (role === 'particulier') return "39,99";
     return "69,99";
   };
 
   const getRoleLabel = (role?: string) => {
     if (role === 'super_admin') return "ADMIN";
     if (role === 'admin') return "PATRON";
+    if (role === 'particulier') return "PARTICULIER";
     return "EMPLOYÉ";
   };
 
@@ -165,7 +167,10 @@ export default function BillingPage() {
                       <TableCell>
                         <Badge className={cn(
                           "font-black uppercase text-[10px] h-6 px-3",
-                          u.role === 'super_admin' ? "bg-rose-950" : u.role === 'admin' ? "bg-primary" : "bg-muted text-muted-foreground"
+                          u.role === 'super_admin' ? "bg-rose-950" : 
+                          u.role === 'admin' ? "bg-primary" : 
+                          u.role === 'particulier' ? "bg-amber-600" :
+                          "bg-muted text-muted-foreground"
                         )}>
                           {getRoleLabel(u.role)}
                         </Badge>

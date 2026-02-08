@@ -137,9 +137,12 @@ export default function Home() {
               {profile && (
                 <Badge className={cn(
                   "font-black uppercase text-[10px] h-5 px-2",
-                  isSuperAdmin ? "bg-rose-950 text-white" : profile.role === 'admin' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                  isSuperAdmin ? "bg-rose-950 text-white" : 
+                  profile.role === 'admin' ? "bg-primary text-primary-foreground" : 
+                  profile.role === 'particulier' ? "bg-amber-600 text-white" :
+                  "bg-muted text-muted-foreground"
                 )}>
-                  {isSuperAdmin ? 'ADMIN' : profile.role === 'admin' ? 'PATRON' : 'EMPLOYÉ'}
+                  {isSuperAdmin ? 'ADMIN' : profile.role === 'admin' ? 'PATRON' : profile.role === 'particulier' ? 'PARTICULIER' : 'EMPLOYÉ'}
                 </Badge>
               )}
             </div>

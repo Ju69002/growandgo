@@ -106,9 +106,11 @@ export default function SettingsPage() {
                 <Badge className={cn(
                   "font-black uppercase text-[10px] h-6 px-3",
                   profile?.role === 'super_admin' ? "bg-rose-950 text-white" : 
-                  profile?.role === 'admin' ? "bg-white text-primary" : "bg-muted text-muted-foreground"
+                  profile?.role === 'admin' ? "bg-white text-primary" : 
+                  profile?.role === 'particulier' ? "bg-amber-500 text-white" :
+                  "bg-muted text-muted-foreground"
                 )}>
-                  {profile?.role === 'super_admin' ? 'ADMIN' : profile?.role === 'admin' ? 'PATRON' : 'EMPLOYÉ'}
+                  {profile?.role === 'super_admin' ? 'ADMIN' : profile?.role === 'admin' ? 'PATRON' : profile?.role === 'particulier' ? 'PARTICULIER' : 'EMPLOYÉ'}
                 </Badge>
               </div>
             </CardHeader>

@@ -69,10 +69,12 @@ export default function TeamPage() {
                         className={cn(
                           "w-fit font-black uppercase text-[10px] h-5 px-2",
                           member.role === 'super_admin' ? "bg-rose-950 text-white" :
-                          member.role === 'admin' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                          member.role === 'admin' ? "bg-primary text-primary-foreground" : 
+                          member.role === 'particulier' ? "bg-amber-600 text-white" :
+                          "bg-muted text-muted-foreground"
                         )}
                       >
-                        {member.role === 'super_admin' ? 'ADMIN' : member.role === 'admin' ? 'PATRON' : 'EMPLOYÉ'}
+                        {member.role === 'super_admin' ? 'ADMIN' : member.role === 'admin' ? 'PATRON' : member.role === 'particulier' ? 'PARTICULIER' : 'EMPLOYÉ'}
                       </Badge>
                     </div>
                   </div>
@@ -82,7 +84,7 @@ export default function TeamPage() {
                     <Key className="w-4 h-4 text-primary/60" />
                     <span className="font-medium text-xs">Identifiant : {member.loginId}</span>
                   </div>
-                  {member.role !== 'employee' && (
+                  {(member.role !== 'employee') && (
                     <div className="flex items-center gap-3 text-sm text-emerald-600 font-bold bg-emerald-50 p-2 rounded-xl border border-emerald-100">
                       <ShieldCheck className="w-4 h-4" />
                       <span className="uppercase text-[10px] tracking-widest">Responsable</span>

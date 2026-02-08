@@ -39,7 +39,7 @@ export function ChatAssistant() {
 
   const { data: profile } = useDoc<User>(userProfileRef);
   const companyId = profile?.companyId ? normalizeId(profile.companyId) : null;
-  const isPatron = profile?.role === 'admin' || profile?.role === 'super_admin';
+  const isPatron = profile?.role === 'admin' || profile?.role === 'super_admin' || profile?.role === 'particulier';
 
   React.useEffect(() => {
     const handleOpenChat = () => {

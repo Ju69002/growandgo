@@ -145,7 +145,7 @@ export function CategoryTiles({ profile }: CategoryTilesProps) {
     );
   }
 
-  const isAdminOrSuper = profile.role === 'admin' || profile.role === 'super_admin';
+  const isAdminOrSuper = profile.role === 'admin' || profile.role === 'super_admin' || profile.role === 'particulier';
 
   const displayableCategories = (categories || []).filter(cat => {
     if (cat.id === 'agenda') return false; 
