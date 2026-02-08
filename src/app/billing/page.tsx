@@ -2,7 +2,7 @@
 'use client';
 
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
-import { CreditCard, ShieldCheck, Ban, CheckCircle2, Users, Calendar, Euro, FileDown, Loader2, Zap } from 'lucide-react';
+import { CreditCard, ShieldCheck, Ban, CheckCircle2, Users, Calendar, Euro, FileDown, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -50,7 +50,6 @@ export default function BillingPage() {
 
   const isSuperAdmin = profile?.role === 'super_admin';
 
-  // Récupération globale pour assurer la visibilité complète
   const allUsersQuery = useMemoFirebase(() => {
     if (!db || !isSuperAdmin) return null;
     return query(collection(db, 'users'));
@@ -58,7 +57,6 @@ export default function BillingPage() {
 
   const { data: allUsers, isLoading: isLoadingUsers } = useCollection<User>(allUsersQuery);
 
-  // Synchronisation automatique en arrière-plan pour l'Admin
   useEffect(() => {
     if (db && user && isSuperAdmin && allUsers && !syncLock.current) {
       syncLock.current = true;
@@ -95,12 +93,11 @@ export default function BillingPage() {
 
   const uniqueProfiles = useMemo(() => {
     if (!allUsers) return [];
-    // Déduplication basée sur loginId pour afficher tous les comptes du répertoire
     return Array.from(
       new Map(
         allUsers
           .filter(u => u.loginId || u.loginId_lower)
-          .sort((a, b) => (a.isProfile ? 1 : -1)) // Le profil principal gagne sur la session
+          .sort((a, b) => (a.isProfile ? 1 : -1))
           .map(u => {
             const lowerId = (u.loginId_lower || u.loginId?.toLowerCase());
             return [lowerId, u];

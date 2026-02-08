@@ -9,17 +9,17 @@ import { fr } from 'date-fns/locale';
 
 /**
  * Service pour synchroniser les tâches de facturation de l'Admin.
- * Gère la répartition des RDV dans la journée (9h-16h).
+ * Gère la répartition des RDV dans la journée (9h-16h) et le nettoyage des inactifs.
  */
 export async function syncBillingTasks(db: Firestore, adminUid: string, allUsers: User[]) {
   const adminCompanyId = "GrowAndGo";
   const now = new Date();
 
-  // On synchronise sur une plage de 12 mois en arrière et 24 mois en avant
+  // Plage : 12 mois en arrière et 24 mois en avant pour éviter l'arrêt des rappels
   const rangeStart = addMonths(now, -12);
   const rangeEnd = addMonths(now, 24);
 
-  // Trier les clients pour une répartition stable
+  // Trier les clients pour une répartition stable des heures
   const clients = allUsers
     .filter(u => u.role !== 'super_admin')
     .sort((a, b) => a.uid.localeCompare(b.uid));
@@ -39,8 +39,9 @@ export async function syncBillingTasks(db: Firestore, adminUid: string, allUsers
       const monthLabel = format(checkDate, 'MMMM yyyy', { locale: fr });
       const dayLabel = format(checkDate, 'dd/MM/yyyy');
       
-      const taskId = `billing_task_${client.uid}_${monthId}`;
-      const eventId = `billing_event_${client.uid}_${monthId}`;
+      // Identifiants uniques pour éviter les doublons
+      const taskId = `billing_v2_${client.uid}_${monthId}`;
+      const eventId = `billing_event_v2_${client.uid}_${monthId}`;
       
       const taskRef = doc(db, 'companies', adminCompanyId, 'documents', taskId);
       const eventRef = doc(db, 'companies', adminCompanyId, 'events', eventId);
@@ -85,6 +86,7 @@ export async function syncBillingTasks(db: Firestore, adminUid: string, allUsers
           setDocumentNonBlocking(eventRef, eventData, { merge: true });
         }
       } else {
+        // Nettoyage automatique pour les comptes inactifs
         deleteDocumentNonBlocking(taskRef);
         deleteDocumentNonBlocking(eventRef);
       }

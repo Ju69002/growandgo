@@ -34,7 +34,6 @@ export const generateInvoicePDF = (userData: User, price: string) => {
   doc.text(`Date : ${dateStr}`, 140, 42);
 
   // Informations Client
-  doc.setDrawColor(230);
   doc.line(20, 55, 190, 55);
   
   doc.setFontSize(10);
@@ -61,13 +60,13 @@ export const generateInvoicePDF = (userData: User, price: string) => {
     head: [['Désignation', 'Description', 'Qté', 'Prix Unitaire', 'Total HT']],
     body: tableData,
     headStyles: { fillColor: [30, 77, 59], textColor: [255, 255, 255], fontStyle: 'bold' },
-    alternateRowStyles: { fillColor: [245, 242, 234] }, // Beige clair #F5F2EA
+    alternateRowStyles: { fillColor: [245, 242, 234] },
     margin: { left: 20, right: 20 }
   });
 
   const finalY = (doc as any).lastAutoTable.finalY + 15;
   
-  // Totaux
+  // Totaux avec espacement horizontal pour éviter la superposition
   const priceNum = parseFloat(price.replace(',', '.'));
   const tva = priceNum * 0.20;
   const totalTTC = priceNum + tva;
@@ -76,7 +75,6 @@ export const generateInvoicePDF = (userData: User, price: string) => {
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(0);
   
-  // Ajustement des positions pour éviter la superposition (Libellé à 130, Valeur alignée à droite sur 185)
   doc.text('Total HT :', 130, finalY);
   doc.text(`${price} €`, 185, finalY, { align: 'right' });
   

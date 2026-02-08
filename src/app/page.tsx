@@ -4,7 +4,7 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser, useFirestore, useDoc, useMemoFirebase, useAuth, useCollection } from '@/firebase';
-import { doc, collection, query, where, limit } from 'firebase/firestore';
+import { doc, collection, query, where } from 'firebase/firestore';
 import { User, BusinessDocument } from '@/lib/types';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { CategoryTiles } from '@/components/dashboard/category-tiles';
@@ -66,7 +66,6 @@ export default function Home() {
 
   const { data: allUsers } = useCollection<User>(allUsersQuery);
 
-  // Synchronisation avec gestion de la mise à jour des données
   useEffect(() => {
     if (db && user && isSuperAdmin && allUsers && allUsers.length > 0) {
       if (syncCountRef.current !== allUsers.length) {
@@ -90,13 +89,11 @@ export default function Home() {
   const weeklyTasks = useMemo(() => {
     if (!pendingTasks) return [];
     const now = new Date();
-    // La semaine commence le lundi et finit le dimanche
     const start = startOfWeek(now, { locale: fr, weekStartsOn: 1 });
     const end = endOfWeek(now, { locale: fr, weekStartsOn: 1 });
 
     return pendingTasks.filter(task => {
       try {
-        // createdAt est au format dd/MM/yyyy
         const taskDate = parse(task.createdAt, 'dd/MM/yyyy', new Date());
         return isWithinInterval(taskDate, { start, end });
       } catch (e) {
@@ -126,35 +123,6 @@ export default function Home() {
   }
 
   if (!user) return null;
-
-  if (!isProfileLoading && !profile && mounted) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-[#F5F2EA] p-8 text-center space-y-6">
-        <div className="p-4 bg-rose-100 rounded-full">
-           <AlertTriangle className="w-12 h-12 text-rose-600" />
-        </div>
-        <div className="space-y-2">
-          <h2 className="text-2xl font-black text-primary uppercase tracking-tighter">Profil non synchronisé</h2>
-          <p className="text-muted-foreground max-sm mx-auto font-medium">
-            Votre session est active mais les données de votre profil sont introuvables.
-          </p>
-        </div>
-        <Button onClick={handleLogout} variant="outline" className="rounded-full px-8 h-12 font-bold gap-2">
-          <LogOut className="w-4 h-4" />
-          Reconnecter mon ID
-        </Button>
-      </div>
-    );
-  }
-
-  if (isProfileLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-[#F5F2EA] gap-4">
-        <Loader2 className="w-10 h-10 animate-spin text-primary opacity-50" />
-        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Accès sécurisé...</p>
-      </div>
-    );
-  }
 
   const isJSecchi = profile?.loginId?.toLowerCase() === 'jsecchi' || profile?.loginId_lower === 'jsecchi';
   const companyDisplayName = isJSecchi ? "GrowAndGo" : (profile?.companyName || "GrowAndGo");
