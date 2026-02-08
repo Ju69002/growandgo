@@ -2,19 +2,17 @@
 'use client';
 
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
-import { CreditCard, ShieldCheck, Ban, CheckCircle2, ArrowRight, Loader2 } from 'lucide-react';
+import { CreditCard, ShieldCheck, Ban, CheckCircle2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { useUser, useFirestore, useDoc, useMemoFirebase, addDocumentNonBlocking, useCollection } from '@/firebase';
-import { doc, collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
-import { User, BusinessDocument } from '@/lib/types';
+import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { doc } from 'firebase/firestore';
+import { User } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { useEffect, useState } from 'react';
 
 export default function BillingPage() {
   const { user } = useUser();
   const db = useFirestore();
-  const [isGenerating, setIsGenerating] = useState(false);
 
   const userRef = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -22,71 +20,6 @@ export default function BillingPage() {
   }, [db, user]);
 
   const { data: profile } = useDoc<User>(userRef);
-
-  const invoicesQuery = useMemoFirebase(() => {
-    if (!db || !user) return null;
-    return query(
-      collection(db, 'users', user.uid, 'invoices'),
-      orderBy('date', 'desc'),
-      limit(1)
-    );
-  }, [db, user]);
-
-  const { data: lastInvoices } = useCollection(invoicesQuery);
-
-  useEffect(() => {
-    async function checkAndGenerateInvoice() {
-      if (!db || !profile || profile.role === 'super_admin' || isGenerating) return;
-
-      const creationDate = new Date(profile.createdAt || new Date());
-      const now = new Date();
-      
-      // Calculer le nombre de mois depuis la création
-      const monthsSinceCreation = (now.getFullYear() - creationDate.getFullYear()) * 12 + (now.getMonth() - creationDate.getMonth());
-      
-      if (monthsSinceCreation >= 0) {
-        // Vérifier si une facture existe pour le mois en cours
-        const currentMonthId = `${now.getFullYear()}-${now.getMonth() + 1}`;
-        const q = query(
-          collection(db, 'users', profile.uid, 'invoices'),
-          where('monthId', '==', currentMonthId)
-        );
-        const snap = await getDocs(q);
-
-        if (snap.empty) {
-          setIsGenerating(true);
-          const amount = profile.role === 'admin' ? 99.99 : 69.99;
-          const invoiceData = {
-            userId: profile.uid,
-            userName: profile.name,
-            companyId: profile.companyId,
-            companyName: profile.companyName,
-            amount: amount,
-            date: new Date().toISOString(),
-            monthId: currentMonthId,
-            status: 'paid',
-            label: profile.role === 'admin' ? 'Plan Patron' : 'Plan Employé'
-          };
-
-          // 1. Créer la facture pour l'utilisateur
-          const userInvoicesRef = collection(db, 'users', profile.uid, 'invoices');
-          addDocumentNonBlocking(userInvoicesRef, invoiceData);
-
-          // 2. Créer une copie pour l'ADMIN (JSecchi)
-          const adminId = 'profile_jsecchi';
-          const adminReceivedRef = collection(db, 'users', adminId, 'received_invoices');
-          addDocumentNonBlocking(adminReceivedRef, {
-            ...invoiceData,
-            originalInvoiceUser: profile.uid
-          });
-          
-          setIsGenerating(false);
-        }
-      }
-    }
-
-    checkAndGenerateInvoice();
-  }, [db, profile, isGenerating]);
 
   const isActive = profile?.subscriptionStatus !== 'inactive' || profile?.role === 'super_admin';
 
@@ -170,12 +103,6 @@ export default function BillingPage() {
                   </div>
                 </div>
               </div>
-              {isGenerating && (
-                <div className="flex items-center justify-center gap-2 text-primary/50 py-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span className="text-[10px] font-black uppercase tracking-widest">Génération de la facture...</span>
-                </div>
-              )}
             </div>
           </CardContent>
         </Card>
