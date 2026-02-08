@@ -50,6 +50,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogDescription,
 } from "@/components/ui/alert-dialog";
 import {
   Dialog,
@@ -57,7 +58,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  DialogDescription,
+  DialogDescription as DialogDesc,
 } from "@/components/ui/dialog";
 
 export default function AccountsPage() {
@@ -307,9 +308,9 @@ export default function AccountsPage() {
         <DialogContent className="rounded-[2rem] border-none shadow-2xl max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-xl font-black uppercase tracking-tighter">Assigner Entreprise</DialogTitle>
-            <DialogDescription className="text-xs">
+            <DialogDesc className="text-xs">
               Mettez à jour l'ID de l'entreprise pour <strong>{editingUser?.name}</strong>.
-            </DialogDescription>
+            </DialogDesc>
           </DialogHeader>
           <div className="py-4 space-y-4">
             <div className="space-y-2">
