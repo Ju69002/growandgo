@@ -114,7 +114,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
 
   const startHour = 8;
   const endHour = 18;
-  const hourHeight = isCompact ? 38 : 60; // Légère augmentation pour éviter les coupures
+  const hourHeight = 52; // Adjusted to fit 8h-18h in the dashboard without scroll
 
   const eventsQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
@@ -123,18 +123,12 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
 
   const { data: events, isLoading } = useCollection<CalendarEvent>(eventsQuery);
 
-  const teamQuery = useMemoFirebase(() => {
-    if (!db || !companyId) return null;
-    return query(collection(db, 'users'), where('companyId', '==', companyId));
-  }, [db, companyId]);
-
-  const { data: teamMembers } = useCollection<User>(teamQuery);
-
   const getEventsForDay = React.useCallback((day: Date) => {
     if (!events) return [];
     return events
       .filter(e => {
         if (!e.debut) return false;
+        // Basic filtering for billing events to avoid legacy clutter
         if (e.isBillingEvent && !e.id.startsWith('event_v4')) return false;
         try {
           const eventDate = parseISO(e.debut);
@@ -284,101 +278,99 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
 
     return (
       <div className={cn("flex flex-col h-full bg-card overflow-hidden animate-in fade-in duration-300", !isCompact && "p-8")}>
-        <div className={cn("flex items-center justify-between px-4 py-2 border-b bg-muted/5 mb-2 rounded-t-2xl", isCompact && "py-1")}>
+        <div className={cn("flex items-center justify-between px-4 py-2 border-b bg-muted/5 mb-4 rounded-t-2xl", isCompact && "py-1")}>
            <div className="flex items-center gap-4">
              <div className="flex gap-1">
-               <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setCurrentDate(addDays(currentDate, -1))}><ChevronLeft className="w-3 h-3" /></Button>
-               <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setCurrentDate(addDays(currentDate, 1))}><ChevronRight className="w-3 h-3" /></Button>
+               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCurrentDate(addDays(currentDate, -1))}><ChevronLeft className="w-4 h-4" /></Button>
+               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCurrentDate(addDays(currentDate, 1))}><ChevronRight className="w-4 h-4" /></Button>
              </div>
              {!isCompact && (
-               <Badge variant="outline" className="h-6 border-primary/20 text-primary font-bold gap-1.5 uppercase text-[9px]">
+               <Badge variant="outline" className="h-8 border-primary/20 text-primary font-bold gap-1.5 uppercase text-[10px]">
                   <Users className="w-3 h-3" /> Agenda d'Équipe
                </Badge>
              )}
            </div>
            <div className="flex gap-2">
-              <Button variant="ghost" size="sm" className="h-6 text-[9px] font-black uppercase px-2 gap-1" onClick={handleImportFromGoogle} disabled={isSyncing !== 'idle'}>
-                {isSyncing === 'importing' ? <Loader2 className="w-3 h-3 animate-spin" /> : <DownloadCloud className="w-3 h-3" />}
-                Sync
+              <Button variant="ghost" size="sm" className="h-8 text-[10px] font-black uppercase px-3 gap-2" onClick={handleImportFromGoogle} disabled={isSyncing !== 'idle'}>
+                {isSyncing === 'importing' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <DownloadCloud className="w-3.5 h-3.5" />}
+                Synchroniser Google
               </Button>
-              <Button size="sm" className="h-6 text-[9px] font-black uppercase px-2 bg-primary rounded-lg" onClick={() => openAddEvent()}>
-                <Plus className="w-3 h-3" />
+              <Button size="sm" className="h-8 text-[10px] font-black uppercase px-4 bg-primary rounded-xl" onClick={() => openAddEvent()}>
+                <Plus className="w-3.5 h-3.5 mr-2" /> Nouveau
               </Button>
            </div>
         </div>
 
-        <div className="flex mb-1 flex-shrink-0">
-          <div className={cn("flex-shrink-0", isCompact ? "w-10" : "w-16")} />
-          <div className="flex-1 grid grid-cols-3 gap-2">
+        <div className="flex mb-2 flex-shrink-0">
+          <div className="w-16" />
+          <div className="flex-1 grid grid-cols-3 gap-4">
             {days.map((day, idx) => (
               <div key={idx} className="text-center">
-                <p className="text-[10px] font-black uppercase tracking-wider text-primary/40 leading-none mb-0.5">{isToday(day) ? "Auj." : format(day, "EEE", { locale: fr })}</p>
-                <h3 className={cn("font-black text-primary leading-none", isCompact ? "text-[10px]" : "text-base")}>{format(day, "d MMM", { locale: fr })}</h3>
+                <p className="text-[11px] font-black uppercase tracking-wider text-primary/40 leading-none mb-1">{isToday(day) ? "Aujourd'hui" : format(day, "EEEE", { locale: fr })}</p>
+                <h3 className={cn("font-black text-primary leading-none", isCompact ? "text-sm" : "text-xl")}>{format(day, "d MMMM", { locale: fr })}</h3>
               </div>
             ))}
           </div>
         </div>
 
         <div className="relative flex-1 overflow-hidden">
-          <ScrollArea className="h-full">
-            <div className="flex relative" style={{ height: `${totalHeight}px` }}>
-              <div className={cn("flex-shrink-0 flex flex-col border-r bg-muted/5", isCompact ? "w-10" : "w-16")}>
-                {hours.map((h) => (
-                  <div key={h} className="relative flex items-start justify-center border-b last:border-0" style={{ height: `${hourHeight}px` }}>
-                    <span className={cn("font-black text-muted-foreground/30 mt-1", isCompact ? "text-[8px]" : "text-[10px]")}>{h}:00</span>
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex-1 grid grid-cols-3 gap-2 relative bg-muted/[0.02]">
-                {days.map((day, idx) => {
-                  const dayEvents = getEventsForDay(day);
-                  return (
-                    <div key={idx} className={cn("relative h-full border-r last:border-r-0", isToday(day) && "bg-primary/[0.03]")}>
-                      {hours.map((h) => <div key={h} className="border-b last:border-0 w-full" style={{ height: `${hourHeight}px` }} />)}
-                      {dayEvents.map(event => {
-                        const start = parseISO(event.debut);
-                        const end = parseISO(event.fin);
-                        const eventStartHour = start.getHours();
-                        const duration = differenceInMinutes(end, start);
-                        if (eventStartHour < startHour || eventStartHour > endHour) return null;
-
-                        const isCurrentDragged = draggedEventId === event.id;
-                        const topPos = (eventStartHour - startHour) * hourHeight + (start.getMinutes() / 60 * hourHeight);
-                        const height = Math.max(22, (duration / 60) * hourHeight); // Hauteur minimale augmentée
-
-                        return (
-                          <div 
-                            key={event.id} 
-                            onMouseDown={(e) => handleMouseDown(e, event)}
-                            className={cn(
-                              "absolute left-0 right-0 mx-0.5 z-10 rounded-lg border-l-4 shadow-sm cursor-pointer p-1.5 overflow-hidden flex flex-col select-none",
-                              event.source === 'google' ? "bg-white border-primary" : "bg-amber-50 border-amber-500",
-                              isCurrentDragged && "z-30 opacity-90 scale-[1.02] shadow-2xl ring-2 ring-primary"
-                            )}
-                            style={{ 
-                              top: `${topPos + (isCurrentDragged ? dragOffset : 0)}px`, 
-                              left: `${isCurrentDragged ? dragXOffset : 0}px`,
-                              height: `${height}px`
-                            }}
-                          >
-                            <div className="flex items-center gap-1.5 shrink-0 overflow-hidden mb-0.5">
-                               <span className={cn("font-black text-primary/60 leading-none", isCompact ? "text-[7px]" : "text-[9px]")}>
-                                 {format(isCurrentDragged ? addMinutes(start, (dragOffset/hourHeight)*60) : start, "HH:mm")}
-                               </span>
-                            </div>
-                            <h4 className={cn("font-bold leading-tight line-clamp-2 text-foreground break-words", isCompact ? "text-[9px]" : "text-sm")}>
-                              {event.titre}
-                            </h4>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  );
-                })}
-              </div>
+          <div className="flex relative" style={{ height: `${totalHeight}px` }}>
+            <div className="w-16 flex-shrink-0 flex flex-col border-r bg-muted/5">
+              {hours.map((h) => (
+                <div key={h} className="relative flex items-center justify-center border-b last:border-0" style={{ height: `${hourHeight}px` }}>
+                  <span className="font-black text-muted-foreground/40 text-[10px]">{h}:00</span>
+                </div>
+              ))}
             </div>
-          </ScrollArea>
+
+            <div className="flex-1 grid grid-cols-3 gap-4 relative bg-muted/[0.02]">
+              {days.map((day, idx) => {
+                const dayEvents = getEventsForDay(day);
+                return (
+                  <div key={idx} className={cn("relative h-full border-r last:border-r-0", isToday(day) && "bg-primary/[0.03]")}>
+                    {hours.map((h) => <div key={h} className="border-b last:border-0 w-full" style={{ height: `${hourHeight}px` }} />)}
+                    {dayEvents.map(event => {
+                      const start = parseISO(event.debut);
+                      const end = parseISO(event.fin);
+                      const eventStartHour = start.getHours();
+                      const duration = differenceInMinutes(end, start);
+                      if (eventStartHour < startHour || eventStartHour > endHour) return null;
+
+                      const isCurrentDragged = draggedEventId === event.id;
+                      const topPos = (eventStartHour - startHour) * hourHeight + (start.getMinutes() / 60 * hourHeight);
+                      const height = Math.max(30, (duration / 60) * hourHeight);
+
+                      return (
+                        <div 
+                          key={event.id} 
+                          onMouseDown={(e) => handleMouseDown(e, event)}
+                          className={cn(
+                            "absolute left-0 right-0 mx-1 z-10 rounded-xl border-l-4 shadow-sm cursor-pointer p-2 overflow-hidden flex flex-col select-none",
+                            event.source === 'google' ? "bg-white border-primary" : "bg-amber-50 border-amber-500",
+                            isCurrentDragged && "z-30 opacity-90 scale-[1.02] shadow-2xl ring-2 ring-primary"
+                          )}
+                          style={{ 
+                            top: `${topPos + (isCurrentDragged ? dragOffset : 0)}px`, 
+                            left: `${isCurrentDragged ? dragXOffset : 0}px`,
+                            height: `${height}px`
+                          }}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                             <span className="font-black text-primary/60 text-[9px]">
+                               {format(isCurrentDragged ? addMinutes(start, (dragOffset/hourHeight)*60) : start, "HH:mm")}
+                             </span>
+                          </div>
+                          <h4 className="font-bold text-xs leading-tight line-clamp-2 text-foreground break-words">
+                            {event.titre}
+                          </h4>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -398,10 +390,10 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
               <Button variant="ghost" size="icon" onClick={() => setCurrentDate(addDays(endOfMonth(currentDate), 1))}><ChevronRight className="w-5 h-5" /></Button>
             </div>
           </div>
-          <Button size="lg" className="rounded-full font-bold bg-primary h-12 px-8 shadow-xl" onClick={() => openAddEvent()}><Plus className="w-5 h-5 mr-2" /> Ajouter</Button>
+          <Button size="lg" className="rounded-full font-bold bg-primary h-12 px-8 shadow-xl" onClick={() => openAddEvent()}><Plus className="w-5 h-5 mr-2" /> Ajouter un rendez-vous</Button>
         </div>
         <div className="grid grid-cols-7 border-b bg-muted/20">
-          {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map(d => <div key={d} className="py-4 text-center text-[10px] font-black uppercase tracking-widest text-primary/40">{d}</div>)}
+          {['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'].map(d => <div key={d} className="py-4 text-center text-[10px] font-black uppercase tracking-widest text-primary/40">{d}</div>)}
         </div>
         <div className="flex-1 grid grid-cols-7 auto-rows-fr">
           {days.map((day, idx) => {
@@ -419,7 +411,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
     );
   };
 
-  if (isLoading) return <div className="h-full w-full flex flex-col items-center justify-center gap-4"><Loader2 className="w-10 h-10 animate-spin text-primary/30" /><p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Chargement...</p></div>;
+  if (isLoading) return <div className="h-full w-full flex flex-col items-center justify-center gap-4"><Loader2 className="w-10 h-10 animate-spin text-primary/30" /><p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Chargement de l'agenda...</p></div>;
 
   return (
     <div className="h-full w-full bg-card overflow-hidden">
@@ -437,7 +429,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
           </div>
           <div className="p-8 space-y-5">
             <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Objet</Label>
+              <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Objet du rendez-vous</Label>
               <Input value={formTitre} onChange={(e) => setFormTitre(e.target.value)} placeholder="Ex: Briefing design..." className="h-12 rounded-xl font-bold" />
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -449,19 +441,37 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
                 <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Durée</Label>
                 <Select value={selectedDuration} onValueChange={setSelectedDuration}>
                   <SelectTrigger className="h-12 rounded-xl font-bold"><SelectValue /></SelectTrigger>
-                  <SelectContent className="bg-card rounded-xl">{[
-                    { label: '15 min', value: '15' }, { label: '30 min', value: '30' },
-                    { label: '45 min', value: '45' }, { label: '1 heure', value: '60' },
-                    { label: '1h 30min', value: '90' }, { label: '2 heures', value: '120' },
-                  ].map(d => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}</SelectContent>
+                  <SelectContent className="bg-card rounded-xl">
+                    <SelectItem value="15">15 minutes</SelectItem>
+                    <SelectItem value="30">30 minutes</SelectItem>
+                    <SelectItem value="45">45 minutes</SelectItem>
+                    <SelectItem value="60">1 heure</SelectItem>
+                    <SelectItem value="90">1h 30min</SelectItem>
+                    <SelectItem value="120">2 heures</SelectItem>
+                  </SelectContent>
                 </Select>
               </div>
             </div>
             <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Notes</Label>
-              <Textarea value={formDescription} onChange={(e) => setFormDescription(e.target.value)} className="rounded-xl font-bold text-sm" />
+              <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Notes & Description</Label>
+              <Textarea value={formDescription} onChange={(e) => setFormDescription(e.target.value)} className="rounded-xl font-bold text-sm" placeholder="Ajoutez des détails ici..." />
             </div>
-            <Button onClick={handleSaveEvent} className="w-full bg-primary h-12 rounded-xl font-bold uppercase tracking-widest text-xs">Enregistrer</Button>
+            <div className="flex gap-3 pt-2">
+              {editingEvent && (
+                <Button variant="outline" className="flex-1 rounded-xl h-12 font-bold text-rose-600 border-rose-100 hover:bg-rose-50" onClick={() => {
+                   if (!db || !companyId) return;
+                   const eventRef = doc(db, 'companies', companyId, 'events', editingEvent.id);
+                   deleteDocumentNonBlocking(eventRef);
+                   setIsEventDialogOpen(false);
+                   toast({ title: "Événement supprimé" });
+                }}>
+                  <Trash2 className="w-4 h-4 mr-2" /> Supprimer
+                </Button>
+              )}
+              <Button onClick={handleSaveEvent} className="flex-1 bg-primary h-12 rounded-xl font-bold uppercase tracking-widest text-xs">
+                {editingEvent ? "Mettre à jour" : "Enregistrer"}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

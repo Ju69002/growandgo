@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Firestore, collection, doc } from 'firebase/firestore';
@@ -15,11 +14,13 @@ export async function syncBillingTasks(db: Firestore, adminUid: string, allUsers
   const adminCompanyId = "GrowAndGo";
   const now = new Date();
 
-  // 1. Déduplication efficace
+  // 1. Déduplication efficace des utilisateurs pour la facturation
   const uniqueUsersMap = new Map<string, User>();
   allUsers.forEach(u => {
     const id = (u.loginId_lower || u.loginId?.toLowerCase() || '').trim();
     if (!id || u.role === 'super_admin') return;
+    
+    // On garde le document "profil" ou le premier trouvé si pas de flag profil
     if (!uniqueUsersMap.has(id) || u.isProfile) {
       uniqueUsersMap.set(id, u);
     }
@@ -27,7 +28,7 @@ export async function syncBillingTasks(db: Firestore, adminUid: string, allUsers
 
   const uniqueClients = Array.from(uniqueUsersMap.values());
 
-  // Plage restreinte pour la vitesse : mois actuel + 3 mois
+  // Plage restreinte pour la performance : mois actuel + 3 mois
   const rangeStart = addMonths(now, -1);
   const rangeEnd = addMonths(now, 3);
 
@@ -38,6 +39,7 @@ export async function syncBillingTasks(db: Firestore, adminUid: string, allUsers
     if (!isValid(startDate)) startDate = new Date(2026, 1, 8);
 
     let checkDate = startDate;
+    // On étale les rendez-vous dans la matinée (9h, 10h, 11h, etc.)
     const hourOffset = index % 8; 
 
     while (isBefore(checkDate, rangeEnd)) {
@@ -46,6 +48,7 @@ export async function syncBillingTasks(db: Firestore, adminUid: string, allUsers
         const monthLabel = format(checkDate, 'MMMM yyyy', { locale: fr });
         const slug = (client.loginId_lower || client.loginId || client.uid).toLowerCase();
         
+        // Identifiants stables pour éviter les doublons (Version v4)
         const currentTaskId = `billing_v4_${slug}_${monthId}`;
         const currentEventId = `event_v4_${slug}_${monthId}`;
         
@@ -59,7 +62,7 @@ export async function syncBillingTasks(db: Firestore, adminUid: string, allUsers
           // On utilise setDocumentNonBlocking avec merge pour ne pas écraser inutilement
           setDocumentNonBlocking(taskRef, {
             id: currentTaskId,
-            name: `Générer facture pour ${client.name || client.loginId} - ${monthLabel}`,
+            name: `Générer facture pour le client ${client.name || client.loginId} - ${monthLabel}`,
             categoryId: 'finance',
             subCategory: 'Factures à envoyer',
             status: 'waiting_verification',
@@ -76,8 +79,8 @@ export async function syncBillingTasks(db: Firestore, adminUid: string, allUsers
             id_externe: currentEventId,
             companyId: adminCompanyId,
             userId: adminUid,
-            titre: `Facturation ${client.name || client.loginId}`,
-            description: `Générer la facture pour ${client.companyName || 'Espace Privé'}.`,
+            titre: `Facturation - ${client.name || client.loginId}`,
+            description: `Générer la facture mensuelle pour le client ${client.name || client.loginId}.`,
             debut: eventDate.toISOString(),
             fin: new Date(eventDate.getTime() + 45 * 60000).toISOString(),
             attendees: [client.email || ''],
