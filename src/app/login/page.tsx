@@ -65,7 +65,6 @@ export default function LoginPage() {
     if (!trimmedId) return;
 
     setIsLoading(true);
-    // On génère un email interne à partir de l'identifiant pour Firebase
     const internalEmail = `${trimmedId.toLowerCase()}@studio.internal`;
 
     try {
@@ -93,7 +92,7 @@ export default function LoginPage() {
         toast({ title: "Bienvenue !", description: "Votre studio Grow&Go est prêt." });
       } else {
         await signInWithEmailAndPassword(auth, internalEmail, password);
-        toast({ title: "Accès autorisé", description: "Chargement du studio..." });
+        toast({ title: "Connexion réussie", description: "Accès au studio en cours..." });
         router.push('/');
       }
     } catch (error: any) {
@@ -104,7 +103,7 @@ export default function LoginPage() {
       }
       toast({ 
         variant: "destructive", 
-        title: "Échec d'authentification", 
+        title: "Échec de connexion", 
         description: message 
       });
     } finally {

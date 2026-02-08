@@ -2,8 +2,8 @@
 'use client';
 
 /**
- * @fileOverview Service de synchronisation bidirectionnelle des calendriers Google et Microsoft.
- * Gère la prévention des doublons en utilisant les ID externes comme IDs Firestore.
+ * @fileOverview Service de synchronisation des calendriers Google et Microsoft.
+ * Gère la prévention des doublons en utilisant les ID externes.
  */
 
 import { CalendarEvent } from '@/lib/types';
@@ -82,18 +82,6 @@ export function mapOutlookEvent(outlookEvent: any, companyId: string, userId: st
 }
 
 /**
- * Enregistre un événement dans Firestore.
- */
-export async function syncEventToFirestore(
-  db: Firestore, 
-  eventData: Partial<CalendarEvent>
-) {
-  if (!eventData.id_externe || !eventData.companyId) return;
-  const eventRef = doc(db, 'companies', eventData.companyId, 'events', eventData.id_externe);
-  setDocumentNonBlocking(eventRef, eventData, { merge: true });
-}
-
-/**
  * Envoie un événement local vers Google Calendar.
  */
 export async function pushEventToGoogle(token: string, event: CalendarEvent) {
@@ -121,6 +109,18 @@ export async function pushEventToGoogle(token: string, event: CalendarEvent) {
   }
 
   return response.json();
+}
+
+/**
+ * Enregistre un événement dans Firestore.
+ */
+export async function syncEventToFirestore(
+  db: Firestore, 
+  eventData: Partial<CalendarEvent>
+) {
+  if (!eventData.id_externe || !eventData.companyId) return;
+  const eventRef = doc(db, 'companies', eventData.companyId, 'events', eventData.id_externe);
+  setDocumentNonBlocking(eventRef, eventData, { merge: true });
 }
 
 /**

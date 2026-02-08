@@ -44,13 +44,13 @@ const statusConfig: Record<string, { label: string; icon: any; color: string }> 
 };
 
 export default function Home() {
+  const [mounted, setMounted] = useState(false);
+  const [isCalendarFull, setIsCalendarFull] = useState(false);
   const { user, isUserLoading } = useUser();
   const router = useRouter();
   const db = useFirestore();
-  const [mounted, setMounted] = useState(false);
-  const [isCalendarFull, setIsCalendarFull] = useState(false);
 
-  // Tous les Hooks Firestore doivent être appelés inconditionnellement au début
+  // Hooks Firestore appelés inconditionnellement
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user) return null;
     return doc(db, 'users', user.uid);
@@ -77,6 +77,18 @@ export default function Home() {
 
   const { data: meetings } = useCollection<CalendarEvent>(meetingsQuery);
 
+  // Effets de cycle de vie
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (mounted && !isUserLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, isUserLoading, router, mounted]);
+
+  // Calculs mémoïsés
   const weeklyTasks = useMemo(() => {
     if (!mounted || (!documents && !meetings)) return [];
     const today = startOfToday();
@@ -126,25 +138,13 @@ export default function Home() {
     return tasks.sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [mounted, documents, meetings]);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // Gestion de la redirection après tous les Hooks
-  useEffect(() => {
-    if (mounted && !isUserLoading && !user) {
-      router.push('/login');
-    }
-  }, [user, isUserLoading, router, mounted]);
-
+  // Gestion des états de chargement (après les Hooks)
   if (!mounted || isUserLoading || isProfileLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="text-center space-y-4">
           <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto" />
-          <p className="text-muted-foreground animate-pulse font-black uppercase text-[10px] tracking-widest">
-            Chargement du studio...
-          </p>
+          <p className="text-muted-foreground font-black uppercase text-[10px] tracking-widest">Chargement du studio...</p>
         </div>
       </div>
     );
