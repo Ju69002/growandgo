@@ -108,7 +108,7 @@ export default function SettingsPage() {
                   profile?.role === 'super_admin' ? "bg-rose-950 text-white" : 
                   profile?.role === 'admin' ? "bg-white text-primary" : "bg-muted text-muted-foreground"
                 )}>
-                  {profile?.role === 'super_admin' ? 'Super Admin' : profile?.role === 'admin' ? 'Patron' : 'Employé'}
+                  {profile?.role === 'super_admin' ? 'Admin' : profile?.role === 'admin' ? 'Patron' : 'Employé'}
                 </Badge>
               </div>
             </CardHeader>

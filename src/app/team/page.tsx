@@ -72,7 +72,7 @@ export default function TeamPage() {
                           member.role === 'admin' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
                         )}
                       >
-                        {member.role === 'super_admin' ? 'Super Admin' : member.role === 'admin' ? 'Patron' : 'Employé'}
+                        {member.role === 'super_admin' ? 'Admin' : member.role === 'admin' ? 'Patron' : 'Employé'}
                       </Badge>
                     </div>
                   </div>
@@ -85,7 +85,7 @@ export default function TeamPage() {
                   {member.role !== 'employee' && (
                     <div className="flex items-center gap-3 text-sm text-emerald-600 font-bold bg-emerald-50 p-2 rounded-xl border border-emerald-100">
                       <ShieldCheck className="w-4 h-4" />
-                      <span className="uppercase text-[10px] tracking-widest">Administrateur</span>
+                      <span className="uppercase text-[10px] tracking-widest">Responsable</span>
                     </div>
                   )}
                 </CardContent>

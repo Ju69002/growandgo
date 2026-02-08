@@ -205,7 +205,7 @@ export default function LoginPage() {
                   <div className="flex items-center justify-between">
                     <span className="font-mono text-[12px] font-black text-primary">{u.loginId}</span>
                     <Badge className={cn("text-[8px] font-black uppercase h-4 px-1", u.role === 'super_admin' ? "bg-rose-950" : u.role === 'admin' ? "bg-primary" : "bg-muted text-muted-foreground")}>
-                      {u.role === 'super_admin' ? 'SA' : u.role === 'admin' ? 'P' : 'E'}
+                      {u.role === 'super_admin' ? 'A' : u.role === 'admin' ? 'P' : 'E'}
                     </Badge>
                   </div>
                   <p className="text-[8px] font-black uppercase text-muted-foreground/60 truncate">
@@ -251,7 +251,7 @@ export default function LoginPage() {
                           <SelectValue placeholder="Votre Rôle" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="admin">Le Patron</SelectItem>
+                          <SelectItem value="admin">Patron</SelectItem>
                           <SelectItem value="employee">Employé</SelectItem>
                         </SelectContent>
                       </Select>
