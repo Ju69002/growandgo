@@ -110,7 +110,7 @@ export default function AccountsPage() {
     deleteDocumentNonBlocking(userRef);
     toast({ 
       title: "Utilisateur supprimé", 
-      description: "Le profil a été retiré définitivement de la base." 
+      description: "Le profil a été retiré définitivement." 
     });
   };
 
@@ -155,12 +155,12 @@ export default function AccountsPage() {
           <div className="space-y-1">
             <h1 className="text-4xl font-black tracking-tighter text-primary uppercase flex items-center gap-3">
               <UserCog className="w-10 h-10" />
-              Comptes Utilisateurs
+              Répertoire des Accès
             </h1>
-            <p className="text-muted-foreground font-medium">Gestion individuelle des accès et des entreprises.</p>
+            <p className="text-muted-foreground font-medium">Liste complète de tous les identifiants créés dans le Studio.</p>
           </div>
           <Badge variant="outline" className="px-4 py-1 border-primary/20 text-primary font-bold">
-            {allUsers?.length || 0} PROFILS ACTIFS
+            {allUsers?.length || 0} IDENTIFIANTS ACTIFS
           </Badge>
         </div>
 
@@ -168,7 +168,7 @@ export default function AccountsPage() {
           <CardHeader className="bg-primary text-primary-foreground p-8">
             <CardTitle className="text-xl flex items-center gap-2">
               <ShieldCheck className="w-6 h-6" />
-              Répertoire des Accès
+              Gestion des Comptes Utilisateurs
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -181,17 +181,17 @@ export default function AccountsPage() {
               <Table>
                 <TableHeader className="bg-muted/50">
                   <TableRow>
-                    <TableHead className="w-[250px] font-black uppercase text-[10px] tracking-widest pl-8">Utilisateur</TableHead>
+                    <TableHead className="w-[250px] font-black uppercase text-[10px] tracking-widest pl-8">Nom / Utilisateur</TableHead>
                     <TableHead className="font-black uppercase text-[10px] tracking-widest">Entreprise</TableHead>
                     <TableHead className="font-black uppercase text-[10px] tracking-widest">Rôle</TableHead>
-                    <TableHead className="font-black uppercase text-[10px] tracking-widest">Identifiant</TableHead>
+                    <TableHead className="font-black uppercase text-[10px] tracking-widest">ID Studio</TableHead>
                     <TableHead className="text-right font-black uppercase text-[10px] tracking-widest pr-8">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {allUsers?.map((u) => {
                     const company = allCompanies?.find(c => c.id === u.companyId);
-                    const companyDisplayName = company?.name || u.companyId;
+                    const companyDisplayName = company?.name || u.companyId || "Non assigné";
 
                     return (
                       <TableRow key={u.uid} className="hover:bg-primary/5 transition-colors border-b-primary/5">
@@ -212,7 +212,7 @@ export default function AccountsPage() {
                                 variant="ghost" 
                                 size="icon" 
                                 className="h-6 w-6 opacity-0 group-hover:opacity-100"
-                                onClick={() => setEditingUser({ uid: u.uid, name: u.name, companyId: u.companyId })}
+                                onClick={() => setEditingUser({ uid: u.uid, name: u.name, companyId: u.companyId || "" })}
                               >
                                 <Edit2 className="w-3 h-3" />
                               </Button>
@@ -249,7 +249,7 @@ export default function AccountsPage() {
                                 onClick={() => handleRoleChange(u.uid, u.role)}
                               >
                                 <RefreshCcw className="w-3 h-3" />
-                                {u.role === 'admin' ? 'Vers Employé' : 'Vers Patron'}
+                                {u.role === 'admin' ? 'Passer Employé' : 'Passer Patron'}
                               </Button>
 
                               <AlertDialog>
@@ -263,7 +263,7 @@ export default function AccountsPage() {
                                       Supprimer le compte ?
                                     </AlertDialogTitle>
                                     <AlertDialogDescription className="text-base">
-                                      Cette action supprimera définitivement <strong>{u.name}</strong>.
+                                      Cette action supprimera définitivement l'identifiant <strong>{u.loginId}</strong> ({u.name}).
                                     </AlertDialogDescription>
                                   </AlertDialogHeader>
                                   <AlertDialogFooter className="mt-6 gap-3">
@@ -293,18 +293,18 @@ export default function AccountsPage() {
       <Dialog open={!!editingUser} onOpenChange={(open) => !open && setEditingUser(null)}>
         <DialogContent className="rounded-[2rem] border-none shadow-2xl max-w-sm">
           <DialogHeader>
-            <DialogTitle className="text-xl font-black uppercase tracking-tighter">Modifier l'Entreprise</DialogTitle>
+            <DialogTitle className="text-xl font-black uppercase tracking-tighter">Assigner Entreprise</DialogTitle>
             <DialogDescription className="text-xs">
-              Mettez à jour le nom de l'entreprise associée à <strong>{editingUser?.name}</strong>.
+              Mettez à jour l'ID de l'entreprise pour <strong>{editingUser?.name}</strong>.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
             <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Nom de l'entreprise</Label>
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">ID Entreprise</Label>
               <Input 
                 value={editingUser?.companyId || ''} 
                 onChange={(e) => setEditingUser(prev => prev ? { ...prev, companyId: e.target.value } : null)}
-                placeholder="Ex: Studio Dubois..."
+                placeholder="Ex: default-studio..."
                 className="rounded-xl border-primary/10 h-12 font-bold"
               />
             </div>

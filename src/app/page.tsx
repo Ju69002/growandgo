@@ -41,7 +41,7 @@ export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [isCalendarFull, setIsCalendarFull] = useState(false);
 
-  // 1. TOUS LES HOOKS DOIVENT ETRE APPELÉS EN HAUT DU COMPOSANT
+  // RÈGLE DE HOOKS : TOUS LES HOOKS EN HAUT
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user) return null;
     return doc(db, 'users', user.uid);
@@ -72,7 +72,7 @@ export default function Home() {
     setMounted(true);
   }, []);
 
-  // Redirection forcée vers login si non connecté
+  // Force l'affichage du Login si aucune session n'est détectée
   useEffect(() => {
     if (mounted && !isUserLoading && !user) {
       router.push('/login');
@@ -126,7 +126,7 @@ export default function Home() {
     return tasks.sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [mounted, documents, meetings]);
 
-  // 2. RENDU CONDITIONNEL APRÈS LES HOOKS
+  // RENDU CONDITIONNEL APRÈS LES HOOKS
   if (!mounted || isUserLoading || isProfileLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
@@ -157,7 +157,7 @@ export default function Home() {
             </Badge>
           </div>
           <p className="text-muted-foreground mt-1 flex items-center gap-2 font-medium">
-            Bienvenue {profile.name || profile.loginId}.
+            Bienvenue dans votre espace {profile.name || profile.loginId}.
           </p>
         </header>
 
@@ -245,9 +245,9 @@ export default function Home() {
             <div className="bg-primary/5 p-12 rounded-[3rem] border-2 border-dashed border-primary/20 flex flex-col items-center text-center gap-6">
               <ShieldCheck className="w-16 h-16 text-primary/20" />
               <div className="space-y-2">
-                <h2 className="text-2xl font-black uppercase tracking-tight text-primary">Console Super Admin</h2>
+                <h2 className="text-2xl font-black uppercase tracking-tight text-primary">Console Super Administrateur</h2>
                 <p className="text-sm text-muted-foreground font-medium max-w-lg mx-auto">
-                  Gestion globale des accès et des entreprises. Les nouveaux inscrits apparaissent ici automatiquement.
+                  Accès global à la gestion des comptes et des entreprises du Studio.
                 </p>
               </div>
             </div>

@@ -2,7 +2,7 @@
 'use client';
 
 /**
- * @fileOverview Service de synchronisation des calendriers (Focus Google Calendar).
+ * @fileOverview Service de synchronisation des calendriers (Focus Google Calendar uniquement).
  */
 
 import { CalendarEvent } from '@/lib/types';

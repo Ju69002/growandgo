@@ -74,16 +74,16 @@ export default function LoginPage() {
       }
 
       if (isSignUp) {
-        // 1. Verifier les doublons
+        // 1. Verifier les doublons sur l'ID (insensible à la casse)
         const usersRef = collection(db, 'users');
-        const q = query(usersRef, where('loginId', '==', normalizedId));
+        const q = query(usersRef, where('loginId_lower', '==', lowerId));
         const checkSnap = await getDocs(q);
         
         if (!checkSnap.empty) {
           throw new Error("Cet identifiant est déjà utilisé.");
         }
 
-        // 2. Creation Auth
+        // 2. Creation Auth avec e-mail interne transparent
         const internalEmail = `${lowerId}@studio.internal`;
         const userCredential = await createUserWithEmailAndPassword(auth, internalEmail, password);
         const newUser = userCredential.user;
@@ -93,7 +93,7 @@ export default function LoginPage() {
 
         await ensureCompanyExists(companyId, companyName);
         
-        // 3. Creation Profil Firestore
+        // 3. Creation Profil Firestore (CRITIQUE : Doit être fait avant la redirection)
         const userRef = doc(db, 'users', newUser.uid);
         await setDoc(userRef, {
           uid: newUser.uid,
@@ -103,22 +103,19 @@ export default function LoginPage() {
           isCategoryModifier: isTargetSuperAdmin,
           name: name || normalizedId,
           loginId: normalizedId,
+          loginId_lower: lowerId,
           email: internalEmail,
           createdAt: new Date().toISOString()
         });
 
-        toast({ title: "Bienvenue !", description: "Compte Super Admin créé avec succès." });
+        toast({ title: "Bienvenue !", description: "Votre accès Studio a été créé." });
       } else {
-        // 4. Trouver l'email technique via l'ID
+        // 4. Recherche de l'utilisateur par ID (insensible à la casse)
         const usersRef = collection(db, 'users');
-        const q = query(usersRef, where('loginId', '==', normalizedId));
+        const q = query(usersRef, where('loginId_lower', '==', lowerId));
         const querySnapshot = await getDocs(q);
 
         if (querySnapshot.empty) {
-          // Si JSecchi n'existe pas encore en base, on invite à l'inscription
-          if (isTargetSuperAdmin) {
-            throw new Error("Compte Super Admin non détecté. Veuillez d'abord l'inscrire via l'onglet d'inscription.");
-          }
           throw new Error("Identifiant inconnu dans ce studio.");
         }
 
@@ -164,7 +161,7 @@ export default function LoginPage() {
           <div>
             <CardTitle className="text-2xl font-bold text-[#1E4D3B] uppercase tracking-tighter">Grow&Go Studio</CardTitle>
             <CardDescription className="text-[#1E4D3B]/60 font-medium">
-              {isSignUp ? "Créer un accès Super Admin" : "Connexion par Identifiant"}
+              {isSignUp ? "Créer un nouvel accès" : "Connexion au Studio"}
             </CardDescription>
           </div>
         </CardHeader>
@@ -177,7 +174,7 @@ export default function LoginPage() {
                   <UserPlus className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
                   <Input 
                     id="name" 
-                    placeholder="Ex: Julien Secchi..." 
+                    placeholder="Ex: Votre Nom..." 
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     className="pl-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-medium"
@@ -231,7 +228,7 @@ export default function LoginPage() {
                 className="w-full h-14 bg-[#1E4D3B] hover:bg-[#1E4D3B]/90 rounded-2xl font-bold text-lg shadow-xl"
                 disabled={isLoading}
               >
-                {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (isSignUp ? "Inscrire Super Admin" : "Accéder au Studio")}
+                {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (isSignUp ? "Créer l'accès" : "Accéder au Studio")}
               </Button>
 
               <button
@@ -244,7 +241,7 @@ export default function LoginPage() {
                   setName('');
                 }}
               >
-                {isSignUp ? "Déjà membre ? Se connecter" : "Nouveau membre ? S'inscrire"}
+                {isSignUp ? "Déjà un identifiant ? Se connecter" : "Nouveau ? Créer un identifiant"}
               </button>
             </div>
           </form>
