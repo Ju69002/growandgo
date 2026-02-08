@@ -1,3 +1,4 @@
+
 'use client';
 
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
@@ -31,7 +32,8 @@ import {
   ShieldAlert, 
   UserCog, 
   Loader2,
-  Edit2
+  Edit2,
+  Building
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
@@ -60,7 +62,7 @@ export default function AccountsPage() {
   const { toast } = useToast();
   
   const [editingPasswordUser, setEditingPasswordUser] = useState<{ uid: string, loginId: string, password?: string } | null>(null);
-  const [editingCompanyUser, setEditingCompanyUser] = useState<{ uid: string, loginId: string, companyName: string } | null>(null);
+  const [editingCompanyUser, setEditingCompanyUser] = useState<{ uid: string, loginId: string, companyName: string, companyId?: string } | null>(null);
   const [newPassword, setNewPassword] = useState('');
   const [newCompanyName, setNewCompanyName] = useState('');
 
@@ -110,8 +112,13 @@ export default function AccountsPage() {
 
   const handleUpdateCompany = () => {
     if (!db || !editingCompanyUser || !newCompanyName.trim()) return;
-    updateAllUserDocs(editingCompanyUser.loginId, { companyName: newCompanyName.trim() });
-    toast({ title: "Entreprise mise à jour" });
+    // Normalisation de l'ID pour forcer la synchronisation entre employés
+    const newId = newCompanyName.toLowerCase().trim().replace(/[^a-z0-9]/g, '-');
+    updateAllUserDocs(editingCompanyUser.loginId, { 
+      companyName: newCompanyName.trim(),
+      companyId: newId 
+    });
+    toast({ title: "Entreprise et ID synchronisés" });
     setEditingCompanyUser(null);
   };
 
@@ -143,7 +150,7 @@ export default function AccountsPage() {
               <TableHeader className="bg-muted/50">
                 <TableRow>
                   <TableHead className="pl-8">Utilisateur</TableHead>
-                  <TableHead>Entreprise</TableHead>
+                  <TableHead>Entreprise / ID</TableHead>
                   <TableHead>Rôle</TableHead>
                   <TableHead>Identifiant</TableHead>
                   <TableHead>Mot de passe</TableHead>
@@ -155,13 +162,16 @@ export default function AccountsPage() {
                   <TableRow key={u.uid} className="hover:bg-primary/5 border-b-primary/5">
                     <TableCell className="pl-8 py-6 font-bold">{u.name}</TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2 group">
-                        <span className="text-sm font-semibold">{u.companyName || u.companyId}</span>
-                        {u.role !== 'super_admin' && (
-                          <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 text-primary" onClick={() => { setEditingCompanyUser({ uid: u.uid, loginId: u.loginId, companyName: u.companyName || u.companyId }); setNewCompanyName(u.companyName || u.companyId); }}>
-                            <Edit2 className="w-3 h-3" />
-                          </Button>
-                        )}
+                      <div className="flex flex-col gap-1 group">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold">{u.companyName || u.companyId}</span>
+                          {u.role !== 'super_admin' && (
+                            <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 text-primary" onClick={() => { setEditingCompanyUser({ uid: u.uid, loginId: u.loginId, companyName: u.companyName || u.companyId, companyId: u.companyId }); setNewCompanyName(u.companyName || u.companyId); }}>
+                              <Edit2 className="w-3 h-3" />
+                            </Button>
+                          )}
+                        </div>
+                        <span className="text-[9px] font-mono text-muted-foreground uppercase tracking-widest">{u.companyId}</span>
                       </div>
                     </TableCell>
                     <TableCell><Badge className={u.role === 'super_admin' ? "bg-rose-950" : "bg-primary"}>{u.role.toUpperCase()}</Badge></TableCell>
@@ -181,8 +191,14 @@ export default function AccountsPage() {
                         <AlertDialog>
                           <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-rose-950"><Trash2 className="w-4 h-4" /></Button></AlertDialogTrigger>
                           <AlertDialogContent className="rounded-[2rem]">
-                            <AlertDialogHeader><AlertDialogTitle>Supprimer ?</AlertDialogTitle><AlertDialogDescription>Action irréversible pour <strong>{u.loginId}</strong>.</AlertDialogDescription></AlertDialogHeader>
-                            <AlertDialogFooter><AlertDialogCancel className="rounded-full">Annuler</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteUser(u.loginId)} className="bg-rose-950 rounded-full">Supprimer</AlertDialogAction></AlertDialogFooter>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Supprimer ?</AlertDialogTitle>
+                              <AlertDialogDescription>Action irréversible pour <strong>{u.loginId}</strong>.</AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel className="rounded-full">Annuler</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDeleteUser(u.loginId)} className="bg-rose-950 rounded-full">Supprimer</AlertDialogAction>
+                            </AlertDialogFooter>
                           </AlertDialogContent>
                         </AlertDialog>
                       )}
@@ -205,9 +221,26 @@ export default function AccountsPage() {
 
       <Dialog open={!!editingCompanyUser} onOpenChange={(open) => !open && setEditingCompanyUser(null)}>
         <DialogContent className="rounded-[2rem]">
-          <DialogHeader><DialogTitle>Modifier l'entreprise</DialogTitle></DialogHeader>
-          <div className="py-4"><Input value={newCompanyName} onChange={(e) => setNewCompanyName(e.target.value)} className="rounded-xl h-12 font-bold" /></div>
-          <DialogFooter><Button onClick={handleUpdateCompany} className="rounded-full bg-primary">Mettre à jour</Button></DialogFooter>
+          <DialogHeader>
+            <DialogTitle>Modifier l'entreprise</DialogTitle>
+            <AlertDialogDescription>Cela mettra à jour le nom et l'ID technique pour lier les employés.</AlertDialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="space-y-1">
+              <span className="text-[10px] font-black uppercase text-muted-foreground">Nom d'affichage</span>
+              <Input value={newCompanyName} onChange={(e) => setNewCompanyName(e.target.value)} className="rounded-xl h-12 font-bold" />
+            </div>
+            {newCompanyName && (
+              <div className="p-3 bg-muted rounded-xl border border-dashed flex items-center gap-3">
+                <Building className="w-4 h-4 text-primary" />
+                <div className="flex flex-col">
+                  <span className="text-[8px] font-black uppercase text-muted-foreground">Nouvel ID technique</span>
+                  <span className="text-xs font-mono font-bold text-primary">{newCompanyName.toLowerCase().trim().replace(/[^a-z0-9]/g, '-')}</span>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter><Button onClick={handleUpdateCompany} className="rounded-full bg-primary">Mettre à jour & Lier</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </DashboardLayout>

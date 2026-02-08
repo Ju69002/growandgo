@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -73,7 +74,6 @@ export function CategoryTiles({ profile }: CategoryTilesProps) {
     setIsInitializing(true);
 
     const defaultCategories = [
-      { id: 'agenda', label: 'Agenda Équipe', icon: 'agenda', subCategories: [] },
       { 
         id: 'finance', 
         label: 'Finances & comptabilité', 
@@ -146,11 +146,12 @@ export function CategoryTiles({ profile }: CategoryTilesProps) {
 
   const isAdminOrSuper = profile.role === 'admin' || profile.role === 'super_admin';
 
-  // Filtrer l'agenda car il est affiché en haut du dashboard désormais
+  // Filtrer les catégories : l'agenda est en haut, les autres sont ici
   const displayableCategories = (categories || []).filter(cat => {
     if (cat.id === 'agenda') return false; 
     if (isAdminOrSuper) return true;
-    return cat.visibleToEmployees === true;
+    // Par défaut, tout est visible pour l'équipe sauf si explicitement mis à false
+    return cat.visibleToEmployees !== false;
   });
 
   const sortedCategories = [...displayableCategories].sort((a, b) => {
@@ -159,7 +160,7 @@ export function CategoryTiles({ profile }: CategoryTilesProps) {
     return a.label.localeCompare(b.label);
   });
 
-  const isStudioIncomplete = isAdminOrSuper && (categories || []).length < 5;
+  const isStudioIncomplete = isAdminOrSuper && sortedCategories.length < 3;
 
   return (
     <div className="space-y-8">
@@ -168,7 +169,7 @@ export function CategoryTiles({ profile }: CategoryTilesProps) {
           <Wand2 className="w-12 h-12 text-primary mx-auto opacity-40" />
           <div className="space-y-1">
             <h3 className="text-xl font-bold text-primary">Initialisez votre Studio</h3>
-            <p className="text-sm text-muted-foreground max-w-md mx-auto">Configurez instantanément vos 7 dossiers experts (RH, Finance, Juridique...) et votre Agenda.</p>
+            <p className="text-sm text-muted-foreground max-w-md mx-auto">Configurez instantanément vos 6 dossiers experts (RH, Finance, Juridique...) pour toute votre équipe.</p>
           </div>
           <Button 
             onClick={handleInitialize} 
@@ -193,7 +194,7 @@ export function CategoryTiles({ profile }: CategoryTilesProps) {
               label={category.label}
               icon={Icon}
               badgeCount={category.badgeCount || 0}
-              isVisible={category.visibleToEmployees}
+              isVisible={category.visibleToEmployees !== false}
               isAdminMode={isAdminOrSuper}
               canModify={isAdminOrSuper}
               colorClass={COLOR_MAP[category.id] || COLOR_MAP[iconKey] || COLOR_MAP.default}

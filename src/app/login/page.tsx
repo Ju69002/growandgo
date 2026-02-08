@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -56,13 +57,13 @@ export default function LoginPage() {
       }
 
       let finalRole = 'admin';
-      let finalCompanyId = companyName.toLowerCase().trim().replace(/[^a-z0-9]/g, '-');
-      let finalCompanyName = companyName;
+      // Normalisation stricte pour garantir que "Ma Boite" et "ma boite" sont identiques
+      const normalizedCompanyName = companyName.trim();
+      const finalCompanyId = normalizedCompanyName.toLowerCase().replace(/[^a-z0-9]/g, '-');
+      const finalCompanyName = normalizedCompanyName;
 
       if (lowerId === 'jsecchi') {
         finalRole = 'super_admin';
-        finalCompanyId = 'growandgo-hq';
-        finalCompanyName = 'Grow&Go HQ';
       }
 
       await setDoc(doc(db, 'users', profileId), {
@@ -73,17 +74,16 @@ export default function LoginPage() {
         role: finalRole,
         adminMode: finalRole !== 'employee',
         isCategoryModifier: finalRole !== 'employee',
-        name: name || loginId,
+        name: name.trim() || loginId.trim(),
         loginId: loginId.trim(),
         loginId_lower: lowerId,
-        password: password,
+        password: password.trim(),
         email: `${lowerId}@studio.internal`,
         createdAt: new Date().toISOString()
       });
 
       const batch = writeBatch(db);
       const defaultCategories = [
-        { id: 'agenda', label: 'Agenda Équipe', icon: 'agenda', subCategories: [] },
         { 
           id: 'finance', 
           label: 'Finances & comptabilité', 
@@ -128,12 +128,12 @@ export default function LoginPage() {
           id: cat.id,
           label: cat.label,
           badgeCount: 0,
-          visibleToEmployees: true,
+          visibleToEmployees: true, // Visible par défaut pour toute l'équipe
           type: 'standard',
           companyId: finalCompanyId,
           icon: cat.icon,
           subCategories: cat.subCategories || []
-        });
+        }, { merge: true });
       }
       await batch.commit();
 
@@ -163,7 +163,7 @@ export default function LoginPage() {
       }
 
       if (!profileData) throw new Error("Identifiant inconnu.");
-      if (profileData.password !== password) throw new Error("Mot de passe incorrect.");
+      if (profileData.password?.trim() !== password.trim()) throw new Error("Mot de passe incorrect.");
 
       const userCredential = await signInAnonymously(auth);
       const sessionUid = userCredential.user.uid;
