@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -8,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { useAuth, useFirestore, useUser } from '@/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Lock, UserCircle, UserPlus, Eye, EyeOff } from 'lucide-react';
 import Image from 'next/image';
@@ -64,8 +65,6 @@ export default function LoginPage() {
     if (!trimmedId) return;
 
     setIsLoading(true);
-
-    // Internal email for Firebase Auth
     const internalEmail = `${trimmedId.toLowerCase()}@studio.internal`;
 
     try {
@@ -90,20 +89,10 @@ export default function LoginPage() {
           loginId: trimmedId
         });
 
-        toast({ title: "Compte créé !", description: "Accès au studio..." });
+        toast({ title: "Bienvenue !", description: "Votre studio Grow&Go est prêt." });
       } else {
-        const usersRef = collection(db, 'users');
-        const q = query(usersRef, where('loginId', '==', trimmedId));
-        const querySnapshot = await getDocs(q);
-
-        if (querySnapshot.empty) {
-          toast({ variant: "destructive", title: "Échec", description: "Identifiant inconnu." });
-          setIsLoading(false);
-          return;
-        }
-
         await signInWithEmailAndPassword(auth, internalEmail, password);
-        toast({ title: "Connexion réussie", description: "Chargement de votre studio..." });
+        toast({ title: "Accès autorisé", description: "Chargement du studio..." });
         router.push('/');
       }
     } catch (error: any) {
@@ -135,9 +124,9 @@ export default function LoginPage() {
             />
           </div>
           <div>
-            <CardTitle className="text-2xl font-bold text-[#1E4D3B] uppercase tracking-tighter">Grow&Go Design Studio</CardTitle>
+            <CardTitle className="text-2xl font-bold text-[#1E4D3B] uppercase tracking-tighter">Grow&Go Studio</CardTitle>
             <CardDescription className="text-[#1E4D3B]/60 font-medium">
-              Authentification requise pour vos dossiers.
+              Accès réservé aux membres du studio.
             </CardDescription>
           </div>
         </CardHeader>
@@ -217,7 +206,7 @@ export default function LoginPage() {
                   setName('');
                 }}
               >
-                {isSignUp ? "Déjà inscrit ? Se connecter" : "Nouveau ? Créer un compte"}
+                {isSignUp ? "Déjà membre ? Se connecter" : "Nouveau ? Créer un compte"}
               </button>
             </div>
           </form>

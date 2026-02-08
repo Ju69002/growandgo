@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Search, Bell, UserCircle, LogOut, Clock, AlertCircle, CheckCircle2, ShieldCheck } from 'lucide-react';

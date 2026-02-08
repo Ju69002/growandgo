@@ -1,3 +1,4 @@
+
 'use client';
 
 /**
@@ -74,45 +75,10 @@ export function mapOutlookEvent(outlookEvent: any, companyId: string, userId: st
     debut: start,
     fin: end,
     attendees: outlookEvent.attendees?.map((a: any) => a.emailAddress?.address || '') || [],
-    source: 'google', // We use 'google' source label for unified external storage
+    source: 'google', 
     type: 'meeting',
     derniere_maj: outlookEvent.lastModifiedDateTime || new Date().toISOString()
   };
-}
-
-/**
- * Envoie un événement local vers Google Calendar.
- */
-export async function pushEventToGoogle(token: string, event: CalendarEvent) {
-  try {
-    const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events`;
-    
-    const googleEvent = {
-      summary: event.titre,
-      description: event.description || '',
-      start: { dateTime: event.debut },
-      end: { dateTime: event.fin },
-    };
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(googleEvent)
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(`Erreur export Google: ${errorData.error?.message || response.statusText}`);
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error("pushEventToGoogle failed:", error);
-    throw error;
-  }
 }
 
 /**
@@ -125,6 +91,36 @@ export async function syncEventToFirestore(
   if (!eventData.id_externe || !eventData.companyId) return;
   const eventRef = doc(db, 'companies', eventData.companyId, 'events', eventData.id_externe);
   setDocumentNonBlocking(eventRef, eventData, { merge: true });
+}
+
+/**
+ * Envoie un événement local vers Google Calendar.
+ */
+export async function pushEventToGoogle(token: string, event: CalendarEvent) {
+  const url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
+  
+  const body = {
+    summary: event.titre,
+    description: event.description || '',
+    start: { dateTime: event.debut },
+    end: { dateTime: event.fin },
+  };
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(`Erreur Export Google: ${errorData.error?.message || response.statusText}`);
+  }
+
+  return response.json();
 }
 
 /**

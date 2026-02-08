@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -15,7 +16,6 @@ import {
   AlertCircle,
   Clock,
   CalendarDays,
-  Users,
   X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -54,7 +54,6 @@ export default function Home() {
     setMounted(true);
   }, []);
 
-  // Move all hooks BEFORE any conditional returns to satisfy Rules of Hooks
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user) return null;
     return doc(db, 'users', user.uid);
@@ -82,7 +81,7 @@ export default function Home() {
   const { data: meetings } = useCollection<CalendarEvent>(meetingsQuery);
 
   const weeklyTasks = useMemo(() => {
-    if (!documents && !meetings) return [];
+    if (!mounted || (!documents && !meetings)) return [];
     const today = startOfToday();
     const endOfWeekDate = addDays(today, 7);
     const interval = { start: today, end: endOfWeekDate };
@@ -128,30 +127,27 @@ export default function Home() {
       } catch (e) { }
     });
     return tasks.sort((a, b) => a.date.getTime() - b.date.getTime());
-  }, [documents, meetings]);
+  }, [mounted, documents, meetings]);
 
-  // Handle redirects in useEffect
   useEffect(() => {
     if (mounted && !isUserLoading && !user) {
       router.push('/login');
     }
   }, [user, isUserLoading, router, mounted]);
 
-  // Early returns for loading states (AFTER all hooks)
-  if (isUserLoading || !mounted || isProfileLoading) {
+  if (!mounted || isUserLoading || isProfileLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="text-center space-y-4">
           <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto" />
           <p className="text-muted-foreground animate-pulse font-black uppercase text-[10px] tracking-widest">
-            {isUserLoading ? 'Authentification...' : 'Chargement du studio...'}
+            Chargement du studio...
           </p>
         </div>
       </div>
     );
   }
 
-  // Final session check
   if (!user) return null;
 
   const isSuperAdmin = profile?.role === 'super_admin';
@@ -171,7 +167,7 @@ export default function Home() {
             </Badge>
           </div>
           <p className="text-muted-foreground mt-1 flex items-center gap-2 font-medium">
-            Bienvenue {profile?.name}. Planning hebdomadaire et suivi des dossiers de studio.
+            Bienvenue {profile?.name}. Suivi des dossiers et planning de studio.
           </p>
         </header>
 
@@ -226,10 +222,6 @@ export default function Home() {
                   </div>
                   Agenda Partagé
                 </CardTitle>
-                <div className="flex items-center gap-1.5 ml-12">
-                   <Users className="w-3 h-3 text-primary/40" />
-                   <span className="text-[9px] font-black uppercase tracking-widest text-primary/40">Studio Sync</span>
-                </div>
               </div>
               <Button 
                 variant="outline" 
@@ -255,7 +247,7 @@ export default function Home() {
               <div className="p-2 bg-primary text-white rounded-xl shadow-lg">
                 <FileText className="w-6 h-6" />
               </div>
-              Dossiers Grow&Go
+              Dossiers Studio
             </h2>
             <CategoryTiles profile={profile} />
           </div>
@@ -268,12 +260,8 @@ export default function Home() {
               <div className="space-y-2">
                 <h2 className="text-2xl font-black uppercase tracking-tight text-primary">Console Super Admin</h2>
                 <p className="text-sm text-muted-foreground font-medium max-w-lg mx-auto">
-                  Gestion globale des accès et des entreprises. Les dossiers de travail sont réservés aux espaces Studios (Patron/Employé).
+                  Gestion globale des accès et des entreprises. Les dossiers de travail sont réservés aux espaces Studios.
                 </p>
-              </div>
-              <div className="flex gap-4">
-                <Button variant="outline" className="rounded-full font-black uppercase text-[10px] tracking-widest px-8 border-primary/20">Audit Système</Button>
-                <Button className="rounded-full font-black uppercase text-[10px] tracking-widest px-8 bg-primary">Gestion Utilisateurs</Button>
               </div>
             </div>
           </div>
@@ -291,13 +279,7 @@ export default function Home() {
                 <div className="p-3 bg-white/20 rounded-2xl shadow-inner">
                    <CalendarIcon className="w-7 h-7" />
                 </div>
-                <div className="flex flex-col">
-                  <h2 className="font-black text-2xl uppercase tracking-tighter leading-none">AGENDA PARTAGÉ</h2>
-                  <div className="flex items-center gap-2 mt-1 opacity-70">
-                    <Users className="w-3.5 h-3.5" />
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em]">{companyId} Studio</span>
-                  </div>
-                </div>
+                <h2 className="font-black text-2xl uppercase tracking-tighter leading-none">AGENDA DU STUDIO</h2>
               </div>
               <Button variant="ghost" size="icon" className="rounded-full h-12 w-12 hover:bg-white/10 text-white" onClick={() => setIsCalendarFull(false)}>
                 <X className="w-7 h-7" />
