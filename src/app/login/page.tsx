@@ -12,7 +12,7 @@ import { useAuth, useFirestore, useCollection, useMemoFirebase } from '@/firebas
 import { signInAnonymously } from 'firebase/auth';
 import { doc, setDoc, collection, query, where, getDocs, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Lock, UserCircle, Users, Key, CheckCircle2, ShieldCheck, User } from 'lucide-react';
+import { Loader2, Lock, UserCircle, Users, Key, CheckCircle2, ShieldCheck, User, Eye, EyeOff } from 'lucide-react';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { User as UserProfile, UserRole } from '@/lib/types';
@@ -285,7 +285,22 @@ export default function LoginPage() {
               </div>
               <div className="relative">
                 <Lock className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
-                <Input type={showPassword ? "text" : "password"} placeholder="Mot de passe" value={password} onChange={(e) => setPassword(e.target.value)} className="pl-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
+                <Input 
+                  type={showPassword ? "text" : "password"} 
+                  placeholder="Mot de passe" 
+                  value={password} 
+                  onChange={(e) => setPassword(e.target.value)} 
+                  className="pl-11 pr-12 h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" 
+                  required 
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-3.5 text-muted-foreground hover:text-primary transition-colors focus:outline-none"
+                  aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
               </div>
               <Button type="submit" className="w-full h-14 bg-[#1E4D3B] hover:bg-[#1E4D3B]/90 rounded-2xl font-bold text-lg shadow-xl" disabled={isLoading}>
                 {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (isSignUp ? "Créer mon Studio" : "Se connecter")}
