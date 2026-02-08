@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -21,7 +20,6 @@ export default function Home() {
   const db = useFirestore();
   const [mounted, setMounted] = useState(false);
 
-  // Déclaration systématique des Hooks au sommet (Rules of Hooks)
   const userRef = useMemoFirebase(() => {
     if (!db || !user) return null;
     return doc(db, 'users', user.uid);
@@ -33,7 +31,6 @@ export default function Home() {
     setMounted(true);
   }, []);
 
-  // Gestion des redirections pour briser les boucles
   useEffect(() => {
     if (mounted && !isUserLoading && !user) {
       router.push('/login');
@@ -47,7 +44,6 @@ export default function Home() {
     }
   };
 
-  // 1. État de chargement initial (Spinner léger)
   if (!mounted || isUserLoading || (user && isProfileLoading)) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-[#F5F2EA] gap-4">
@@ -59,10 +55,8 @@ export default function Home() {
     );
   }
 
-  // 2. Si non connecté, on attend la redirection du useEffect
   if (!user) return null;
 
-  // 3. Gestion de l'erreur "Profil Introuvable" (Pas de redirection vers login pour éviter la boucle)
   if (!profile && !isProfileLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-[#F5F2EA] p-8 text-center space-y-6">

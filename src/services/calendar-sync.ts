@@ -1,4 +1,3 @@
-
 'use client';
 
 /**
@@ -33,7 +32,6 @@ export function mapGoogleEvent(event: any, companyId: string, userId: string): P
   const start = event.start?.dateTime || event.start?.date || new Date().toISOString();
   const end = event.end?.dateTime || event.end?.date || new Date().toISOString();
   
-  // SÉCURITÉ CRITIQUE : Chaînage optionnel ?.address pour éviter le crash (Ligne 46)
   const attendees = event.attendees?.map((a: any) => {
     const email = a.email || a.emailAddress?.address || '';
     return email || a.displayName || '';

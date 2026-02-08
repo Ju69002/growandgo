@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -31,7 +30,6 @@ export default function LoginPage() {
   const { toast } = useToast();
   const logo = PlaceHolderImages.find(img => img.id === 'app-logo');
 
-  // Redirection automatique vers l'accueil UNIQUEMENT si connecté et PAS en plein succès d'inscription
   useEffect(() => {
     if (!isUserLoading && user && !signUpSuccess) {
       router.push('/');
@@ -59,7 +57,6 @@ export default function LoginPage() {
     if (!db) return;
     const lowerId = loginId.toLowerCase().trim();
     
-    // HIÉRARCHIE MULTI-ENTREPRISE STRICTE
     let finalRole = role;
     let finalCompanyId = 'default-studio';
     let finalCompanyName = 'Mon Studio';
@@ -69,15 +66,15 @@ export default function LoginPage() {
       finalCompanyId = 'growandgo-hq';
       finalCompanyName = 'Grow&Go HQ';
     } else if (lowerId === 'adupont') {
-      finalRole = 'admin'; // Patron Paul
+      finalRole = 'admin';
       finalCompanyId = 'Paul';
       finalCompanyName = 'Entreprise Paul';
     } else if (lowerId === 'bdupres') {
-      finalRole = 'employee'; // Employé Paul
+      finalRole = 'employee';
       finalCompanyId = 'Paul';
       finalCompanyName = 'Entreprise Paul';
     } else if (lowerId === 'lvecchio') {
-      finalRole = 'admin'; // Patron Oreal
+      finalRole = 'admin';
       finalCompanyId = 'Oreal';
       finalCompanyName = 'Entreprise Oreal';
     }
@@ -110,7 +107,6 @@ export default function LoginPage() {
       const lowerId = normalizedId.toLowerCase();
       const internalEmail = `${lowerId}@studio.internal`;
       
-      // LOGIQUE SUPER ADMIN (JSecchi) EN DUR
       if (!isSignUp && lowerId === 'jsecchi' && password === 'Meqoqo1998') {
         const userCredential = await signInWithEmailAndPassword(auth, internalEmail, password);
         await createProfile(userCredential.user.uid, 'JSecchi', 'super_admin', 'Julien Secchi');
@@ -120,7 +116,6 @@ export default function LoginPage() {
       }
 
       if (isSignUp) {
-        // VÉRIFICATION DOUBLON D'ID
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('loginId_lower', '==', lowerId));
         const checkSnap = await getDocs(q);
@@ -132,7 +127,6 @@ export default function LoginPage() {
         const userCredential = await createUserWithEmailAndPassword(auth, internalEmail, password);
         await createProfile(userCredential.user.uid, normalizedId, 'employee', name || normalizedId);
 
-        // SUCCÈS : On déconnecte et on attend la saisie manuelle
         await signOut(auth);
         setSignUpSuccess(true);
         setIsSignUp(false);
@@ -148,11 +142,13 @@ export default function LoginPage() {
         }
         
         const userData = querySnapshot.docs[0].data();
-        await signInWithEmailAndPassword(auth, userData.email, password);
+        const userCredential = await signInWithEmailAndPassword(auth, userData.email, password);
         
-        // Auto-réparation si profil manquant
-        if (userData.uid && !userData.role) {
-            await createProfile(userData.uid, userData.loginId, 'employee', userData.name);
+        const userDocRef = doc(db, 'users', userCredential.user.uid);
+        const userDocSnap = await getDoc(userDocRef);
+        
+        if (!userDocSnap.exists()) {
+          await createProfile(userCredential.user.uid, userData.loginId, userData.role || 'employee', userData.name);
         }
 
         toast({ title: "Bienvenue", description: `Accès au studio : ${userData.companyId}` });
