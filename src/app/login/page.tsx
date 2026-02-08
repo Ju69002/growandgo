@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useAuth, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { signInAnonymously } from 'firebase/auth';
-import { doc, getDoc, setDoc, collection, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, query, where, getDocs, serverTimestamp, deleteDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Lock, UserCircle, Users, Key, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
 import Image from 'next/image';
@@ -66,7 +66,6 @@ export default function LoginPage() {
     try {
       const lowerId = loginId.trim().toLowerCase();
       
-      // Vérification doublon stricte
       const q = query(collection(db, 'users'), where('loginId_lower', '==', lowerId));
       const snap = await getDocs(q);
       if (!snap.empty) {
@@ -85,12 +84,12 @@ export default function LoginPage() {
 
       await ensureCompanyExists(finalCompanyId, finalCompanyName);
       
-      // Utilisation d'un ID de document FIXE pour empêcher les doublons au niveau Firestore
       const profileRef = doc(db, 'users', `profile_${lowerId}`);
       await setDoc(profileRef, {
         uid: profileRef.id,
         isProfile: true,
         companyId: finalCompanyId,
+        companyName: finalCompanyName,
         role: finalRole,
         adminMode: finalRole !== 'employee',
         isCategoryModifier: finalRole !== 'employee',
@@ -122,22 +121,24 @@ export default function LoginPage() {
 
     try {
       const lowerId = loginId.trim().toLowerCase();
-      
-      // Recherche du profil par loginId_lower
       const q = query(collection(db, 'users'), where('loginId_lower', '==', lowerId));
       const querySnap = await getDocs(q);
       
       let profileData: User | null = null;
       if (!querySnap.empty) {
         profileData = querySnap.docs[0].data() as User;
+        // Supprimer les doublons techniques si nécessaire
+        if (querySnap.size > 1) {
+          querySnap.docs.slice(1).forEach(d => deleteDoc(d.ref));
+        }
       }
 
-      // Fallback JSecchi si la base est vide (pour le premier accès)
       if (!profileData && lowerId === 'jsecchi') {
         profileData = {
-          uid: 'jsecchi-fixed',
+          uid: 'profile_jsecchi',
           isProfile: true,
           companyId: 'growandgo-hq',
+          companyName: 'Grow&Go HQ',
           role: 'super_admin',
           name: 'JSecchi',
           loginId: 'JSecchi',
@@ -152,7 +153,6 @@ export default function LoginPage() {
       const userCredential = await signInAnonymously(auth);
       const sessionUid = userCredential.user.uid;
 
-      // Création de la session active
       await setDoc(doc(db, 'users', sessionUid), {
         ...profileData,
         uid: sessionUid,
@@ -170,7 +170,6 @@ export default function LoginPage() {
     }
   };
 
-  // Filtrage et dédoublonnage strict pour le répertoire visuel (affiche tous les loginId uniques)
   const displayUsers = Array.from(
     new Map(
       (allUsers || [])
@@ -211,9 +210,12 @@ export default function LoginPage() {
                         {u.role === 'super_admin' ? 'SA' : u.role === 'admin' ? 'P' : 'E'}
                       </Badge>
                     </div>
-                    <div className="flex items-center gap-1.5 text-rose-950 bg-rose-50/50 p-1.5 rounded border border-rose-100">
-                      <Key className="w-3 h-3 opacity-50" />
-                      <span className="text-[11px] font-mono font-black tracking-tight">{u.password || 'Meqoqo1998'}</span>
+                    <div className="flex flex-col gap-0.5">
+                       <p className="text-[8px] font-black uppercase text-muted-foreground/60">{u.companyName || u.companyId}</p>
+                       <div className="flex items-center gap-1.5 text-rose-950 bg-rose-50/50 p-1.5 rounded border border-rose-100">
+                         <Key className="w-3 h-3 opacity-50" />
+                         <span className="text-[11px] font-mono font-black tracking-tight">{u.password || 'Meqoqo1998'}</span>
+                       </div>
                     </div>
                   </div>
                 ))
@@ -249,7 +251,7 @@ export default function LoginPage() {
             {signUpSuccess && (
               <div className="mb-6 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3">
                 <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                <p className="text-xs font-bold text-emerald-800 uppercase tracking-wide">Compte créé avec succès ! Connectez-vous.</p>
+                <p className="text-xs font-bold text-emerald-800 uppercase tracking-wide">Compte créé ! Connectez-vous.</p>
               </div>
             )}
 
@@ -261,7 +263,7 @@ export default function LoginPage() {
                     <Input placeholder="Prénom Nom" value={name} onChange={(e) => setName(e.target.value)} className="h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Nom de l'Entreprise</Label>
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Nom du Studio (Entreprise)</Label>
                     <Input placeholder="Ex: Carrefour, Paul S.A..." value={companyName} onChange={(e) => setCompanyName(e.target.value)} className="h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
                   </div>
                 </>

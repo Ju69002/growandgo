@@ -62,8 +62,9 @@ export default function AccountsPage() {
   const { user: currentUser } = useUser();
   const db = useFirestore();
   const { toast } = useToast();
+  
   const [editingPasswordUser, setEditingPasswordUser] = useState<{ uid: string, loginId: string, password?: string } | null>(null);
-  const [editingCompany, setEditingCompany] = useState<{ id: string, name: string } | null>(null);
+  const [editingCompanyUser, setEditingCompanyUser] = useState<{ uid: string, loginId: string, companyName: string } | null>(null);
   const [newPassword, setNewPassword] = useState('');
   const [newCompanyName, setNewCompanyName] = useState('');
 
@@ -82,13 +83,6 @@ export default function AccountsPage() {
   }, [db, isSuperAdmin]);
 
   const { data: allProfiles, isLoading: isUsersLoading } = useCollection<User>(profilesQuery);
-
-  const companiesQuery = useMemoFirebase(() => {
-    if (!db || !isSuperAdmin) return null;
-    return query(collection(db, 'companies'));
-  }, [db, isSuperAdmin]);
-
-  const { data: allCompanies } = useCollection<Company>(companiesQuery);
 
   const handleRoleChange = (userId: string, currentRole: UserRole) => {
     if (!db) return;
@@ -113,17 +107,17 @@ export default function AccountsPage() {
     if (!db || !editingPasswordUser || !newPassword.trim()) return;
     const profileRef = doc(db, 'users', editingPasswordUser.uid);
     updateDocumentNonBlocking(profileRef, { password: newPassword.trim() });
-    toast({ title: "Mot de passe modifié avec succès" });
+    toast({ title: "Mot de passe modifié" });
     setEditingPasswordUser(null);
     setNewPassword('');
   };
 
   const handleUpdateCompany = () => {
-    if (!db || !editingCompany || !newCompanyName.trim()) return;
-    const companyRef = doc(db, 'companies', editingCompany.id);
-    updateDocumentNonBlocking(companyRef, { name: newCompanyName.trim() });
-    toast({ title: "Nom de l'entreprise mis à jour" });
-    setEditingCompany(null);
+    if (!db || !editingCompanyUser || !newCompanyName.trim()) return;
+    const profileRef = doc(db, 'users', editingCompanyUser.uid);
+    updateDocumentNonBlocking(profileRef, { companyName: newCompanyName.trim() });
+    toast({ title: "Entreprise mise à jour pour cet utilisateur" });
+    setEditingCompanyUser(null);
     setNewCompanyName('');
   };
 
@@ -149,7 +143,6 @@ export default function AccountsPage() {
     );
   }
 
-  // Dédoublonnage strict par loginId_lower pour le Super Admin
   const uniqueUsers = Array.from(
     new Map(
       (allProfiles || [])
@@ -192,7 +185,7 @@ export default function AccountsPage() {
                 <TableHeader className="bg-muted/50">
                   <TableRow>
                     <TableHead className="w-[200px] pl-8">Utilisateur</TableHead>
-                    <TableHead>Entreprise</TableHead>
+                    <TableHead>Entreprise (Indépendante)</TableHead>
                     <TableHead>Rôle</TableHead>
                     <TableHead>Identifiant</TableHead>
                     <TableHead>Mot de passe</TableHead>
@@ -201,7 +194,6 @@ export default function AccountsPage() {
                 </TableHeader>
                 <TableBody>
                   {uniqueUsers.map((u) => {
-                    const company = allCompanies?.find(c => c.id === u.companyId);
                     return (
                       <TableRow key={u.uid} className="hover:bg-primary/5 border-b-primary/5">
                         <TableCell className="pl-8 py-6">
@@ -209,15 +201,15 @@ export default function AccountsPage() {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2 group">
-                            <span className="text-sm font-semibold">{company?.name || u.companyId}</span>
+                            <span className="text-sm font-semibold">{u.companyName || u.companyId}</span>
                             {u.role !== 'super_admin' && (
                               <Button 
                                 variant="ghost" 
                                 size="icon" 
                                 className="h-6 w-6 opacity-0 group-hover:opacity-100 text-primary"
                                 onClick={() => {
-                                  setEditingCompany({ id: u.companyId, name: company?.name || u.companyId });
-                                  setNewCompanyName(company?.name || u.companyId);
+                                  setEditingCompanyUser({ uid: u.uid, loginId: u.loginId, companyName: u.companyName || u.companyId });
+                                  setNewCompanyName(u.companyName || u.companyId);
                                 }}
                               >
                                 <Edit2 className="w-3 h-3" />
@@ -259,7 +251,7 @@ export default function AccountsPage() {
                                   <AlertDialogHeader>
                                     <AlertDialogTitle>Supprimer le compte ?</AlertDialogTitle>
                                     <AlertDialogDescription>
-                                      Cette action supprimera définitivement l'identifiant <strong>{u.loginId}</strong>.
+                                      Cette action supprimera définitivement l'identifiant <strong>{u.loginId}</strong> ({u.name}).
                                     </AlertDialogDescription>
                                   </AlertDialogHeader>
                                   <AlertDialogFooter>
@@ -285,10 +277,10 @@ export default function AccountsPage() {
         <DialogContent className="rounded-[2rem]">
           <DialogHeader>
             <DialogTitle>Changer le mot de passe</DialogTitle>
-            <DialogDesc>Définissez un nouveau mot de passe pour {editingPasswordUser?.loginId}.</DialogDesc>
+            <DialogDesc>Nouveau mot de passe pour {editingPasswordUser?.loginId}.</DialogDesc>
           </DialogHeader>
-          <div className="py-4 space-y-4">
-            <Input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="rounded-xl h-12 font-bold text-rose-900" placeholder="Nouveau mot de passe..." />
+          <div className="py-4">
+            <Input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="rounded-xl h-12 font-bold text-rose-900" placeholder="Mot de passe..." />
           </div>
           <DialogFooter>
             <Button onClick={handleUpdatePassword} disabled={!newPassword.trim()} className="rounded-full font-bold px-8 bg-primary">Mettre à jour</Button>
@@ -296,13 +288,13 @@ export default function AccountsPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!editingCompany} onOpenChange={(open) => !open && setEditingCompany(null)}>
+      <Dialog open={!!editingCompanyUser} onOpenChange={(open) => !open && setEditingCompanyUser(null)}>
         <DialogContent className="rounded-[2rem]">
           <DialogHeader>
             <DialogTitle>Modifier l'entreprise</DialogTitle>
-            <DialogDesc>Renommez l'entreprise associée à cet utilisateur.</DialogDesc>
+            <DialogDesc>Change le nom d'entreprise pour {editingCompanyUser?.loginId} uniquement.</DialogDesc>
           </DialogHeader>
-          <div className="py-4 space-y-4">
+          <div className="py-4">
             <Input 
               value={newCompanyName} 
               onChange={(e) => setNewCompanyName(e.target.value)} 

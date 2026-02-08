@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -24,7 +25,6 @@ export default function Home() {
     setMounted(true);
   }, []);
 
-  // Redirection immédiate si non connecté
   useEffect(() => {
     if (mounted && !isUserLoading && !user) {
       router.push('/login');
@@ -56,7 +56,6 @@ export default function Home() {
 
   if (!user) return null;
 
-  // Gestion du cas "Profil inexistant" : Affichage d'un écran d'erreur avec déconnexion possible
   if (!isProfileLoading && !profile) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-[#F5F2EA] p-8 text-center space-y-6">
@@ -81,7 +80,7 @@ export default function Home() {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-[#F5F2EA] gap-4">
         <Loader2 className="w-10 h-10 animate-spin text-primary opacity-50" />
-        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Chargement du Studio...</p>
+        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Chargement...</p>
       </div>
     );
   }
@@ -104,7 +103,7 @@ export default function Home() {
             )}
           </div>
           <p className="text-muted-foreground mt-1 font-medium italic">
-            Bienvenue dans le Studio {profile?.companyId}, {profile?.name}.
+            Bienvenue dans le Studio {profile?.companyName || profile?.companyId}, {profile?.name}.
           </p>
         </header>
 

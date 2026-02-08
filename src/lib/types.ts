@@ -20,11 +20,13 @@ export interface Company {
 export interface User {
   uid: string;
   companyId: string;
+  companyName: string; // Nom d'affichage indépendant
   role: UserRole;
   adminMode: boolean;
   isCategoryModifier: boolean;
   name: string;
   loginId: string;
+  loginId_lower?: string;
   password?: string;
   email: string;
 }

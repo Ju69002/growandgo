@@ -31,7 +31,7 @@ import { usePathname } from 'next/navigation';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
-import { User, Company } from '@/lib/types';
+import { User } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 export function AppSidebar() {
@@ -46,14 +46,6 @@ export function AppSidebar() {
   }, [db, user]);
 
   const { data: profile } = useDoc<User>(userRef);
-  const companyId = profile?.companyId;
-
-  const companyRef = useMemoFirebase(() => {
-    if (!db || !companyId) return null;
-    return doc(db, 'companies', companyId);
-  }, [db, companyId]);
-
-  const { data: company } = useDoc<Company>(companyRef);
 
   const isSuperAdmin = profile?.role === 'super_admin';
 
@@ -89,7 +81,7 @@ export function AppSidebar() {
           </div>
           <div className="flex flex-col group-data-[collapsible=icon]:hidden max-w-[160px]">
             <span className="text-lg leading-tight tracking-tight text-white truncate">
-              {company?.name || companyId || "Grow&Go"}
+              {profile?.companyName || profile?.companyId || "Grow&Go"}
             </span>
             <span className="text-[10px] uppercase tracking-widest opacity-70 font-medium text-white truncate">
               {isSuperAdmin ? "Administration" : "Espace Studio"}
