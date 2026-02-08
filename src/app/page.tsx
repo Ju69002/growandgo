@@ -15,7 +15,8 @@ import {
   Maximize2,
   Zap,
   ListTodo,
-  Calendar as CalendarIcon
+  Calendar as CalendarIcon,
+  Loader2
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -89,7 +90,7 @@ export default function Home() {
 
     return pendingTasks
       .filter(task => {
-        if (task.isBillingTask && !task.id.startsWith('billing_v4')) return false;
+        if (task.isBillingTask && !task.id.startsWith('billing_v1')) return false;
         try {
           const taskDate = parse(task.createdAt, 'dd/MM/yyyy', new Date());
           if (!isValid(taskDate)) return false;
@@ -136,7 +137,7 @@ export default function Home() {
           </div>
         </header>
 
-        {/* Tâches de la semaine en haut, pleine largeur */}
+        {/* Tâches de la semaine - TOUJOURS EN HAUT, PLEINE LARGEUR */}
         <section className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-black uppercase tracking-tighter flex items-center gap-2">
@@ -195,7 +196,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Agenda en dessous, pleine largeur */}
+        {/* Agenda - PLEINE LARGEUR POUR ÉVITER LES TEXTES COUPÉS */}
         <section className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-black uppercase tracking-tighter flex items-center gap-2">
@@ -204,11 +205,11 @@ export default function Home() {
             </h2>
             <Button asChild variant="outline" size="sm" className="rounded-full h-9 px-5 font-black uppercase text-[11px] tracking-widest gap-2">
               <Link href="/categories/agenda">
-                <Maximize2 className="w-4 h-4" /> Agrandir l'agenda
+                <Maximize2 className="w-4 h-4" /> Agrandir
               </Link>
             </Button>
           </div>
-          <div className="h-[800px] border-none shadow-2xl rounded-[3rem] overflow-hidden bg-white border border-primary/5">
+          <div className="h-[750px] border-none shadow-2xl rounded-[3rem] overflow-hidden bg-white border border-primary/5">
             {companyId ? (
               <SharedCalendar companyId={companyId} isCompact={false} defaultView="3day" />
             ) : (

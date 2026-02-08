@@ -7,11 +7,11 @@ import { format, addMonths, isBefore, parseISO, isValid, isAfter, isSameDay } fr
 import { fr } from 'date-fns/locale';
 
 /**
- * Service pour synchroniser les tâches de facturation.
- * Génère des instructions claires pour l'administrateur.
+ * Service pour synchroniser les tâches de facturation (Version V1).
+ * Génère des instructions directes orientées client.
  */
 export async function syncBillingTasks(db: Firestore, adminUid: string, allUsers: User[]) {
-  const adminCompanyId = "GrowAndGo";
+  const adminCompanyId = "growandgo";
   const now = new Date();
 
   const uniqueUsersMap = new Map<string, User>();
@@ -27,7 +27,7 @@ export async function syncBillingTasks(db: Firestore, adminUid: string, allUsers
   const uniqueClients = Array.from(uniqueUsersMap.values());
 
   const rangeStart = addMonths(now, -1);
-  const rangeEnd = addMonths(now, 3);
+  const rangeEnd = addMonths(now, 2);
 
   uniqueClients.forEach((client, index) => {
     const isActive = client.subscriptionStatus !== 'inactive';
@@ -44,17 +44,17 @@ export async function syncBillingTasks(db: Firestore, adminUid: string, allUsers
         const monthLabel = format(checkDate, 'MMMM yyyy', { locale: fr });
         const slug = (client.loginId_lower || client.loginId || client.uid).toLowerCase();
         
-        const currentTaskId = `billing_v4_${slug}_${monthId}`;
-        const currentEventId = `event_v4_${slug}_${monthId}`;
+        const currentTaskId = `billing_v1_${slug}_${monthId}`;
+        const currentEventId = `event_v1_${slug}_${monthId}`;
         
         const taskRef = doc(db, 'companies', adminCompanyId, 'documents', currentTaskId);
         const eventRef = doc(db, 'companies', adminCompanyId, 'events', currentEventId);
 
         if (isActive) {
           const eventDate = new Date(checkDate);
-          eventDate.setHours(9 + hourOffset, 0, 0, 0);
+          eventDate.setHours(8 + hourOffset, 0, 0, 0);
 
-          // Tâche : Instruction directe pour l'admin
+          // Tâche : Instruction directe
           setDocumentNonBlocking(taskRef, {
             id: currentTaskId,
             name: `Générer facture pour ${client.name || client.loginId} - ${monthLabel}`,
@@ -69,16 +69,16 @@ export async function syncBillingTasks(db: Firestore, adminUid: string, allUsers
             fileUrl: ""
           }, { merge: true });
 
-          // Événement : Titre condensé et instruction complète en note
+          // RDV : Titre condensé et instruction client détaillée en note
           setDocumentNonBlocking(eventRef, {
             id: currentEventId,
             id_externe: currentEventId,
             companyId: adminCompanyId,
             userId: adminUid,
             titre: `Facture - ${client.name || client.loginId}`,
-            description: `Note : Générer la facture pour le client ${client.name || client.loginId}.`,
+            description: `Générer la facture pour le client ${client.name || client.loginId}.`,
             debut: eventDate.toISOString(),
-            fin: new Date(eventDate.getTime() + 60 * 60000).toISOString(),
+            fin: new Date(eventDate.getTime() + 45 * 60000).toISOString(),
             attendees: [client.email || ''],
             source: 'local',
             type: 'event',
