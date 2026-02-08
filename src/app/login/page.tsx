@@ -42,9 +42,8 @@ export default function LoginPage() {
 
   const { data: allUsers } = useCollection<User>(usersQuery);
 
-  const ensureCompanyExists = async (companyName: string) => {
-    if (!db) return 'default-studio';
-    const companyId = companyName.toLowerCase().trim().replace(/[^a-z0-9]/g, '-');
+  const ensureCompanyExists = async (companyId: string, companyName: string) => {
+    if (!db) return;
     const companyRef = doc(db, 'companies', companyId);
     const companySnap = await getDoc(companyRef);
     
@@ -59,7 +58,6 @@ export default function LoginPage() {
         modulesConfig: { showRh: true, showFinance: true, customLabels: {} }
       });
     }
-    return companyId;
   };
 
   const createProfile = async (uid: string, loginId: string, role: string, displayName: string, cName?: string) => {
@@ -74,14 +72,18 @@ export default function LoginPage() {
       finalRole = 'super_admin';
       finalCompanyId = 'growandgo-hq';
       finalCompanyName = 'Grow&Go HQ';
+    } else {
+      finalCompanyId = finalCompanyName.toLowerCase().trim().replace(/[^a-z0-9]/g, '-');
     }
 
-    const resolvedCompanyId = await ensureCompanyExists(finalCompanyName);
+    // 1. Créer l'entreprise d'abord (nécessaire pour les règles Firestore)
+    await ensureCompanyExists(finalCompanyId, finalCompanyName);
     
+    // 2. Créer le profil utilisateur
     const userRef = doc(db, 'users', uid);
     await setDoc(userRef, {
       uid,
-      companyId: lowerId === 'jsecchi' ? 'growandgo-hq' : resolvedCompanyId,
+      companyId: finalCompanyId,
       role: finalRole,
       adminMode: finalRole !== 'employee',
       isCategoryModifier: finalRole !== 'employee',
@@ -145,8 +147,14 @@ export default function LoginPage() {
         // Vérification profil
         const userDocRef = doc(db, 'users', userCredential.user.uid);
         const userDocSnap = await getDoc(userDocRef);
+        
         if (!userDocSnap.exists()) {
-          throw new Error("Profil introuvable. Veuillez vous réinscrire.");
+          // Si le profil manque mais que l'auth est ok, on tente une restauration silencieuse pour JSecchi
+          if (lowerId === 'jsecchi') {
+            await createProfile(userCredential.user.uid, 'JSecchi', 'super_admin', 'Julien Secchi');
+          } else {
+            throw new Error("Profil introuvable. Veuillez contacter votre administrateur.");
+          }
         }
 
         toast({ title: "Bienvenue dans votre Studio" });
@@ -156,6 +164,7 @@ export default function LoginPage() {
       console.error("Auth Error:", error);
       let message = "Identifiant ou mot de passe incorrect.";
       if (error.code === 'auth/email-already-in-use') message = "Cet identifiant est déjà pris.";
+      if (error.code === 'permission-denied') message = "Erreur de permissions Firestore.";
       if (error.message) message = error.message;
       toast({ variant: "destructive", title: "Erreur d'accès", description: message });
     } finally {
@@ -167,7 +176,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-[#F5F2EA] flex items-center justify-center p-4">
       <div className="flex flex-col md:flex-row gap-8 items-start max-w-5xl w-full">
         
-        {/* Répertoire des identifiants (Visualisation rapide) */}
+        {/* Répertoire des identifiants */}
         <div className="w-full md:w-72 space-y-4 md:sticky md:top-10">
           <div className="bg-white p-6 rounded-[2rem] shadow-xl border-none">
             <div className="flex items-center gap-2 mb-4 text-[#1E4D3B]">
@@ -178,12 +187,12 @@ export default function LoginPage() {
               {allUsers && allUsers.length > 0 ? (
                 allUsers.map(u => (
                   <div key={u.uid} className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-black/5">
-                    <div className="flex flex-col">
-                      <span className="font-mono text-[10px] font-bold">{u.loginId}</span>
-                      <span className="text-[8px] text-muted-foreground truncate max-w-[100px]">{u.name}</span>
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-mono text-[10px] font-bold truncate">{u.loginId}</span>
+                      <span className="text-[8px] text-muted-foreground truncate opacity-70">{u.name}</span>
                     </div>
                     <Badge className={cn(
-                      "text-[8px] font-black uppercase h-4 px-1",
+                      "text-[8px] font-black uppercase h-4 px-1 shrink-0",
                       u.role === 'super_admin' ? "bg-rose-950" : u.role === 'admin' ? "bg-primary" : "bg-muted text-muted-foreground"
                     )}>
                       {u.role === 'super_admin' ? 'SA' : u.role === 'admin' ? 'P' : 'E'}

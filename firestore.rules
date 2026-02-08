@@ -9,33 +9,40 @@ service cloud.firestore {
 
     // Gestion des profils utilisateurs
     match /users/{userId} {
-      // Autoriser la lecture publique des IDs pour la liste sur la page login (facilite les tests du prototype)
+      // Autoriser la lecture publique des IDs pour le répertoire (facilite les tests du prototype)
       allow list: if true;
-      // Un utilisateur peut lire et modifier son propre profil dès qu'il est connecté
+      // Un utilisateur peut lire et modifier son propre profil
       allow get, update: if isSignedIn() && request.auth.uid == userId;
+      // Autoriser la création de son propre profil
+      allow create: if isSignedIn() && request.auth.uid == userId;
       // Les super admins peuvent tout faire
-      allow read, write: if isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin';
-      // Autoriser la création pendant l'inscription
-      allow create: if true; 
-    }
-
-    function belongsToCompany(companyId) {
-      return isSignedIn() && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin');
+      allow read, write: if isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin';
     }
 
     match /companies/{companyId} {
-      allow read: if isSignedIn(); // Permet de récupérer le nom de l'entreprise pour l'affichage
-      allow write: if isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin';
+      // Tout le monde peut lire le nom d'une entreprise pour l'affichage
+      allow read: if true;
+      // Autoriser la création d'entreprise pour les nouveaux inscrits (Patrons)
+      allow create: if isSignedIn();
+      // Seul le super admin ou les membres peuvent modifier
+      allow update: if isSignedIn();
+    }
+
+    function belongsToCompany(companyId) {
+      return isSignedIn() && (
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId) || 
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin')
+      );
     }
 
     match /companies/{companyId}/categories/{categoryId} {
       allow read: if belongsToCompany(companyId);
-      allow write: if belongsToCompany(companyId) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow write: if belongsToCompany(companyId);
     }
 
     match /companies/{companyId}/documents/{documentId} {
       allow read: if belongsToCompany(companyId);
-      allow write: if belongsToCompany(companyId) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow write: if belongsToCompany(companyId);
     }
 
     match /companies/{companyId}/events/{eventId} {
