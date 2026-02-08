@@ -34,7 +34,9 @@ import {
   Loader2,
   Edit2,
   Building,
-  RefreshCw
+  CreditCard,
+  Ban,
+  CheckCircle2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
@@ -56,6 +58,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { cn } from '@/lib/utils';
 
 export default function AccountsPage() {
   const { user: currentUser } = useUser();
@@ -106,6 +109,15 @@ export default function AccountsPage() {
     toast({ title: "Compte supprimé" });
   };
 
+  const toggleSubscription = (loginId: string, currentStatus?: string) => {
+    const newStatus = currentStatus === 'inactive' ? 'active' : 'inactive';
+    updateAllUserDocs(loginId, { subscriptionStatus: newStatus as any });
+    toast({ 
+      title: newStatus === 'active' ? "Accès rétabli" : "Accès suspendu",
+      description: `L'abonnement de ${loginId} est désormais ${newStatus === 'active' ? 'actif' : 'inactif'}.`
+    });
+  };
+
   const handleUpdatePassword = () => {
     if (!db || !editingPasswordUser || !newPassword.trim()) return;
     updateAllUserDocs(editingPasswordUser.loginId, { password: newPassword.trim() });
@@ -154,8 +166,8 @@ export default function AccountsPage() {
                   <TableHead className="pl-8">Utilisateur</TableHead>
                   <TableHead>Entreprise / ID</TableHead>
                   <TableHead>Rôle</TableHead>
+                  <TableHead>Abonnement</TableHead>
                   <TableHead>Identifiant</TableHead>
-                  <TableHead>Mot de passe</TableHead>
                   <TableHead className="text-right pr-8">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -177,33 +189,48 @@ export default function AccountsPage() {
                       </div>
                     </TableCell>
                     <TableCell><Badge className={u.role === 'super_admin' ? "bg-rose-950" : "bg-primary"}>{u.role.toUpperCase()}</Badge></TableCell>
-                    <TableCell><span className="font-mono text-xs font-black text-primary">{u.loginId}</span></TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2 text-rose-950 font-black group">
-                        <span className="font-mono text-sm">{u.password || "••••••••"}</span>
+                      {u.role !== 'super_admin' ? (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className={cn(
+                            "rounded-full h-7 px-3 text-[10px] font-black uppercase tracking-widest gap-2",
+                            u.subscriptionStatus === 'inactive' ? "text-rose-600 bg-rose-50 hover:bg-rose-100" : "text-emerald-600 bg-emerald-50 hover:bg-emerald-100"
+                          )}
+                          onClick={() => toggleSubscription(u.loginId, u.subscriptionStatus)}
+                        >
+                          {u.subscriptionStatus === 'inactive' ? <Ban className="w-3 h-3" /> : <CheckCircle2 className="w-3 h-3" />}
+                          {u.subscriptionStatus === 'inactive' ? 'Suspendu' : 'Actif'}
+                        </Button>
+                      ) : (
+                        <Badge className="bg-emerald-600 font-black uppercase text-[10px]">TOUJOURS ACTIF</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell><span className="font-mono text-xs font-black text-primary">{u.loginId}</span></TableCell>
+                    <TableCell className="text-right pr-8">
+                      <div className="flex items-center justify-end gap-2">
                         {u.role !== 'super_admin' && (
-                          <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 text-primary" onClick={() => { setEditingPasswordUser({ uid: u.uid, loginId: u.loginId, password: u.password }); setNewPassword(u.password || ''); }}>
-                            <Key className="w-3 h-3" />
-                          </Button>
+                          <>
+                             <Button variant="ghost" size="icon" className="text-primary" onClick={() => { setEditingPasswordUser({ uid: u.uid, loginId: u.loginId, password: u.password }); setNewPassword(u.password || ''); }}>
+                               <Key className="w-4 h-4" />
+                             </Button>
+                             <AlertDialog>
+                              <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-rose-950"><Trash2 className="w-4 h-4" /></Button></AlertDialogTrigger>
+                              <AlertDialogContent className="rounded-[2rem]">
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Supprimer ?</AlertDialogTitle>
+                                  <AlertDialogDescription>Action irréversible pour <strong>{u.loginId}</strong>.</AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel className="rounded-full">Annuler</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleDeleteUser(u.loginId)} className="bg-rose-950 rounded-full">Supprimer</AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </>
                         )}
                       </div>
-                    </TableCell>
-                    <TableCell className="text-right pr-8">
-                      {u.role !== 'super_admin' && (
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-rose-950"><Trash2 className="w-4 h-4" /></Button></AlertDialogTrigger>
-                          <AlertDialogContent className="rounded-[2rem]">
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Supprimer ?</AlertDialogTitle>
-                              <AlertDialogDescription>Action irréversible pour <strong>{u.loginId}</strong>.</AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel className="rounded-full">Annuler</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => handleDeleteUser(u.loginId)} className="bg-rose-950 rounded-full">Supprimer</AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      )}
                     </TableCell>
                   </TableRow>
                 ))}

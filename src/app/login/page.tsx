@@ -85,6 +85,7 @@ export default function LoginPage() {
         loginId_lower: lowerId,
         password: password.trim(),
         email: `${lowerId}@studio.internal`,
+        subscriptionStatus: 'active',
         createdAt: new Date().toISOString()
       });
 
