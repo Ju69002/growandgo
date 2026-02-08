@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser, useFirestore, useDoc, useMemoFirebase, useAuth, useCollection } from '@/firebase';
 import { doc, collection, query, where, limit } from 'firebase/firestore';
@@ -28,6 +27,8 @@ import { cn } from '@/lib/utils';
 import { signOut } from 'firebase/auth';
 import Link from 'next/link';
 import { syncBillingTasks } from '@/services/billing-sync';
+import { startOfWeek, endOfWeek, isWithinInterval, parse } from 'date-fns';
+import { fr } from 'date-fns/locale';
 
 export default function Home() {
   const router = useRouter();
@@ -57,7 +58,6 @@ export default function Home() {
   const isSuperAdmin = profile?.role === 'super_admin';
   const companyId = profile?.companyId ? profile.companyId : null;
 
-  // Récupération de tous les utilisateurs pour la synchro Admin
   const allUsersQuery = useMemoFirebase(() => {
     if (!db || !isSuperAdmin) return null;
     return query(collection(db, 'users'), where('isProfile', '==', true));
@@ -65,7 +65,6 @@ export default function Home() {
 
   const { data: allUsers } = useCollection<User>(allUsersQuery);
 
-  // Synchronisation des tâches de facturation pour l'Admin
   useEffect(() => {
     if (db && user && isSuperAdmin && allUsers && !syncLock.current) {
       syncLock.current = true;
@@ -77,12 +76,33 @@ export default function Home() {
     if (!db || !companyId) return null;
     return query(
       collection(db, 'companies', companyId, 'documents'),
-      where('status', '!=', 'archived'),
-      limit(10)
+      where('status', '!=', 'archived')
     );
   }, [db, companyId]);
 
   const { data: pendingTasks } = useCollection<BusinessDocument>(pendingDocsQuery);
+
+  // Filtrage des tâches pour la semaine en cours
+  const weeklyTasks = useMemo(() => {
+    if (!pendingTasks) return [];
+    const now = new Date();
+    const start = startOfWeek(now, { locale: fr });
+    const end = endOfWeek(now, { locale: fr });
+
+    return pendingTasks.filter(task => {
+      try {
+        // La date est au format dd/MM/yyyy dans task.createdAt
+        const taskDate = parse(task.createdAt, 'dd/MM/yyyy', new Date());
+        return isWithinInterval(taskDate, { start, end });
+      } catch (e) {
+        return false;
+      }
+    }).sort((a, b) => {
+      const dateA = parse(a.createdAt, 'dd/MM/yyyy', new Date()).getTime();
+      const dateB = parse(b.createdAt, 'dd/MM/yyyy', new Date()).getTime();
+      return dateA - dateB;
+    });
+  }, [pendingTasks]);
 
   const handleLogout = async () => {
     if (auth) {
@@ -161,13 +181,13 @@ export default function Home() {
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-black uppercase tracking-tighter flex items-center gap-2">
                 <ListTodo className="w-5 h-5 text-primary" />
-                Tâches à traiter
+                Tâches de la semaine
               </h2>
             </div>
             
             <div className="space-y-3">
-              {pendingTasks && pendingTasks.length > 0 ? (
-                pendingTasks.map((task) => (
+              {weeklyTasks.length > 0 ? (
+                weeklyTasks.map((task) => (
                   <Link href={task.isBillingTask ? `/billing` : `/categories/${task.categoryId}`} key={task.id}>
                     <Card className={cn(
                       "border-none shadow-sm hover:shadow-md transition-all rounded-2xl overflow-hidden group",
@@ -194,7 +214,7 @@ export default function Home() {
               ) : (
                 <div className="p-10 border-2 border-dashed rounded-[2rem] text-center space-y-2 bg-muted/5">
                   <CheckCircle2 className="w-8 h-8 text-primary/30 mx-auto" />
-                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Tout est à jour</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Aucune tâche cette semaine</p>
                 </div>
               )}
             </div>
