@@ -1,8 +1,9 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useUser, useFirestore, useDoc, useMemoFirebase, useAuth } from '@/firebase';
+import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { User } from '@/lib/types';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
@@ -12,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { signOut } from 'firebase/auth';
+import { useAuth } from '@/firebase';
 
 export default function Home() {
   const router = useRouter();
@@ -20,6 +22,7 @@ export default function Home() {
   const db = useFirestore();
   const [mounted, setMounted] = useState(false);
 
+  // Tous les Hooks doivent être déclarés au début, sans exception.
   const userRef = useMemoFirebase(() => {
     if (!db || !user) return null;
     return doc(db, 'users', user.uid);
@@ -31,6 +34,7 @@ export default function Home() {
     setMounted(true);
   }, []);
 
+  // Redirection immédiate si non connecté
   useEffect(() => {
     if (mounted && !isUserLoading && !user) {
       router.push('/login');
@@ -44,19 +48,21 @@ export default function Home() {
     }
   };
 
-  if (!mounted || isUserLoading || (user && isProfileLoading)) {
+  if (!mounted || isUserLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-[#F5F2EA] gap-4">
         <Loader2 className="w-10 h-10 animate-spin text-primary opacity-50" />
         <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground animate-pulse">
-          Initialisation du Studio...
+          Initialisation...
         </p>
       </div>
     );
   }
 
+  // Si on est encore là mais pas de user, on attend la redirection du useEffect
   if (!user) return null;
 
+  // Gestion de l'erreur "Profil introuvable" pour briser les boucles
   if (!profile && !isProfileLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-[#F5F2EA] p-8 text-center space-y-6">
@@ -66,8 +72,7 @@ export default function Home() {
         <div className="space-y-2">
           <h2 className="text-2xl font-black text-primary uppercase tracking-tighter">Profil Inaccessible</h2>
           <p className="text-muted-foreground max-w-sm mx-auto">
-            Votre compte est authentifié mais vos données de profil sont introuvables. 
-            Veuillez contacter le Super Admin ou essayer de vous reconnecter.
+            Votre session est active mais votre profil Studio n'a pas pu être chargé.
           </p>
         </div>
         <Button onClick={handleLogout} variant="outline" className="rounded-full px-8 h-12 font-bold gap-2">
@@ -107,7 +112,7 @@ export default function Home() {
               <div className="space-y-2">
                 <h2 className="text-2xl font-black uppercase tracking-tight text-primary">Console Super Administrateur</h2>
                 <p className="text-sm text-muted-foreground font-medium max-w-lg mx-auto">
-                  Gestion globale des identifiants et monitoring multi-entreprise (Paul / Oreal).
+                  Gestion globale des identifiants et monitoring multi-entreprise.
                 </p>
               </div>
             </div>

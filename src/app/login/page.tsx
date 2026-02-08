@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -30,6 +31,7 @@ export default function LoginPage() {
   const { toast } = useToast();
   const logo = PlaceHolderImages.find(img => img.id === 'app-logo');
 
+  // Redirection automatique si déjà connecté (et pas en train de confirmer une inscription)
   useEffect(() => {
     if (!isUserLoading && user && !signUpSuccess) {
       router.push('/');
@@ -61,6 +63,7 @@ export default function LoginPage() {
     let finalCompanyId = 'default-studio';
     let finalCompanyName = 'Mon Studio';
 
+    // Logique multi-entreprise prédéfinie
     if (lowerId === 'jsecchi') {
       finalRole = 'super_admin';
       finalCompanyId = 'growandgo-hq';
@@ -107,6 +110,7 @@ export default function LoginPage() {
       const lowerId = normalizedId.toLowerCase();
       const internalEmail = `${lowerId}@studio.internal`;
       
+      // Cas spécial Super Admin JSecchi
       if (!isSignUp && lowerId === 'jsecchi' && password === 'Meqoqo1998') {
         const userCredential = await signInWithEmailAndPassword(auth, internalEmail, password);
         await createProfile(userCredential.user.uid, 'JSecchi', 'super_admin', 'Julien Secchi');
@@ -116,6 +120,7 @@ export default function LoginPage() {
       }
 
       if (isSignUp) {
+        // Vérification des doublons dans Firestore avant création Auth
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('loginId_lower', '==', lowerId));
         const checkSnap = await getDocs(q);
@@ -124,15 +129,20 @@ export default function LoginPage() {
           throw new Error("Cet identifiant est déjà utilisé dans le Studio.");
         }
 
+        // Création dans Auth
         const userCredential = await createUserWithEmailAndPassword(auth, internalEmail, password);
+        // Création du profil
         await createProfile(userCredential.user.uid, normalizedId, 'employee', name || normalizedId);
 
+        // Déconnexion immédiate pour forcer la saisie manuelle
         await signOut(auth);
         setSignUpSuccess(true);
         setIsSignUp(false);
         setPassword('');
         toast({ title: "Inscription réussie !", description: "Veuillez maintenant vous identifier." });
       } else {
+        // Connexion standard
+        // On vérifie d'abord si l'identifiant existe dans notre base
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('loginId_lower', '==', lowerId));
         const querySnapshot = await getDocs(q);
@@ -144,6 +154,7 @@ export default function LoginPage() {
         const userData = querySnapshot.docs[0].data();
         const userCredential = await signInWithEmailAndPassword(auth, userData.email, password);
         
+        // Auto-réparation du profil si manquant
         const userDocRef = doc(db, 'users', userCredential.user.uid);
         const userDocSnap = await getDoc(userDocRef);
         

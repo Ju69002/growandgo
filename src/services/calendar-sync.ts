@@ -1,3 +1,4 @@
+
 'use client';
 
 /**
@@ -33,6 +34,7 @@ export function mapGoogleEvent(event: any, companyId: string, userId: string): P
   const end = event.end?.dateTime || event.end?.date || new Date().toISOString();
   
   const attendees = event.attendees?.map((a: any) => {
+    // Correction de la ligne 46 avec chaînage optionnel sécurisé
     const email = a.email || a.emailAddress?.address || '';
     return email || a.displayName || '';
   }).filter(Boolean) || [];
