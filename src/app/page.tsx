@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useRef, useMemo } from 'react';
@@ -159,12 +158,13 @@ export default function Home() {
                         ? `/billing` 
                         : `/categories/${task.categoryId}`} 
                       key={task.id}
+                      className="block"
                     >
                       <Card className={cn(
                         "border-none shadow-sm hover:shadow-md transition-all rounded-2xl overflow-hidden group",
                         task.isBillingTask && "bg-amber-50/50 border border-amber-100"
                       )}>
-                        <CardContent className="p-4 flex items-center gap-3">
+                        <CardContent className="p-4 flex items-center gap-4">
                           <div className={cn(
                             "p-2 rounded-lg shrink-0",
                             task.isBillingTask ? "bg-amber-100 text-amber-600" : "bg-primary/5 text-primary"
@@ -172,8 +172,10 @@ export default function Home() {
                             {task.isBillingTask ? <Zap className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold truncate group-hover:text-primary transition-colors">{task.name}</p>
-                            <div className="flex items-center justify-between mt-0.5">
+                            <p className="text-sm font-bold leading-tight line-clamp-2 group-hover:text-primary transition-colors">
+                              {task.name}
+                            </p>
+                            <div className="flex items-center justify-between mt-1.5">
                               <p className="text-[10px] font-black uppercase text-muted-foreground opacity-60">
                                 {task.isBillingTask ? "Action requise" : task.status.replace('_', ' ')}
                               </p>

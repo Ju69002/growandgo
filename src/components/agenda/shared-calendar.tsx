@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -115,7 +114,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
 
   const startHour = 8;
   const endHour = 18;
-  const hourHeight = isCompact ? 36 : 60;
+  const hourHeight = isCompact ? 38 : 60; // Légère augmentation pour éviter les coupures
 
   const eventsQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
@@ -346,14 +345,14 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
 
                         const isCurrentDragged = draggedEventId === event.id;
                         const topPos = (eventStartHour - startHour) * hourHeight + (start.getMinutes() / 60 * hourHeight);
-                        const height = Math.max(20, (duration / 60) * hourHeight);
+                        const height = Math.max(22, (duration / 60) * hourHeight); // Hauteur minimale augmentée
 
                         return (
                           <div 
                             key={event.id} 
                             onMouseDown={(e) => handleMouseDown(e, event)}
                             className={cn(
-                              "absolute left-0 right-0 mx-0.5 z-10 rounded-lg border-l-4 shadow-sm cursor-pointer p-1 overflow-hidden flex flex-col select-none",
+                              "absolute left-0 right-0 mx-0.5 z-10 rounded-lg border-l-4 shadow-sm cursor-pointer p-1.5 overflow-hidden flex flex-col select-none",
                               event.source === 'google' ? "bg-white border-primary" : "bg-amber-50 border-amber-500",
                               isCurrentDragged && "z-30 opacity-90 scale-[1.02] shadow-2xl ring-2 ring-primary"
                             )}
