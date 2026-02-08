@@ -107,7 +107,7 @@ export default function AccountsPage() {
 
   const { data: allProfiles, isLoading: isUsersLoading } = useCollection<User>(profilesQuery);
 
-  // Mémoïsation de la liste unique avec nettoyage des noms d'entreprise pour les particuliers
+  // Mémoïsation de la liste unique avec nettoyage des noms d'entreprise
   const uniqueUsers = useMemo(() => {
     if (!allProfiles) return [];
     return Array.from(
@@ -124,6 +124,9 @@ export default function AccountsPage() {
               finalUser.companyId = "GrowAndGo";
             } else if (u.role === 'particulier') {
               finalUser.companyName = "Espace Privé";
+            } else if (!u.companyName && u.companyId) {
+              // Restauration visuelle si le nom est manquant mais l'ID existe
+              finalUser.companyName = u.companyId;
             }
             
             return [lowerId, finalUser];
@@ -232,25 +235,27 @@ export default function AccountsPage() {
             <Table>
               <TableHeader className="bg-muted/50">
                 <TableRow>
-                  <TableHead className="pl-8">Utilisateur</TableHead>
+                  <TableHead className="pl-8">Utilisateur (Nom & Prénom)</TableHead>
                   <TableHead>Entreprise / Créé le</TableHead>
                   <TableHead>Rôle</TableHead>
                   <TableHead>Abonnement</TableHead>
-                  <TableHead>Identifiant</TableHead>
+                  <TableHead>Identifiant (ID)</TableHead>
                   <TableHead className="text-right pr-8">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {uniqueUsers.map((u) => (
                   <TableRow key={u.uid} className="hover:bg-primary/5 border-b-primary/5">
-                    <TableCell className="pl-8 py-6 font-bold">{u.name}</TableCell>
+                    <TableCell className="pl-8 py-6 font-bold text-base text-primary">
+                      {u.name || u.loginId}
+                    </TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-1 group">
                         <div className="flex items-center gap-2">
                           <span className={cn(
                             "text-sm font-semibold",
                             u.role === 'particulier' && "text-amber-600 italic"
-                          )}>{u.companyName}</span>
+                          )}>{u.companyName || u.companyId}</span>
                           {u.loginId_lower !== 'jsecchi' && u.role !== 'particulier' && (
                             <Button 
                               variant="ghost" 
@@ -258,7 +263,7 @@ export default function AccountsPage() {
                               className="h-6 w-6 opacity-0 group-hover:opacity-100 text-primary" 
                               onClick={() => { 
                                 setEditingCompanyUser(u); 
-                                setNewCompanyName(u.companyName || u.companyId); 
+                                setNewCompanyName(u.companyName || u.companyId || ''); 
                               }}
                             >
                               <Edit2 className="w-3 h-3" />
@@ -289,7 +294,7 @@ export default function AccountsPage() {
                             onClick={() => {
                               setEditingRoleUser(u);
                               setNewRole(u.role);
-                              setRoleCompanyInput(u.role === 'particulier' ? '' : (u.companyName || ''));
+                              setRoleCompanyInput(u.role === 'particulier' ? '' : (u.companyName || u.companyId || ''));
                             }}
                           >
                             <Edit2 className="w-3 h-3" />
@@ -315,7 +320,11 @@ export default function AccountsPage() {
                         <Badge className="bg-emerald-600 font-black uppercase text-[10px]">TOUJOURS ACTIF</Badge>
                       )}
                     </TableCell>
-                    <TableCell><span className="font-mono text-xs font-black text-primary">{u.loginId}</span></TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="font-mono text-[11px] font-black text-primary border-primary/10 bg-primary/5">
+                        {u.loginId}
+                      </Badge>
+                    </TableCell>
                     <TableCell className="text-right pr-8">
                       <div className="flex items-center justify-end gap-2">
                         {u.role !== 'super_admin' && (
