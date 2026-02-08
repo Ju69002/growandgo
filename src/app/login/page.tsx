@@ -72,7 +72,7 @@ export default function LoginPage() {
       if (lowerId === 'jsecchi') {
         finalRole = 'super_admin';
         finalCompanyName = "GrowAndGo";
-        finalCompanyId = "GrowAndGo"; // Utilisation directe sans normalisation agressive pour le Super Admin
+        finalCompanyId = "GrowAndGo";
       }
 
       await setDoc(doc(db, 'users', profileId), {
@@ -150,16 +150,19 @@ export default function LoginPage() {
       const userCredential = await signInAnonymously(auth);
       const sessionUid = userCredential.user.uid;
 
-      // Correction automatique de l'ID pour le Super Admin s'il est mal paramétré
+      // Correction automatique pour le Super Admin
       let finalCompanyId = profileData.companyId;
+      let finalCompanyName = profileData.companyName;
       if (lowerId === 'jsecchi') {
         finalCompanyId = "GrowAndGo";
+        finalCompanyName = "GrowAndGo";
       }
 
       await setDoc(doc(db, 'users', sessionUid), {
         ...profileData,
         uid: sessionUid,
         companyId: finalCompanyId,
+        companyName: finalCompanyName,
         isProfile: false,
         isSession: true,
         lastLogin: serverTimestamp()
@@ -205,7 +208,9 @@ export default function LoginPage() {
                       {u.role === 'super_admin' ? 'SA' : u.role === 'admin' ? 'P' : 'E'}
                     </Badge>
                   </div>
-                  <p className="text-[8px] font-black uppercase text-muted-foreground/60 truncate">{u.companyName || u.companyId}</p>
+                  <p className="text-[8px] font-black uppercase text-muted-foreground/60 truncate">
+                    {(u.loginId_lower === 'jsecchi' || u.loginId?.toLowerCase() === 'jsecchi') ? "GrowAndGo" : (u.companyName || u.companyId)}
+                  </p>
                   <div className="flex items-center gap-1.5 text-rose-950 bg-rose-50/50 p-1.5 rounded border border-rose-100">
                     <Key className="w-3 h-3 opacity-50" />
                     <span className="text-[11px] font-mono font-black tracking-tight">{u.password || '••••••'}</span>

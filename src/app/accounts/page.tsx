@@ -96,7 +96,14 @@ export default function AccountsPage() {
         allProfiles
           .filter(u => u.loginId || u.loginId_lower)
           .sort((a, b) => (a.isProfile ? 1 : -1))
-          .map(u => [u.loginId_lower || u.loginId?.toLowerCase(), u])
+          .map(u => {
+            const lowerId = (u.loginId_lower || u.loginId?.toLowerCase());
+            // Force GrowAndGo pour JSecchi dans le répertoire
+            if (lowerId === 'jsecchi') {
+              return [lowerId, { ...u, companyName: "GrowAndGo", companyId: "GrowAndGo" }];
+            }
+            return [lowerId, u];
+          })
       ).values()
     ).sort((a, b) => (a.role === 'super_admin' ? -1 : 1));
   }, [allProfiles]);
@@ -188,17 +195,19 @@ export default function AccountsPage() {
                       <div className="flex flex-col gap-1 group">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-semibold">{u.companyName || u.companyId}</span>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-6 w-6 opacity-0 group-hover:opacity-100 text-primary" 
-                            onClick={() => { 
-                              setEditingCompanyUser(u); 
-                              setNewCompanyName(u.companyName || u.companyId); 
-                            }}
-                          >
-                            <Edit2 className="w-3 h-3" />
-                          </Button>
+                          {u.loginId_lower !== 'jsecchi' && (
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-6 w-6 opacity-0 group-hover:opacity-100 text-primary" 
+                              onClick={() => { 
+                                setEditingCompanyUser(u); 
+                                setNewCompanyName(u.companyName || u.companyId); 
+                              }}
+                            >
+                              <Edit2 className="w-3 h-3" />
+                            </Button>
+                          )}
                         </div>
                         <span className="text-[9px] font-mono text-muted-foreground uppercase tracking-widest">{u.companyId}</span>
                       </div>
@@ -258,8 +267,6 @@ export default function AccountsPage() {
         </Card>
       </div>
 
-      {/* Dialogues partagés déportés hors de la boucle pour performance mémoire */}
-      
       <Dialog open={!!editingPasswordUser} onOpenChange={(open) => !open && setEditingPasswordUser(null)}>
         <DialogContent className="rounded-[2rem]">
           <DialogHeader>
@@ -275,7 +282,7 @@ export default function AccountsPage() {
         <DialogContent className="rounded-[2rem]">
           <DialogHeader>
             <DialogTitle>Modifier l'entreprise</DialogTitle>
-            <DialogDescription>Mise à jour du Studio pour <strong>{editingCompanyUser?.loginId}</strong>. L'identifiant technique sera synchronisé.</DialogDescription>
+            <DialogDescription>Mise à jour de l'espace de travail pour <strong>{editingCompanyUser?.loginId}</strong>. L'identifiant technique sera synchronisé.</DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
             <div className="space-y-1">

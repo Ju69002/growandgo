@@ -112,6 +112,8 @@ export default function Home() {
   }
 
   const isSuperAdmin = profile?.role === 'super_admin';
+  const isJSecchi = profile?.loginId?.toLowerCase() === 'jsecchi' || profile?.loginId_lower === 'jsecchi';
+  const companyDisplayName = isJSecchi ? "GrowAndGo" : (profile?.companyName || "GrowAndGo");
 
   return (
     <DashboardLayout>
@@ -130,7 +132,7 @@ export default function Home() {
               )}
             </div>
             <p className="text-muted-foreground font-medium italic">
-              Espace {profile?.companyName || "GrowAndGo"}, Bienvenue {profile?.name}.
+              Espace {companyDisplayName}, Bienvenue {profile?.name}.
             </p>
           </div>
         </header>

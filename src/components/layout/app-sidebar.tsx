@@ -47,7 +47,10 @@ export function AppSidebar() {
   const { data: profile } = useDoc<User>(userRef);
 
   const isSuperAdmin = profile?.role === 'super_admin';
-  const companyId = profile?.companyId ? profile.companyId : "";
+  const isJSecchi = profile?.loginId?.toLowerCase() === 'jsecchi' || profile?.loginId_lower === 'jsecchi';
+  
+  // Force l'affichage GrowAndGo pour JSecchi
+  const displayName = isJSecchi ? "GrowAndGo" : (profile?.companyName || profile?.companyId || "GrowAndGo");
 
   const mainItems = [
     { title: 'Tableau de bord', icon: LayoutDashboard, url: '/' },
@@ -78,7 +81,7 @@ export function AppSidebar() {
           </div>
           <div className="flex flex-col group-data-[collapsible=icon]:hidden max-w-[160px]">
             <span className="text-lg leading-tight tracking-tight text-white truncate">
-              {profile?.companyName || companyId || "GrowAndGo"}
+              {displayName}
             </span>
             <span className="text-[10px] uppercase tracking-widest opacity-70 font-medium text-white truncate">
               {isSuperAdmin ? "Administration" : "Espace de travail"}
