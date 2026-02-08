@@ -57,6 +57,30 @@ export default function LoginPage() {
     }
   };
 
+  const createProfile = async (uid: string, loginId: string, role: string, displayName: string) => {
+    if (!db) return;
+    const lowerId = loginId.toLowerCase().trim();
+    const isTargetSuperAdmin = lowerId === 'jsecchi';
+    const companyId = isTargetSuperAdmin ? 'growandgo-hq' : 'default-studio';
+    const companyName = isTargetSuperAdmin ? 'Grow&Go HQ' : 'Mon Studio';
+
+    await ensureCompanyExists(companyId, companyName);
+    
+    const userRef = doc(db, 'users', uid);
+    await setDoc(userRef, {
+      uid: uid,
+      companyId: companyId,
+      role: role,
+      adminMode: role === 'super_admin' || role === 'admin',
+      isCategoryModifier: role === 'super_admin' || role === 'admin',
+      name: displayName || loginId,
+      loginId: loginId.trim(),
+      loginId_lower: lowerId,
+      email: `${lowerId}@studio.internal`,
+      createdAt: new Date().toISOString()
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!auth || !db) return;
@@ -66,6 +90,7 @@ export default function LoginPage() {
     try {
       const normalizedId = loginId.trim();
       const lowerId = normalizedId.toLowerCase();
+      const internalEmail = `${lowerId}@studio.internal`;
       
       // LOGIQUE SPECIALE SUPER ADMIN JSECCHI
       const isTargetSuperAdmin = lowerId === 'jsecchi';
@@ -74,7 +99,7 @@ export default function LoginPage() {
       }
 
       if (isSignUp) {
-        // 1. Verifier les doublons sur l'ID (insensible à la casse)
+        // 1. Verifier si le profil existe déjà
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('loginId_lower', '==', lowerId));
         const checkSnap = await getDocs(q);
@@ -83,56 +108,56 @@ export default function LoginPage() {
           throw new Error("Cet identifiant est déjà utilisé.");
         }
 
-        // 2. Creation Auth avec e-mail interne transparent
-        const internalEmail = `${lowerId}@studio.internal`;
-        const userCredential = await createUserWithEmailAndPassword(auth, internalEmail, password);
-        const newUser = userCredential.user;
-        
-        const companyId = isTargetSuperAdmin ? 'growandgo-hq' : 'default-studio';
-        const companyName = isTargetSuperAdmin ? 'Grow&Go HQ' : 'Mon Studio';
-
-        await ensureCompanyExists(companyId, companyName);
-        
-        // 3. Creation Profil Firestore (CRITIQUE : Doit être fait avant la redirection)
-        const userRef = doc(db, 'users', newUser.uid);
-        await setDoc(userRef, {
-          uid: newUser.uid,
-          companyId: companyId,
-          role: isTargetSuperAdmin ? 'super_admin' : 'employee',
-          adminMode: isTargetSuperAdmin,
-          isCategoryModifier: isTargetSuperAdmin,
-          name: name || normalizedId,
-          loginId: normalizedId,
-          loginId_lower: lowerId,
-          email: internalEmail,
-          createdAt: new Date().toISOString()
-        });
-
-        toast({ title: "Bienvenue !", description: "Votre accès Studio a été créé." });
+        try {
+          const userCredential = await createUserWithEmailAndPassword(auth, internalEmail, password);
+          await createProfile(
+            userCredential.user.uid, 
+            normalizedId, 
+            isTargetSuperAdmin ? 'super_admin' : 'employee',
+            name || normalizedId
+          );
+          toast({ title: "Bienvenue !", description: "Votre accès Studio a été créé." });
+        } catch (authError: any) {
+          if (authError.code === 'auth/email-already-in-use') {
+            // Auto-réparation : Le compte Auth existe mais le doc Firestore était manquant
+            const userCredential = await signInWithEmailAndPassword(auth, internalEmail, password);
+            await createProfile(
+              userCredential.user.uid, 
+              normalizedId, 
+              isTargetSuperAdmin ? 'super_admin' : 'employee',
+              name || normalizedId
+            );
+            toast({ title: "Profil réparé", description: "Votre accès a été restauré avec succès." });
+          } else {
+            throw authError;
+          }
+        }
       } else {
-        // 4. Recherche de l'utilisateur par ID (insensible à la casse)
+        // 2. Recherche de l'utilisateur par ID
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('loginId_lower', '==', lowerId));
         const querySnapshot = await getDocs(q);
 
         if (querySnapshot.empty) {
-          throw new Error("Identifiant inconnu dans ce studio.");
+          // Cas particulier : JSecchi doit toujours pouvoir se connecter et s'auto-réparer
+          if (isTargetSuperAdmin && password === 'Meqoqo1998') {
+            const userCredential = await signInWithEmailAndPassword(auth, internalEmail, password);
+            await createProfile(userCredential.user.uid, 'JSecchi', 'super_admin', 'Julien Secchi');
+            toast({ title: "Profil restauré", description: "Accès Super Admin réactivé." });
+            return;
+          }
+          throw new Error("Identifiant inconnu.");
         }
 
         const userData = querySnapshot.docs[0].data();
-        const emailToUse = userData.email;
-
-        // 5. Connexion Auth
-        await signInWithEmailAndPassword(auth, emailToUse, password);
+        await signInWithEmailAndPassword(auth, userData.email, password);
         toast({ title: "Connexion réussie", description: "Accès au Studio validé." });
       }
     } catch (error: any) {
       console.error("Auth Error:", error);
       let message = error.message || "Une erreur est survenue.";
       
-      if (error.code === 'auth/email-already-in-use') {
-        message = "Cet identifiant possède déjà un accès.";
-      } else if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
+      if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
         message = "Identifiant ou mot de passe incorrect.";
       }
       

@@ -77,6 +77,7 @@ export default function AccountsPage() {
 
   const usersQuery = useMemoFirebase(() => {
     if (!db || !isSuperAdmin) return null;
+    // On requête absolument tous les utilisateurs
     return query(collection(db, 'users'));
   }, [db, isSuperAdmin]);
 
@@ -148,6 +149,9 @@ export default function AccountsPage() {
     );
   }
 
+  // Tri pour s'assurer que les plus récents ou JSecchi apparaissent bien
+  const sortedUsers = allUsers ? [...allUsers].sort((a, b) => (a.loginId || '').localeCompare(b.loginId || '')) : [];
+
   return (
     <DashboardLayout>
       <div className="max-w-6xl mx-auto py-10 px-6 space-y-8">
@@ -189,7 +193,7 @@ export default function AccountsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {allUsers?.map((u) => {
+                  {sortedUsers.map((u) => {
                     const company = allCompanies?.find(c => c.id === u.companyId);
                     const companyDisplayName = company?.name || u.companyId || "Non assigné";
 

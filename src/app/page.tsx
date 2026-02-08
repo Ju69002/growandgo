@@ -41,7 +41,7 @@ export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [isCalendarFull, setIsCalendarFull] = useState(false);
 
-  // RÈGLE DE HOOKS : TOUS LES HOOKS EN HAUT
+  // TOUS LES HOOKS EN HAUT (REGLE REACT)
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user) return null;
     return doc(db, 'users', user.uid);
@@ -72,7 +72,7 @@ export default function Home() {
     setMounted(true);
   }, []);
 
-  // Force l'affichage du Login si aucune session n'est détectée
+  // REDIRECTION SI NON CONNECTE
   useEffect(() => {
     if (mounted && !isUserLoading && !user) {
       router.push('/login');
@@ -126,18 +126,19 @@ export default function Home() {
     return tasks.sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [mounted, documents, meetings]);
 
-  // RENDU CONDITIONNEL APRÈS LES HOOKS
+  // AFFICHAGE DES ETATS DE CHARGEMENT
   if (!mounted || isUserLoading || isProfileLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
+      <div className="flex items-center justify-center min-h-screen bg-[#F5F2EA]">
         <div className="text-center space-y-4">
-          <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto" />
-          <p className="text-muted-foreground font-black uppercase text-[10px] tracking-widest">Chargement du Studio...</p>
+          <Loader2 className="w-10 h-10 animate-spin text-[#1E4D3B] mx-auto" />
+          <p className="text-[#1E4D3B] font-black uppercase text-[10px] tracking-widest opacity-50">Studio Grow&Go...</p>
         </div>
       </div>
     );
   }
 
+  // SI TOUJOURS PAS D'UTILISATEUR (SECURITE)
   if (!user || !profile) return null;
 
   const isSuperAdmin = profile.role === 'super_admin';
