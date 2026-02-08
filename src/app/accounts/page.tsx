@@ -24,7 +24,7 @@ import {
   deleteDocumentNonBlocking
 } from '@/firebase';
 import { collection, doc, query } from 'firebase/firestore';
-import { User } from '@/lib/types';
+import { User, UserRole } from '@/lib/types';
 import { 
   ShieldCheck, 
   Trash2, 
@@ -36,7 +36,8 @@ import {
   Building,
   Ban,
   CheckCircle2,
-  Calendar
+  Calendar,
+  UserCircle
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useMemo, useEffect } from 'react';
@@ -58,6 +59,13 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn, normalizeId } from '@/lib/utils';
 
 export default function AccountsPage() {
@@ -69,10 +77,12 @@ export default function AccountsPage() {
   // States pour les dialogues partagés
   const [editingPasswordUser, setEditingPasswordUser] = useState<User | null>(null);
   const [editingCompanyUser, setEditingCompanyUser] = useState<User | null>(null);
+  const [editingRoleUser, setEditingRoleUser] = useState<User | null>(null);
   const [deletingUser, setDeletingUser] = useState<User | null>(null);
   
   const [newPassword, setNewPassword] = useState('');
   const [newCompanyName, setNewCompanyName] = useState('');
+  const [newRole, setNewRole] = useState<UserRole>('employee');
 
   useEffect(() => {
     setMounted(true);
@@ -163,6 +173,17 @@ export default function AccountsPage() {
     setEditingCompanyUser(null);
   };
 
+  const handleUpdateRole = () => {
+    if (!db || !editingRoleUser) return;
+    updateAllUserDocs(editingRoleUser.loginId, { 
+      role: newRole,
+      adminMode: newRole !== 'employee',
+      isCategoryModifier: newRole !== 'employee'
+    });
+    toast({ title: "Rôle mis à jour", description: `L'utilisateur est désormais ${newRole.toUpperCase()}.` });
+    setEditingRoleUser(null);
+  };
+
   if (!mounted || isProfileLoading || isUsersLoading) return <div className="flex items-center justify-center min-h-screen bg-[#F5F2EA]"><Loader2 className="animate-spin text-primary opacity-50" /></div>;
 
   if (!isSuperAdmin) return <div className="flex flex-col items-center justify-center min-h-screen bg-[#F5F2EA] p-8 text-center gap-6"><ShieldAlert className="w-20 h-20 text-primary opacity-20" /><h1 className="text-2xl font-black uppercase tracking-tighter text-primary">Accès Admin Requis</h1><Button onClick={() => window.location.href = '/'}>Retour à l'accueil</Button></div>;
@@ -221,14 +242,29 @@ export default function AccountsPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge className={
-                        u.role === 'super_admin' ? "bg-rose-950" : 
-                        u.role === 'admin' ? "bg-primary" : 
-                        u.role === 'particulier' ? "bg-amber-600" :
-                        "bg-primary"
-                      }>
-                        {u.role === 'super_admin' ? 'ADMIN' : u.role === 'admin' ? 'PATRON' : u.role === 'particulier' ? 'PARTICULIER' : 'EMPLOYÉ'}
-                      </Badge>
+                      <div className="flex items-center gap-2 group">
+                        <Badge className={
+                          u.role === 'super_admin' ? "bg-rose-950" : 
+                          u.role === 'admin' ? "bg-primary" : 
+                          u.role === 'particulier' ? "bg-amber-600" :
+                          "bg-primary"
+                        }>
+                          {u.role === 'super_admin' ? 'ADMIN' : u.role === 'admin' ? 'PATRON' : u.role === 'particulier' ? 'PARTICULIER' : 'EMPLOYÉ'}
+                        </Badge>
+                        {u.role !== 'super_admin' && (
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-6 w-6 opacity-0 group-hover:opacity-100 text-primary"
+                            onClick={() => {
+                              setEditingRoleUser(u);
+                              setNewRole(u.role);
+                            }}
+                          >
+                            <Edit2 className="w-3 h-3" />
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       {u.role !== 'super_admin' ? (
@@ -317,6 +353,37 @@ export default function AccountsPage() {
             )}
           </div>
           <DialogFooter><Button onClick={handleUpdateCompany} className="rounded-full bg-primary">Mettre à jour & Lier</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editingRoleUser} onOpenChange={(open) => !open && setEditingRoleUser(null)}>
+        <DialogContent className="rounded-[2rem]">
+          <DialogHeader>
+            <DialogTitle>Modifier le rôle</DialogTitle>
+            <DialogDescription>Changement des permissions pour <strong>{editingRoleUser?.loginId}</strong>.</DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="space-y-1">
+              <span className="text-[10px] font-black uppercase text-muted-foreground">Nouveau Rôle</span>
+              <Select value={newRole} onValueChange={(v) => setNewRole(v as UserRole)}>
+                <SelectTrigger className="rounded-xl h-12 font-bold">
+                  <SelectValue placeholder="Choisir un rôle" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Patron</SelectItem>
+                  <SelectItem value="particulier">Particulier</SelectItem>
+                  <SelectItem value="employee">Employé</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="p-4 bg-muted/50 rounded-xl border flex items-start gap-3">
+              <UserCircle className="w-5 h-5 text-primary mt-0.5" />
+              <p className="text-xs leading-relaxed font-medium">
+                Les rôles <strong>Patron</strong> et <strong>Particulier</strong> ont des accès complets. Le rôle <strong>Employé</strong> est restreint aux dossiers autorisés.
+              </p>
+            </div>
+          </div>
+          <DialogFooter><Button onClick={handleUpdateRole} className="rounded-full bg-primary">Appliquer le changement</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
