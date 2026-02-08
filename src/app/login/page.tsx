@@ -65,7 +65,6 @@ export default function LoginPage() {
         finalCompanyName = 'Grow&Go HQ';
       }
 
-      // Création du profil UNIQUE
       await setDoc(doc(db, 'users', profileId), {
         uid: profileId,
         isProfile: true,
@@ -82,7 +81,6 @@ export default function LoginPage() {
         createdAt: new Date().toISOString()
       });
 
-      // Création des catégories par défaut demandées
       const batch = writeBatch(db);
       const defaultCategories = [
         { id: 'agenda', label: 'Agenda Équipe', icon: 'agenda', subCategories: [] },
