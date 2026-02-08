@@ -33,6 +33,7 @@ export default function LoginPage() {
   const { toast } = useToast();
   const logo = PlaceHolderImages.find(img => img.id === 'app-logo');
 
+  // Récupération en temps réel des identifiants pour le répertoire latéral
   const usersQuery = useMemoFirebase(() => {
     if (!db) return null;
     return query(collection(db, 'users'));
@@ -40,6 +41,7 @@ export default function LoginPage() {
 
   const { data: allUsers } = useCollection<User>(usersQuery);
 
+  // Assure qu'une entreprise existe pour l'utilisateur
   const ensureCompanyExists = async (companyId: string, companyName: string) => {
     if (!db) return;
     const companyRef = doc(db, 'companies', companyId);
@@ -58,6 +60,7 @@ export default function LoginPage() {
     }
   };
 
+  // Crée ou met à jour le profil Firestore
   const createProfile = async (uid: string, loginId: string, role: string, displayName: string, pass: string, cName?: string) => {
     if (!db) return;
     const lowerId = loginId.toLowerCase().trim();
@@ -86,7 +89,7 @@ export default function LoginPage() {
       name: displayName || loginId,
       loginId: loginId.trim(),
       loginId_lower: lowerId,
-      password: pass,
+      password: pass, // Stockage en clair pour les tests comme demandé
       email: `${lowerId}@studio.internal`,
       createdAt: new Date().toISOString()
     }, { merge: true });
@@ -104,6 +107,7 @@ export default function LoginPage() {
       const internalEmail = `${lowerId}@studio.internal`;
       
       if (isSignUp) {
+        // VERIFICATION DE DOUBLON LORS DE L'INSCRIPTION
         if (!companyName.trim()) throw new Error("Le nom de l'entreprise est requis.");
         
         const usersRef = collection(db, 'users');
@@ -111,18 +115,23 @@ export default function LoginPage() {
         const checkSnap = await getDocs(q);
         if (!checkSnap.empty) throw new Error("Cet identifiant est déjà utilisé.");
 
+        // Création Auth
         const userCredential = await createUserWithEmailAndPassword(auth, internalEmail, password);
+        // Création Profil
         await createProfile(userCredential.user.uid, normalizedId, 'employee', name || normalizedId, password, companyName);
 
+        // Déconnexion obligatoire pour forcer le login propre
         await signOut(auth);
         setSignUpSuccess(true);
         setIsSignUp(false);
         setPassword('');
         setName('');
         setCompanyName('');
-        toast({ title: "Compte créé !", description: "Identifiez-vous pour accéder à votre studio." });
+        toast({ title: "Compte créé avec succès !", description: "Identifiez-vous maintenant pour accéder à votre espace." });
       } else {
+        // CONNEXION
         if (lowerId === 'jsecchi' && password === 'Meqoqo1998') {
+          // Gestion JSecchi fixe
           try {
             await signInWithEmailAndPassword(auth, internalEmail, password);
           } catch (e: any) {
@@ -132,7 +141,9 @@ export default function LoginPage() {
           }
           await createProfile(auth.currentUser!.uid, 'JSecchi', 'super_admin', 'Julien Secchi', password);
         } else {
+          // Connexion standard
           const userCredential = await signInWithEmailAndPassword(auth, internalEmail, password);
+          // Mise à jour du mot de passe dans Firestore pour l'affichage en clair (tests)
           const userDocRef = doc(db, 'users', userCredential.user.uid);
           await setDoc(userDocRef, { password: password }, { merge: true });
         }
@@ -143,7 +154,7 @@ export default function LoginPage() {
     } catch (error: any) {
       console.error("Auth Error:", error);
       let message = "Identifiant ou mot de passe incorrect.";
-      if (error.code === 'auth/email-already-in-use') message = "Cet identifiant est déjà pris.";
+      if (error.code === 'auth/email-already-in-use') message = "Cet identifiant est déjà utilisé.";
       if (error.message) message = error.message;
       toast({ variant: "destructive", title: "Erreur d'accès", description: message });
     } finally {
@@ -155,6 +166,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-[#F5F2EA] flex items-center justify-center p-4">
       <div className="flex flex-col md:flex-row gap-8 items-start max-w-5xl w-full">
         
+        {/* REPERTOIRE LATERAL DES ACCÈS (DEDOUPLÉ PAR LOGIN ID) */}
         <div className="w-full md:w-80 space-y-4 md:sticky md:top-10">
           <div className="bg-white p-6 rounded-[2rem] shadow-xl border-none">
             <div className="flex items-center gap-2 mb-4 text-[#1E4D3B]">
@@ -176,7 +188,7 @@ export default function LoginPage() {
                     </div>
                     <div className="flex items-center gap-1.5 text-rose-950">
                       <Key className="w-3 h-3 opacity-50" />
-                      <span className="text-[10px] font-mono font-black">{u.password || 'Meqoqo1998'}</span>
+                      <span className="text-[10px] font-mono font-black">{u.password || '••••••••'}</span>
                     </div>
                     <span className="text-[8px] text-muted-foreground truncate opacity-70 italic">{u.name}</span>
                   </div>
@@ -188,6 +200,7 @@ export default function LoginPage() {
           </div>
         </div>
 
+        {/* FORMULAIRE DE CONNEXION / INSCRIPTION */}
         <Card className="flex-1 w-full shadow-2xl border-none p-4 rounded-[2.5rem] bg-white">
           <CardHeader className="text-center space-y-4">
             <div className="relative w-20 h-20 mx-auto overflow-hidden rounded-2xl border bg-white shadow-xl">
