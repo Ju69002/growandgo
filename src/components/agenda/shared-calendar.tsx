@@ -114,7 +114,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
   // Plage horaire strictly de 8h à 20h
   const startHour = 8;
   const endHour = 20;
-  const hourHeight = 45; 
+  const hourHeight = 52; // Ajusté pour tenir sans scroll dans h-[750px]
 
   const eventsQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
@@ -280,7 +280,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
     const totalHeight = hours.length * hourHeight;
 
     return (
-      <div className={cn("flex flex-col h-full bg-card overflow-hidden animate-in fade-in duration-300", !isCompact && "p-8")}>
+      <div className={cn("flex flex-col h-full bg-card overflow-hidden animate-in fade-in duration-300", !isCompact && "p-6")}>
         <div className={cn("flex items-center justify-between px-6 py-4 border-b bg-muted/5 mb-4 rounded-2xl", isCompact && "py-2")}>
            <div className="flex items-center gap-6">
              <div className="flex bg-white border rounded-full p-1 shadow-sm">
@@ -346,7 +346,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
                           key={event.id} 
                           onMouseDown={(e) => handleMouseDown(e, event)}
                           className={cn(
-                            "absolute left-0 right-0 mx-1 z-10 rounded-xl border-l-4 shadow-sm cursor-pointer p-2 overflow-hidden flex flex-col select-none transition-all",
+                            "absolute left-0 right-0 mx-1 z-10 rounded-xl border-l-4 shadow-sm cursor-pointer p-3 overflow-hidden flex flex-col select-none transition-all",
                             event.source === 'google' ? "bg-white border-primary" : "bg-amber-50/90 border-amber-500",
                             isCurrentDragged && "z-30 opacity-90 scale-[1.02] shadow-2xl ring-2 ring-primary"
                           )}
@@ -356,10 +356,10 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
                             height: `${height}px`
                           }}
                         >
-                          <span className="font-black text-primary/40 text-[9px] mb-0.5 leading-none">
+                          <span className="font-black text-primary/40 text-[9px] mb-1 leading-none">
                             {format(isCurrentDragged ? addMinutes(start, (dragOffset/hourHeight)*60) : start, "HH:mm")}
                           </span>
-                          <h4 className="font-bold text-[11px] leading-tight text-primary break-words line-clamp-2 mt-0.5">
+                          <h4 className="font-bold text-[12px] leading-snug text-primary break-words mt-0.5">
                             {event.titre}
                           </h4>
                         </div>

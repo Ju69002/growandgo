@@ -68,7 +68,7 @@ export default function Home() {
       syncLockRef.current = true;
       const timer = setTimeout(() => {
         syncBillingTasks(db, user.uid, allUsers);
-      }, 2000);
+      }, 1000);
       return () => clearTimeout(timer);
     }
   }, [db, user, isSuperAdmin, allUsers]);
@@ -92,7 +92,7 @@ export default function Home() {
 
     return pendingTasks
       .filter(task => {
-        // On affiche les tâches V1
+        // Filtrer strictement sur la version V1 stable
         if (task.isBillingTask && !task.id.startsWith('billing_v1')) return false;
         try {
           const taskDate = parse(task.createdAt, 'dd/MM/yyyy', new Date());
@@ -140,7 +140,7 @@ export default function Home() {
           </div>
         </header>
 
-        {/* Tâches de la semaine - EN HAUT PLEINE LARGEUR */}
+        {/* Tâches de la semaine - PRIORITAIRE EN HAUT */}
         <section className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-black uppercase tracking-tighter flex items-center gap-2">
@@ -149,7 +149,7 @@ export default function Home() {
             </h2>
           </div>
           
-          <div className="grid grid-cols-1 gap-6">
+          <div className="grid grid-cols-1 gap-4">
             {isTasksLoading ? (
               Array(2).fill(0).map((_, i) => (
                 <div key={i} className="h-24 bg-muted/50 rounded-2xl animate-pulse" />
@@ -163,10 +163,10 @@ export default function Home() {
                     className="block"
                   >
                     <Card className={cn(
-                      "border-none shadow-sm hover:shadow-md transition-all rounded-2xl overflow-hidden group h-full min-h-[100px]",
+                      "border-none shadow-sm hover:shadow-md transition-all rounded-2xl overflow-hidden group h-full",
                       task.isBillingTask && "bg-amber-50/50 border border-amber-100"
                     )}>
-                      <CardContent className="p-6 flex items-center gap-6 h-full">
+                      <CardContent className="p-6 flex items-center gap-6">
                         <div className={cn(
                           "p-3 rounded-xl shrink-0",
                           task.isBillingTask ? "bg-amber-100 text-amber-600" : "bg-primary/5 text-primary"
@@ -199,7 +199,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Agenda - PLEINE LARGEUR */}
+        {/* Agenda - PLEINE LARGEUR SANS SCROLL */}
         <section className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-black uppercase tracking-tighter flex items-center gap-2">
