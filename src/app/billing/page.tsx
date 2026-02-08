@@ -95,17 +95,23 @@ export default function BillingPage() {
 
   const uniqueProfiles = useMemo(() => {
     if (!allUsers) return [];
-    return Array.from(
-      new Map(
-        allUsers
-          .filter(u => u.loginId || u.loginId_lower)
-          .sort((a, b) => (a.isProfile ? 1 : -1))
-          .map(u => {
-            const lowerId = (u.loginId_lower || u.loginId?.toLowerCase());
-            return [lowerId, u];
-          })
-      ).values()
-    ).sort((a, b) => (a.role === 'super_admin' ? -1 : 1));
+    
+    const userGroups = new Map<string, User[]>();
+    allUsers.forEach(u => {
+      const id = (u.loginId_lower || u.loginId?.toLowerCase() || '').trim();
+      if (!id) return;
+      if (!userGroups.has(id)) userGroups.set(id, []);
+      userGroups.get(id)!.push(u);
+    });
+
+    return Array.from(userGroups.entries()).map(([id, docs]) => {
+      const profileDoc = docs.find(d => d.isProfile === true);
+      const baseDoc = profileDoc || docs[0];
+      
+      const bestName = docs.find(d => d.name && d.name.toLowerCase() !== id.toLowerCase())?.name || baseDoc.name || baseDoc.loginId;
+      
+      return { ...baseDoc, name: bestName };
+    }).sort((a, b) => (a.role === 'super_admin' ? -1 : 1));
   }, [allUsers]);
 
   if (!mounted) return null;

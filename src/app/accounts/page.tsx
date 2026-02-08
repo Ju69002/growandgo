@@ -77,7 +77,6 @@ export default function AccountsPage() {
   const { toast } = useToast();
   const [mounted, setMounted] = useState(false);
   
-  // States pour les dialogues partagés
   const [editingPasswordUser, setEditingPasswordUser] = useState<User | null>(null);
   const [editingCompanyUser, setEditingCompanyUser] = useState<User | null>(null);
   const [editingRoleUser, setEditingRoleUser] = useState<User | null>(null);
@@ -110,31 +109,36 @@ export default function AccountsPage() {
 
   const { data: allProfiles, isLoading: isUsersLoading } = useCollection<User>(profilesQuery);
 
-  // Mémoïsation de la liste unique avec nettoyage des noms d'entreprise
   const uniqueUsers = useMemo(() => {
     if (!allProfiles) return [];
-    return Array.from(
-      new Map(
-        allProfiles
-          .filter(u => u.loginId || u.loginId_lower)
-          .sort((a, b) => (a.isProfile ? 1 : -1))
-          .map(u => {
-            const lowerId = (u.loginId_lower || u.loginId?.toLowerCase());
-            let finalUser = { ...u };
-            
-            if (lowerId === 'jsecchi') {
-              finalUser.companyName = "GrowAndGo";
-              finalUser.companyId = "GrowAndGo";
-            } else if (u.role === 'particulier') {
-              finalUser.companyName = "Espace Privé";
-            } else if (!u.companyName && u.companyId) {
-              finalUser.companyName = u.companyId;
-            }
-            
-            return [lowerId, finalUser];
-          })
-      ).values()
-    ).sort((a, b) => (a.role === 'super_admin' ? -1 : 1));
+    
+    const userGroups = new Map<string, User[]>();
+    allProfiles.forEach(u => {
+      const id = (u.loginId_lower || u.loginId?.toLowerCase() || '').trim();
+      if (!id) return;
+      if (!userGroups.has(id)) userGroups.set(id, []);
+      userGroups.get(id)!.push(u);
+    });
+
+    return Array.from(userGroups.entries()).map(([id, docs]) => {
+      const profileDoc = docs.find(d => d.isProfile === true);
+      const baseDoc = profileDoc || docs[0];
+      
+      const bestName = docs.find(d => d.name && d.name.toLowerCase() !== id.toLowerCase())?.name || baseDoc.name || baseDoc.loginId;
+      
+      let finalUser = { ...baseDoc, name: bestName };
+      
+      if (id === 'jsecchi') {
+        finalUser.companyName = "GrowAndGo";
+        finalUser.companyId = "GrowAndGo";
+      } else if (finalUser.role === 'particulier') {
+        finalUser.companyName = "Espace Privé";
+      } else if (!finalUser.companyName && finalUser.companyId) {
+        finalUser.companyName = finalUser.companyId;
+      }
+      
+      return finalUser;
+    }).sort((a, b) => (a.role === 'super_admin' ? -1 : 1));
   }, [allProfiles]);
 
   const updateAllUserDocs = async (loginId: string, updates: Partial<User>) => {
