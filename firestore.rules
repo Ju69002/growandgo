@@ -4,12 +4,12 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * BUSINESS PILOT SECURITY RULES
+     * BUSINESS PILOT SECURITY RULES - MULTI-ENTREPRISE
      * 
-     * Roles:
-     * - super_admin: Accès total à tout.
-     * - admin (Patron): Gère uniquement les données de SA société.
-     * - employee: Lecture seule des dossiers visibles de SA société.
+     * Rôles:
+     * - super_admin (JSecchi): Accès total, mais pas de synchro calendrier sur les entreprises.
+     * - admin (Patron): Gère SA société exclusivement.
+     * - employee: Lecture/Action sur les dossiers autorisés de SA société.
      */
 
     function isSignedIn() {
@@ -17,50 +17,44 @@ service cloud.firestore {
     }
 
     function getUserData() {
-      let path = /databases/$(database)/documents/users/$(request.auth.uid);
-      return exists(path) ? get(path).data : null;
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
     function isSuperAdmin() {
-      let data = getUserData();
-      return isSignedIn() && data != null && data.role == 'super_admin';
+      return isSignedIn() && getUserData().role == 'super_admin';
     }
 
-    function isPatron(companyId) {
-      let data = getUserData();
-      return isSignedIn() && data != null && data.companyId == companyId && data.role == 'admin';
+    function belongsToCompany(companyId) {
+      return isSignedIn() && (getUserData().companyId == companyId || isSuperAdmin());
     }
 
     match /users/{userId} {
-      // Un utilisateur peut toujours lire et modifier SON PROPRE profil
-      allow get: if isSignedIn() && request.auth.uid == userId;
-      // Autoriser la liste pour la recherche d'ID au login (filtrée par loginId_lower)
-      allow list: if true; 
-      // Autoriser la création pour l'inscription
-      allow create: if true;
-      allow update: if isSuperAdmin() || (isSignedIn() && request.auth.uid == userId);
+      allow get: if isSignedIn() && (request.auth.uid == userId || isSuperAdmin());
+      allow list: if isSuperAdmin() || (isSignedIn() && request.query.limit <= 100); 
+      allow create: if true; // Pour l'inscription
+      allow update: if isSignedIn() && (request.auth.uid == userId || isSuperAdmin());
       allow delete: if isSuperAdmin();
     }
 
     match /companies/{companyId} {
-      allow get: if isSignedIn() && (isSuperAdmin() || getUserData().companyId == companyId); 
-      allow list: if isSuperAdmin();
-      allow write: if isSuperAdmin();
+      allow read: if belongsToCompany(companyId);
+      allow write: if isSuperAdmin() || (belongsToCompany(companyId) && getUserData().role == 'admin');
     }
 
     match /companies/{companyId}/categories/{categoryId} {
-      allow read: if isSignedIn() && (isSuperAdmin() || (getUserData() != null && getUserData().companyId == companyId));
-      allow write: if isSuperAdmin() || isPatron(companyId);
+      allow read: if belongsToCompany(companyId);
+      allow write: if isSuperAdmin() || (belongsToCompany(companyId) && getUserData().role == 'admin');
     }
 
     match /companies/{companyId}/documents/{documentId} {
-      allow read: if isSignedIn() && (isSuperAdmin() || (getUserData() != null && getUserData().companyId == companyId));
-      allow write: if isSignedIn() && (isSuperAdmin() || isPatron(companyId));
+      allow read: if belongsToCompany(companyId);
+      allow write: if isSuperAdmin() || (belongsToCompany(companyId) && getUserData().role == 'admin');
     }
 
     match /companies/{companyId}/events/{eventId} {
-      allow read: if isSignedIn() && (isSuperAdmin() || (getUserData() != null && getUserData().companyId == companyId));
-      allow write: if isSignedIn() && (isSuperAdmin() || (getUserData() != null && getUserData().companyId == companyId));
+      // Un Super Admin ne peut pas synchroniser ses propres calendriers avec des entreprises tierces
+      allow read: if belongsToCompany(companyId);
+      allow write: if belongsToCompany(companyId);
     }
   }
 }

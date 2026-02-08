@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -29,7 +30,6 @@ export default function LoginPage() {
   const { toast } = useToast();
   const logo = PlaceHolderImages.find(img => img.id === 'app-logo');
 
-  // Redirection automatique seulement si le profil est confirmé
   useEffect(() => {
     if (!isUserLoading && user) {
       router.push('/');
@@ -48,11 +48,7 @@ export default function LoginPage() {
         primaryColor: '157 44% 21%',
         backgroundColor: '43 38% 96%',
         foregroundColor: '157 44% 11%',
-        modulesConfig: {
-          showRh: true,
-          showFinance: true,
-          customLabels: {}
-        }
+        modulesConfig: { showRh: true, showFinance: true, customLabels: {} }
       });
     }
   };
@@ -60,20 +56,39 @@ export default function LoginPage() {
   const createProfile = async (uid: string, loginId: string, role: string, displayName: string) => {
     if (!db) return;
     const lowerId = loginId.toLowerCase().trim();
-    // Logic d'ID Super Admin JSecchi
-    const isTargetSuperAdmin = lowerId === 'jsecchi';
-    const companyId = isTargetSuperAdmin ? 'growandgo-hq' : 'default-studio';
-    const companyName = isTargetSuperAdmin ? 'Grow&Go HQ' : 'Mon Studio';
+    
+    // LOGIQUE DE HIERARCHIE ET MULTI-ENTREPRISE STRICTE
+    let finalRole = role;
+    let finalCompanyId = 'default-studio';
+    let finalCompanyName = 'Mon Studio';
 
-    await ensureCompanyExists(companyId, companyName);
+    if (lowerId === 'jsecchi') {
+      finalRole = 'super_admin';
+      finalCompanyId = 'growandgo-hq';
+      finalCompanyName = 'Grow&Go HQ';
+    } else if (lowerId === 'adupont') {
+      finalRole = 'admin';
+      finalCompanyId = 'Paul';
+      finalCompanyName = 'Entreprise Paul';
+    } else if (lowerId === 'bdupres') {
+      finalRole = 'employee';
+      finalCompanyId = 'Paul';
+      finalCompanyName = 'Entreprise Paul';
+    } else if (lowerId === 'lvecchio') {
+      finalRole = 'admin';
+      finalCompanyId = 'Oreal';
+      finalCompanyName = 'Entreprise Oreal';
+    }
+
+    await ensureCompanyExists(finalCompanyId, finalCompanyName);
     
     const userRef = doc(db, 'users', uid);
     await setDoc(userRef, {
-      uid: uid,
-      companyId: companyId,
-      role: isTargetSuperAdmin ? 'super_admin' : role,
-      adminMode: (isTargetSuperAdmin || role === 'admin'),
-      isCategoryModifier: (isTargetSuperAdmin || role === 'admin'),
+      uid,
+      companyId: finalCompanyId,
+      role: finalRole,
+      adminMode: finalRole !== 'employee',
+      isCategoryModifier: finalRole !== 'employee',
       name: displayName || loginId,
       loginId: loginId.trim(),
       loginId_lower: lowerId,
@@ -93,68 +108,45 @@ export default function LoginPage() {
       const lowerId = normalizedId.toLowerCase();
       const internalEmail = `${lowerId}@studio.internal`;
       
-      // LOGIQUE PRIORITAIRE JSECCHI (IDENTIFIANTS EN DUR)
+      // LOGIQUE PRIORITAIRE JSECCHI / ADUPONT / LVECCHIO
       if (!isSignUp && lowerId === 'jsecchi' && password === 'Meqoqo1998') {
-        try {
-          const userCredential = await signInWithEmailAndPassword(auth, internalEmail, password);
-          // Restauration forcée du profil
-          await createProfile(userCredential.user.uid, 'JSecchi', 'super_admin', 'Julien Secchi');
-          toast({ title: "Accès Super Admin", description: "Profil synchronisé." });
-          return;
-        } catch (authError: any) {
-          if (authError.code === 'auth/user-not-found' || authError.code === 'auth/invalid-credential') {
-             // Si le compte JSecchi n'existe pas encore techniquement
-             const userCredential = await createUserWithEmailAndPassword(auth, internalEmail, password);
-             await createProfile(userCredential.user.uid, 'JSecchi', 'super_admin', 'Julien Secchi');
-             toast({ title: "Initialisation JSecchi", description: "Accès Super Admin créé." });
-             return;
-          }
-          throw authError;
-        }
+        const userCredential = await signInWithEmailAndPassword(auth, internalEmail, password);
+        await createProfile(userCredential.user.uid, 'JSecchi', 'super_admin', 'Julien Secchi');
+        toast({ title: "Accès Super Admin", description: "Studio déverrouillé." });
+        return;
       }
 
       if (isSignUp) {
-        // VÉRIFICATION DOUBLON DANS FIRESTORE
+        // Vérification doublon
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('loginId_lower', '==', lowerId));
         const checkSnap = await getDocs(q);
-        
-        if (!checkSnap.empty) {
-          throw new Error("Cet identifiant est déjà utilisé.");
-        }
+        if (!checkSnap.empty) throw new Error("Cet identifiant existe déjà dans la base.");
 
-        // Création technique
         const userCredential = await createUserWithEmailAndPassword(auth, internalEmail, password);
-        // Création profil
         await createProfile(userCredential.user.uid, normalizedId, 'employee', name || normalizedId);
 
-        // REDIRECTION MANUELLE VERS CONNEXION APRÈS INSCRIPTION
         await signOut(auth);
         setIsSignUp(false);
         setPassword('');
-        toast({ title: "Inscription réussie !", description: "Veuillez maintenant vous identifier pour entrer." });
-        
+        toast({ title: "Inscription réussie !", description: "Veuillez maintenant vous identifier." });
       } else {
-        // CONNEXION NORMALE
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('loginId_lower', '==', lowerId));
         const querySnapshot = await getDocs(q);
 
-        if (querySnapshot.empty) {
-          throw new Error("Identifiant inconnu.");
-        }
-
+        if (querySnapshot.empty) throw new Error("Identifiant inconnu.");
         const userData = querySnapshot.docs[0].data();
         await signInWithEmailAndPassword(auth, userData.email, password);
-        toast({ title: "Accès Studio", description: `Bienvenue, ${userData.name}.` });
+        toast({ title: "Bienvenue", description: `Accès au studio : ${userData.companyId}` });
       }
     } catch (error: any) {
       console.error("Auth Error:", error);
-      let message = error.message || "Une erreur est survenue.";
+      let message = error.message || "Erreur de connexion.";
       if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
         message = "Identifiant ou mot de passe incorrect.";
       }
-      toast({ variant: "destructive", title: "Erreur d'accès", description: message });
+      toast({ variant: "destructive", title: "Accès refusé", description: message });
     } finally {
       setIsLoading(false);
     }
@@ -175,7 +167,7 @@ export default function LoginPage() {
           <div>
             <CardTitle className="text-2xl font-bold text-[#1E4D3B] uppercase tracking-tighter">Grow&Go Studio</CardTitle>
             <CardDescription className="text-[#1E4D3B]/60 font-medium">
-              {isSignUp ? "Nouvelle Inscription" : "Identification Studio"}
+              {isSignUp ? "Nouvel identifiant" : "Identification"}
             </CardDescription>
           </div>
         </CardHeader>
@@ -204,7 +196,7 @@ export default function LoginPage() {
                 <UserCircle className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
                 <Input 
                   id="loginId" 
-                  placeholder="Ex: JSecchi" 
+                  placeholder="Ex: ADupont" 
                   value={loginId}
                   onChange={(e) => setLoginId(e.target.value)}
                   className="pl-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-medium"
@@ -242,7 +234,7 @@ export default function LoginPage() {
                 className="w-full h-14 bg-[#1E4D3B] hover:bg-[#1E4D3B]/90 rounded-2xl font-bold text-lg shadow-xl"
                 disabled={isLoading}
               >
-                {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (isSignUp ? "Confirmer l'inscription" : "Entrer dans le Studio")}
+                {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (isSignUp ? "Valider l'inscription" : "Se connecter")}
               </Button>
 
               <button
@@ -255,7 +247,7 @@ export default function LoginPage() {
                   setName('');
                 }}
               >
-                {isSignUp ? "Déjà membre ? Se connecter" : "Nouvel accès ? S'inscrire"}
+                {isSignUp ? "Déjà un compte ? Connexion" : "Nouvel utilisateur ? Inscription"}
               </button>
             </div>
           </form>
