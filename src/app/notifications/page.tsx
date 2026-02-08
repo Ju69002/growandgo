@@ -32,15 +32,18 @@ export default function NotificationsPage() {
 
   const pendingDocsQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
-    // On exclut les tâches de facturation des notifications
+    // On utilise une clause 'in' car Firestore n'autorise pas plusieurs '!='
+    // On exclut les tâches de facturation en filtrant isBillingTask !== true côté client
     return query(
       collection(db, 'companies', companyId, 'documents'),
-      where('status', '!=', 'archived'),
-      where('isBillingTask', '!=', true)
+      where('status', 'in', ['pending_analysis', 'waiting_verification', 'waiting_validation'])
     );
   }, [db, companyId]);
 
   const { data: tasks, isLoading } = useCollection<BusinessDocument>(pendingDocsQuery);
+
+  // Filtrage côté client pour éviter l'erreur Firestore multi-index
+  const filteredTasks = tasks?.filter(t => t.isBillingTask !== true) || [];
 
   return (
     <DashboardLayout>
@@ -59,8 +62,8 @@ export default function NotificationsPage() {
                 <CardContent className="h-24 bg-muted" />
               </Card>
             ))
-          ) : tasks && tasks.length > 0 ? (
-            tasks.map((task) => {
+          ) : filteredTasks.length > 0 ? (
+            filteredTasks.map((task) => {
               const config = statusConfig[task.status] || statusConfig.pending_analysis;
               return (
                 <Card key={task.id} className="hover:shadow-md transition-all border-none shadow-sm">

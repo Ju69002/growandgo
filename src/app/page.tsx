@@ -4,11 +4,10 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser, useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
-import { doc, collection, query, where } from 'firebase/firestore';
-import { User, BusinessDocument, CalendarEvent } from '@/lib/types';
+import { doc, collection, query } from 'firebase/firestore';
+import { User, CalendarEvent } from '@/lib/types';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { CategoryTiles } from '@/components/dashboard/category-tiles';
-import { SharedCalendar } from '@/components/agenda/shared-calendar';
 import { 
   FileText, 
   ChevronRight, 
@@ -25,8 +24,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { syncBillingTasks } from '@/services/billing-sync';
-import { startOfWeek, endOfWeek, isWithinInterval, parseISO, isValid } from 'date-fns';
+import { startOfWeek, endOfWeek, isWithinInterval, parseISO, isValid, format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { SharedCalendar } from '@/components/agenda/shared-calendar';
 
 export default function Home() {
   const router = useRouter();
@@ -82,7 +82,7 @@ export default function Home() {
 
   const { data: allEvents, isLoading: isEventsLoading } = useCollection<CalendarEvent>(eventsQuery);
 
-  // Déduction des tâches à faire à partir de l'agenda
+  // Déduction des tâches à faire à partir de l'agenda (Lundi au Dimanche)
   const weeklyTasks = useMemo(() => {
     if (!allEvents) return [];
     const now = new Date();
@@ -132,7 +132,7 @@ export default function Home() {
           </div>
         </header>
 
-        {/* Tâches de la semaine - DÉDUITES DE L'AGENDA */}
+        {/* 1. Tâches de la semaine - DÉDUITES DE L'AGENDA (EN HAUT) */}
         <section className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-black uppercase tracking-tighter flex items-center gap-2">
@@ -148,6 +148,7 @@ export default function Home() {
               ))
             ) : weeklyTasks.length > 0 ? (
               weeklyTasks.map((task) => {
+                const taskDate = parseISO(task.debut);
                 return (
                   <Link 
                     href="/billing" 
@@ -160,15 +161,15 @@ export default function Home() {
                           <Zap className="w-5 h-5" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-lg font-bold leading-tight line-clamp-2 group-hover:text-primary transition-colors">
+                          <p className="text-lg font-bold leading-tight line-clamp-1 group-hover:text-primary transition-colors">
                             {task.description || task.titre}
                           </p>
                           <div className="flex items-center justify-between mt-2">
                             <p className="text-[11px] font-black uppercase text-muted-foreground opacity-60 tracking-wider">
-                              À faire cette semaine
+                              Action de facturation client
                             </p>
                             <p className="text-[10px] font-bold text-primary/40">
-                              {format(parseISO(task.debut), 'dd/MM/yyyy')}
+                              {isValid(taskDate) ? format(taskDate, 'dd/MM/yyyy', { locale: fr }) : ''}
                             </p>
                           </div>
                         </div>
@@ -187,7 +188,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Agenda - PLEINE LARGEUR SANS SCROLL */}
+        {/* 2. Agenda - PLEINE LARGEUR SANS SCROLL (SOUS LES TÂCHES) */}
         <section className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-black uppercase tracking-tighter flex items-center gap-2">
@@ -211,7 +212,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Dossiers */}
+        {/* 3. Dossiers */}
         <section className="pt-10 border-t border-primary/10">
           <h2 className="text-2xl font-black uppercase tracking-tighter mb-8 flex items-center gap-3">
             <FileText className="w-7 h-7 text-primary" />

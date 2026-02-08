@@ -108,10 +108,10 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
     }
   }, [searchParams]);
 
-  // Plage horaire fixée de 8h à 20h
+  // Plage horaire fixée de 8h à 20h pour éviter le scroll vertical
   const startHour = 8;
   const endHour = 20;
-  const hourHeight = 45; // Hauteur optimisée pour tenir sans scroll dans 750px
+  const hourHeight = 42; // Hauteur optimisée pour tenir sans scroll dans 750px (13 créneaux)
 
   const eventsQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
