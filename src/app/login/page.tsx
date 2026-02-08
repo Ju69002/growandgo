@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useAuth, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { signInAnonymously } from 'firebase/auth';
-import { doc, getDoc, setDoc, collection, query, where, getDocs, serverTimestamp, deleteDoc } from 'firebase/firestore';
+import { doc, setDoc, collection, query, where, getDocs, serverTimestamp, deleteDoc, writeBatch } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Lock, UserCircle, Users, Key, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
 import Image from 'next/image';
@@ -35,18 +35,10 @@ export default function LoginPage() {
 
   const allUsersQuery = useMemoFirebase(() => {
     if (!db) return null;
-    return collection(db, 'users');
+    return query(collection(db, 'users'));
   }, [db]);
 
   const { data: allUsers, isLoading: isUsersLoading } = useCollection<User>(allUsersQuery);
-
-  const cleanOldProfiles = async (lowerId: string) => {
-    if (!db) return;
-    const q = query(collection(db, 'users'), where('loginId_lower', '==', lowerId));
-    const snap = await getDocs(q);
-    const deletePromises = snap.docs.map(d => deleteDoc(d.ref));
-    await Promise.all(deletePromises);
-  };
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,7 +54,7 @@ export default function LoginPage() {
         throw new Error("Cet identifiant existe déjà.");
       }
 
-      let finalRole = 'employee';
+      let finalRole = 'admin'; // Par défaut, le créateur est Patron
       let finalCompanyId = companyName.toLowerCase().trim().replace(/[^a-z0-9]/g, '-');
       let finalCompanyName = companyName;
 
@@ -72,12 +64,14 @@ export default function LoginPage() {
         finalCompanyName = 'Grow&Go HQ';
       }
 
+      // 1. Création de l'entreprise
       await setDoc(doc(db, 'companies', finalCompanyId), {
         id: finalCompanyId,
         name: finalCompanyName,
         subscriptionStatus: 'active'
       }, { merge: true });
       
+      // 2. Création du profil Maître
       const profileId = `profile_${lowerId}`;
       await setDoc(doc(db, 'users', profileId), {
         uid: profileId,
@@ -95,9 +89,33 @@ export default function LoginPage() {
         createdAt: new Date().toISOString()
       });
 
+      // 3. Création des catégories par défaut (Agenda, Finance, Administratif)
+      const batch = writeBatch(db);
+      
+      const defaultCategories = [
+        { id: 'agenda', label: 'Agenda Équipe', icon: 'agenda', color: 'text-amber-600 bg-amber-50' },
+        { id: 'admin', label: 'Administratif', icon: 'admin', color: 'text-blue-600 bg-blue-50' },
+        { id: 'finance', label: 'Finance', icon: 'finance', color: 'text-emerald-600 bg-emerald-50' }
+      ];
+
+      for (const cat of defaultCategories) {
+        const catRef = doc(db, 'companies', finalCompanyId, 'categories', cat.id);
+        batch.set(catRef, {
+          id: cat.id,
+          label: cat.label,
+          badgeCount: 0,
+          visibleToEmployees: true,
+          type: 'standard',
+          companyId: finalCompanyId,
+          icon: cat.icon,
+          subCategories: cat.id === 'admin' ? ['Contrats', 'Assurances'] : []
+        });
+      }
+      await batch.commit();
+
       setSignUpSuccess(true);
       setIsSignUp(false);
-      toast({ title: "Studio créé !", description: "Connectez-vous." });
+      toast({ title: "Studio créé !", description: "Vous pouvez maintenant vous connecter." });
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erreur", description: error.message });
     } finally {
@@ -149,7 +167,7 @@ export default function LoginPage() {
         lastLogin: serverTimestamp()
       });
 
-      toast({ title: "Connecté !" });
+      toast({ title: "Accès autorisé", description: `Bienvenue dans le studio ${profileData.companyName}` });
       router.push('/');
     } catch (error: any) {
       toast({ variant: "destructive", title: "Accès refusé", description: error.message });
@@ -202,7 +220,7 @@ export default function LoginPage() {
                     </div>
                   </div>
                 ))
-              ) : <p className="text-center text-[10px] uppercase font-bold text-muted-foreground">Vide</p>}
+              ) : <p className="text-center text-[10px] uppercase font-bold text-muted-foreground">Aucun compte</p>}
             </div>
           </div>
         </div>
@@ -215,7 +233,7 @@ export default function LoginPage() {
             <div>
               <CardTitle className="text-2xl font-bold text-[#1E4D3B] uppercase tracking-tighter">Grow&Go Studio</CardTitle>
               <CardDescription className="text-[#1E4D3B]/60 font-medium">
-                {signUpSuccess ? "Inscrit !" : isSignUp ? "Nouvelle Inscription" : "Connexion"}
+                {signUpSuccess ? "Inscription réussie !" : isSignUp ? "Nouveau Studio" : "Connexion Studio"}
               </CardDescription>
             </div>
           </CardHeader>
@@ -223,7 +241,7 @@ export default function LoginPage() {
             {signUpSuccess && (
               <div className="mb-6 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3">
                 <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                <p className="text-xs font-bold text-emerald-800 uppercase">Compte validé !</p>
+                <p className="text-xs font-bold text-emerald-800 uppercase">Votre espace est prêt. Connectez-vous.</p>
               </div>
             )}
 
@@ -235,8 +253,8 @@ export default function LoginPage() {
                     <Input placeholder="Prénom Nom" value={name} onChange={(e) => setName(e.target.value)} className="h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Entreprise</Label>
-                    <Input placeholder="Nom du studio" value={companyName} onChange={(e) => setCompanyName(e.target.value)} className="h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Nom du Studio (Entreprise)</Label>
+                    <Input placeholder="Ex: Studio Carrefour" value={companyName} onChange={(e) => setCompanyName(e.target.value)} className="h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
                   </div>
                 </>
               )}
@@ -265,7 +283,7 @@ export default function LoginPage() {
                   {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (isSignUp ? "Créer mon Studio" : "Se connecter")}
                 </Button>
                 <button type="button" className="w-full text-xs font-black uppercase tracking-widest text-[#1E4D3B]/60 py-2" onClick={() => { setSignUpSuccess(false); setIsSignUp(!isSignUp); }}>
-                  {isSignUp ? "Connexion" : "Nouvel identifiant ?"}
+                  {isSignUp ? "Déjà un compte ? Connexion" : "Nouveau ? Créer un studio"}
                 </button>
               </div>
             </form>

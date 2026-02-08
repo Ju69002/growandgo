@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -17,7 +16,7 @@ import {
   Bell
 } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useMemoFirebase } from '@/firebase';
-import { collection, query } from 'firebase/firestore';
+import { collection, query, where } from 'firebase/firestore';
 import { Category, User } from '@/lib/types';
 
 interface CategoryTilesProps {
@@ -53,9 +52,13 @@ export function CategoryTiles({ profile }: CategoryTilesProps) {
   const db = useFirestore();
   const companyId = profile.companyId;
 
+  // Règle forte : On ne récupère QUE les catégories de l'entreprise de l'utilisateur
   const categoriesQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
-    return query(collection(db, 'companies', companyId, 'categories'));
+    return query(
+      collection(db, 'companies', companyId, 'categories'),
+      where('companyId', '==', companyId)
+    );
   }, [db, companyId]);
 
   const { data: categories, isLoading } = useCollection<Category>(categoriesQuery);
@@ -72,18 +75,18 @@ export function CategoryTiles({ profile }: CategoryTilesProps) {
 
   const isAdminOrSuper = profile.role === 'admin' || profile.role === 'super_admin';
 
-  // Filtrage selon le rôle et la visibilité
+  // Règle de visibilité : Les employés voient exactement les mêmes catégories que le Patron
+  // Sauf si une catégorie est spécifiquement cachée (mais par défaut elles sont visibles)
   const displayableCategories = (categories || []).filter(cat => {
-    if (cat.id === 'agenda') return false;
-    
-    // Un patron ou super-admin voit tout pour gérer
+    // Un patron voit tout pour gestion
     if (isAdminOrSuper) return true;
     
-    // Un employé ne voit que ce qui est explicitement marqué comme visible
+    // Un employé voit tout ce qui appartient à son entreprise et est marqué visible
     return cat.visibleToEmployees === true;
   });
 
   const sortedCategories = [...displayableCategories].sort((a, b) => {
+    if (a.id === 'agenda') return -1; // Toujours l'agenda en premier
     if (a.type === 'standard' && b.type !== 'standard') return -1;
     if (a.type !== 'standard' && b.type === 'standard') return 1;
     return a.label.localeCompare(b.label);
@@ -122,8 +125,8 @@ export function CategoryTiles({ profile }: CategoryTilesProps) {
           <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4 group-hover:scale-110 group-hover:bg-primary/10 transition-transform">
             <Plus className="w-6 h-6 text-muted-foreground group-hover:text-primary" />
           </div>
-          <span className="font-bold text-muted-foreground group-hover:text-primary text-center text-sm uppercase tracking-widest">Nouvelle Catégorie</span>
-          <span className="text-[10px] text-muted-foreground mt-1 text-center font-medium">Demandez à l'IA de créer une tuile</span>
+          <span className="font-bold text-muted-foreground group-hover:text-primary text-center text-sm uppercase tracking-widest">Nouveau Dossier</span>
+          <span className="text-[10px] text-muted-foreground mt-1 text-center font-medium">L'IA créera ce dossier pour toute l'équipe</span>
         </button>
       )}
     </div>

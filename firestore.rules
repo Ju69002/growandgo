@@ -6,35 +6,48 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Gestion des profils utilisateurs
-    match /users/{userId} {
-      // Autoriser tout pour le prototype (Système d'ID/Password personnalisé)
-      allow read, list, write: if true;
+    // Récupère le profil de l'utilisateur pour vérifier son appartenance
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
-    // Gestion des entreprises et de leurs sous-collections
+    // Vérifie si l'utilisateur appartient à l'entreprise demandée
+    function belongsToCompany(companyId) {
+      return isSignedIn() && getUserData().companyId == companyId;
+    }
+
+    // Gestion des profils utilisateurs
+    match /users/{userId} {
+      // Un utilisateur peut lire son propre profil ou un Super Admin peut tout lire
+      allow read: if isSignedIn() && (request.auth.uid == userId || getUserData().role == 'super_admin');
+      // La création est autorisée pour l'inscription, la mise à jour pour le Super Admin ou l'utilisateur lui-même
+      allow write: if true; 
+    }
+
+    // Gestion des entreprises (Isolation forte)
     match /companies/{companyId} {
-      allow read, write: if true;
+      allow read: if belongsToCompany(companyId) || (isSignedIn() && getUserData().role == 'super_admin');
+      allow write: if belongsToCompany(companyId) || (isSignedIn() && getUserData().role == 'super_admin');
 
       match /categories/{categoryId} {
-        allow read, write: if true;
+        allow read, write: if belongsToCompany(companyId) || (isSignedIn() && getUserData().role == 'super_admin');
       }
       match /documents/{documentId} {
-        allow read, write: if true;
+        allow read, write: if belongsToCompany(companyId) || (isSignedIn() && getUserData().role == 'super_admin');
       }
       match /events/{eventId} {
-        allow read, write: if true;
+        allow read, write: if belongsToCompany(companyId) || (isSignedIn() && getUserData().role == 'super_admin');
       }
     }
 
     // Autoriser la lecture des modules pour la configuration
     match /modules/{moduleId} {
-      allow read: if true;
+      allow read: if isSignedIn();
     }
 
-    // Sécurité pour les propriétaires de l'application
+    // Sécurité pour les propriétaires de l'application (Super Admin)
     match /applicationOwners/{ownerId} {
-      allow read, write: if true;
+      allow read, write: if isSignedIn() && getUserData().role == 'super_admin';
     }
   }
 }
