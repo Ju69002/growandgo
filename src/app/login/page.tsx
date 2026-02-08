@@ -33,7 +33,6 @@ export default function LoginPage() {
   const { toast } = useToast();
   const logo = PlaceHolderImages.find(img => img.id === 'app-logo');
 
-  // Récupération en temps réel des IDs pour le répertoire latéral
   const usersQuery = useMemoFirebase(() => {
     if (!db) return null;
     return query(collection(db, 'users'));
@@ -87,7 +86,7 @@ export default function LoginPage() {
       name: displayName || loginId,
       loginId: loginId.trim(),
       loginId_lower: lowerId,
-      password: pass, // Stockage en clair pour le prototype
+      password: pass,
       email: `${lowerId}@studio.internal`,
       createdAt: new Date().toISOString()
     }, { merge: true });
@@ -133,9 +132,8 @@ export default function LoginPage() {
           }
           await createProfile(auth.currentUser!.uid, 'JSecchi', 'super_admin', 'Julien Secchi', password);
         } else {
-          await signInWithEmailAndPassword(auth, internalEmail, password);
-          // Mise à jour du mot de passe dans le document pour le répertoire si nécessaire
-          const userDocRef = doc(db, 'users', auth.currentUser!.uid);
+          const userCredential = await signInWithEmailAndPassword(auth, internalEmail, password);
+          const userDocRef = doc(db, 'users', userCredential.user.uid);
           await setDoc(userDocRef, { password: password }, { merge: true });
         }
 
@@ -146,7 +144,6 @@ export default function LoginPage() {
       console.error("Auth Error:", error);
       let message = "Identifiant ou mot de passe incorrect.";
       if (error.code === 'auth/email-already-in-use') message = "Cet identifiant est déjà pris.";
-      if (error.code === 'permission-denied') message = "Erreur de permissions Firestore.";
       if (error.message) message = error.message;
       toast({ variant: "destructive", title: "Erreur d'accès", description: message });
     } finally {
@@ -158,7 +155,6 @@ export default function LoginPage() {
     <div className="min-h-screen bg-[#F5F2EA] flex items-center justify-center p-4">
       <div className="flex flex-col md:flex-row gap-8 items-start max-w-5xl w-full">
         
-        {/* Répertoire des identifiants (Visibles pour les tests) */}
         <div className="w-full md:w-80 space-y-4 md:sticky md:top-10">
           <div className="bg-white p-6 rounded-[2rem] shadow-xl border-none">
             <div className="flex items-center gap-2 mb-4 text-[#1E4D3B]">
@@ -180,7 +176,7 @@ export default function LoginPage() {
                     </div>
                     <div className="flex items-center gap-1.5 text-rose-950">
                       <Key className="w-3 h-3 opacity-50" />
-                      <span className="text-[10px] font-mono font-black">{u.password || 'Non défini'}</span>
+                      <span className="text-[10px] font-mono font-black">{u.password || 'Meqoqo1998'}</span>
                     </div>
                     <span className="text-[8px] text-muted-foreground truncate opacity-70 italic">{u.name}</span>
                   </div>
@@ -189,16 +185,9 @@ export default function LoginPage() {
                 <p className="text-[10px] text-muted-foreground italic text-center py-4">Aucun identifiant actif</p>
               )}
             </div>
-            <div className="mt-6 p-3 bg-primary/5 rounded-xl text-[9px] text-primary/60 leading-relaxed">
-              <p className="font-bold mb-1">NOTES :</p>
-              SA = Super Admin (JSecchi)<br/>
-              P = Patron<br/>
-              E = Employé
-            </div>
           </div>
         </div>
 
-        {/* Formulaire Principal */}
         <Card className="flex-1 w-full shadow-2xl border-none p-4 rounded-[2.5rem] bg-white">
           <CardHeader className="text-center space-y-4">
             <div className="relative w-20 h-20 mx-auto overflow-hidden rounded-2xl border bg-white shadow-xl">
