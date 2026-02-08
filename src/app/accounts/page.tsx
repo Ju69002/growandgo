@@ -1,4 +1,3 @@
-
 'use client';
 
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
@@ -84,7 +83,6 @@ export default function AccountsPage() {
 
   const { data: allProfiles, isLoading: isUsersLoading } = useCollection<User>(profilesQuery);
 
-  // Helper pour mettre à jour tous les documents liés à un loginId (Maître + Sessions)
   const updateAllUserDocs = (loginId: string, updates: Partial<User>) => {
     if (!db || !allProfiles) return;
     const lowerId = loginId.toLowerCase();
@@ -163,7 +161,6 @@ export default function AccountsPage() {
     );
   }
 
-  // On dédoublonne l'affichage mais on garde la préférence pour le profil maître
   const uniqueUsers = Array.from(
     new Map(
       (allProfiles || [])
@@ -266,7 +263,7 @@ export default function AccountsPage() {
                                 {u.role === 'admin' ? 'Employé' : 'Patron'}
                               </Button>
                               <AlertDialog>
-                                <Button asChild variant="ghost" size="icon" className="h-8 w-8 text-rose-950">
+                                <Button asChild variant="ghost" size="icon" className="h-8 w-8 text-rose-950 cursor-pointer">
                                   <Trash2 className="w-4 h-4" />
                                 </Button>
                                 <AlertDialogContent className="rounded-[2rem]">

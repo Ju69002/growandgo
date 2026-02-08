@@ -8,43 +8,39 @@ service cloud.firestore {
 
     // Gestion des profils utilisateurs
     match /users/{userId} {
-      // Autoriser la lecture publique de la liste pour le répertoire de test du prototype
-      allow list: if true;
-      // Autoriser le get pour vérifier l'existence
-      allow get: if true;
-      // Un utilisateur peut modifier son propre profil ou le créer
-      allow create, update, delete: if isSignedIn();
+      // Autoriser la lecture et la recherche pour le répertoire de test et la connexion
+      allow read, list: if true;
+      // Un utilisateur peut modifier son propre profil ou le créer s'il est connecté
+      allow write: if isSignedIn();
     }
 
+    // Gestion des entreprises et de leurs sous-collections
     match /companies/{companyId} {
-      // Lecture autorisée pour les membres ou pour l'initialisation
-      allow read: if isSignedIn();
-      // Autoriser la création d'entreprise
-      allow create: if isSignedIn();
-      // Seul le super admin ou les membres peuvent modifier
+      // Autoriser la lecture et la création pour l'initialisation des studios
+      allow read, create: if true;
+      // Autoriser les mises à jour pour les membres connectés
       allow update: if isSignedIn();
+
+      // Autoriser l'accès complet aux dossiers, documents et événements pour les utilisateurs connectés
+      match /categories/{categoryId} {
+        allow read, write: if isSignedIn();
+      }
+      match /documents/{documentId} {
+        allow read, write: if isSignedIn();
+      }
+      match /events/{eventId} {
+        allow read, write: if isSignedIn();
+      }
     }
 
-    function belongsToCompany(companyId) {
-      return isSignedIn() && (
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId) || 
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin')
-      );
+    // Autoriser la lecture des modules pour la configuration
+    match /modules/{moduleId} {
+      allow read: if true;
     }
 
-    match /companies/{companyId}/categories/{categoryId} {
-      allow read: if belongsToCompany(companyId);
-      allow write: if belongsToCompany(companyId);
-    }
-
-    match /companies/{companyId}/documents/{documentId} {
-      allow read: if belongsToCompany(companyId);
-      allow write: if belongsToCompany(companyId);
-    }
-
-    match /companies/{companyId}/events/{eventId} {
-      allow read: if belongsToCompany(companyId);
-      allow write: if belongsToCompany(companyId);
+    // Sécurité stricte pour les propriétaires de l'application (Super Admin technique)
+    match /applicationOwners/{ownerId} {
+      allow read: if isSignedIn();
     }
   }
 }
