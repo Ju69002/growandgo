@@ -2,7 +2,7 @@
 'use client';
 
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
-import { CreditCard, ShieldCheck, Ban, CheckCircle2, History, ArrowRight } from 'lucide-react';
+import { CreditCard, ShieldCheck, Ban, CheckCircle2, History, ArrowRight, ReceiptText } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
@@ -22,6 +22,18 @@ export default function BillingPage() {
   const { data: profile } = useDoc<User>(userRef);
 
   const isActive = profile?.subscriptionStatus !== 'inactive' || profile?.role === 'super_admin';
+
+  const getPrice = () => {
+    if (profile?.role === 'super_admin') return "0,00";
+    if (profile?.role === 'admin') return "99,99";
+    return "69,99";
+  };
+
+  const getPlanName = () => {
+    if (profile?.role === 'super_admin') return "Compte Super Administrateur";
+    if (profile?.role === 'admin') return "Plan Studio Patron";
+    return "Plan Studio Employé";
+  };
 
   return (
     <DashboardLayout>
@@ -82,11 +94,14 @@ export default function BillingPage() {
                         <CreditCard className="w-6 h-6 text-primary" />
                       </div>
                       <div>
-                        <p className="font-bold">Grow&Go Studio Premium</p>
-                        <p className="text-xs text-muted-foreground">Accès illimité aux 7 dossiers et assistant IA</p>
+                        <p className="font-bold">{getPlanName()}</p>
+                        <p className="text-xs text-muted-foreground">Accès illimité aux dossiers et assistant IA</p>
                       </div>
                     </div>
-                    <p className="text-2xl font-black text-primary">0,00€<span className="text-sm font-bold text-muted-foreground">/mois</span></p>
+                    <div className="text-right">
+                      <p className="text-2xl font-black text-primary">{getPrice()}€<span className="text-sm font-bold text-muted-foreground">/mois</span></p>
+                      {profile?.role === 'super_admin' && <p className="text-[9px] font-black text-emerald-600 uppercase">Inclus</p>}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -101,17 +116,15 @@ export default function BillingPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-8 pt-0 space-y-6">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="flex items-center justify-between group cursor-pointer">
-                  <div className="space-y-0.5">
-                    <p className="text-xs font-bold">Facture #GG-00{i}</p>
-                    <p className="text-[9px] font-black uppercase text-muted-foreground">{10 - i} Mai 2024</p>
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-primary/30 group-hover:translate-x-1 transition-transform" />
+              <div className="flex flex-col items-center justify-center py-12 text-center space-y-3 opacity-40">
+                <ReceiptText className="w-10 h-10 text-primary" />
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest">Aucune facture</p>
+                  <p className="text-[10px] font-medium">Vos factures apparaîtront ici dès qu'elles seront générées.</p>
                 </div>
-              ))}
+              </div>
               <div className="pt-4 border-t border-primary/10">
-                <p className="text-[10px] font-black uppercase text-center text-primary opacity-40">Aucune autre facture</p>
+                <p className="text-[10px] font-black uppercase text-center text-primary opacity-40 italic">En attente du premier cycle</p>
               </div>
             </CardContent>
           </Card>
