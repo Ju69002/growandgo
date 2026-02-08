@@ -138,7 +138,7 @@ export default function Home() {
   }
 
   if (!user) {
-    return null; // Le useEffect gère la redirection vers /login
+    return null; // Redirection en cours
   }
 
   if (!isProfileLoading && !profile) {
