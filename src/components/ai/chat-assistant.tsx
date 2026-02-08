@@ -25,7 +25,7 @@ export function ChatAssistant() {
   const { user } = useUser();
   const db = useFirestore();
   const [messages, setMessages] = React.useState<Message[]>([
-    { role: 'assistant', content: 'Bonjour ! Je suis votre Expert Organisation Grow&Go. Quel dossier souhaitez-vous que je crée pour votre équipe ?' }
+    { role: 'assistant', content: "Bonjour ! Je suis votre assistant GROW&GO. Quel nouveau dossier souhaitez-vous ajouter à votre espace ?" }
   ]);
   const [input, setInput] = React.useState('');
   const [newSubCat, setNewSubCat] = React.useState('');
@@ -47,12 +47,12 @@ export function ChatAssistant() {
       if (isPatron) {
         setMessages(prev => [
           ...prev,
-          { role: 'assistant', content: "Je suis prêt ! Quel nom souhaitez-vous donner à ce nouveau dossier ?" }
+          { role: 'assistant', content: "Prêt ! Quel dossier souhaitez-vous configurer dans votre espace ?" }
         ]);
       } else {
         setMessages(prev => [
           ...prev,
-          { role: 'assistant', content: "Désolé, seul le Patron peut ajouter de nouvelles catégories au studio." }
+          { role: 'assistant', content: "Désolé, seul l'administrateur peut modifier la structure de l'espace." }
         ]);
       }
     };
@@ -111,11 +111,11 @@ export function ChatAssistant() {
         updateDocumentNonBlocking(ref, { label });
       }
 
-      setMessages(prev => [...prev, { role: 'assistant', content: `C'est fait ! Le dossier "${label}" a été configuré.` }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: `C'est fait ! Le dossier "${label}" est maintenant disponible.` }]);
     } catch (error: any) {
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: `Erreur technique : ${error.message}`,
+        content: `Erreur : ${error.message}`,
         isError: true 
       }]);
     }
@@ -126,7 +126,7 @@ export function ChatAssistant() {
     if (!input.trim() || isLoading || !db || !companyId) return;
 
     if (!isPatron) {
-      setMessages(prev => [...prev, { role: 'assistant', content: "Seul le Patron peut modifier la structure du studio." }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: "Action réservée à l'administrateur de l'espace." }]);
       setInput('');
       return;
     }
@@ -148,12 +148,12 @@ export function ChatAssistant() {
 
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: result.analysisResult || "Plan établi. Souhaitez-vous valider ?" 
+        content: result.analysisResult || "Dossier prêt. Souhaitez-vous l'ajouter ?" 
       }]);
     } catch (error: any) {
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: "Je n'ai pas pu analyser votre demande. Réessayez avec un nom de dossier clair." 
+        content: "Je n'ai pas pu traiter votre demande. Précisez le nom du dossier." 
       }]);
     } finally {
       setIsLoading(false);
@@ -174,7 +174,7 @@ export function ChatAssistant() {
           <CardHeader className="bg-primary text-primary-foreground rounded-t-[2rem] p-5 flex flex-row items-center justify-between space-y-0">
             <div className="flex items-center gap-2">
               <Bot className="h-5 w-5" />
-              <CardTitle className="text-base font-bold uppercase tracking-tighter">Assistant Studio IA</CardTitle>
+              <CardTitle className="text-base font-bold uppercase tracking-tighter">Assistant IA</CardTitle>
             </div>
             <X className="h-5 w-5 cursor-pointer hover:opacity-80" onClick={() => setIsOpen(false)} />
           </CardHeader>
@@ -197,7 +197,7 @@ export function ChatAssistant() {
                 {pendingAction && !isLoading && (
                   <div className="flex justify-start">
                     <div className="flex flex-col gap-3 p-4 bg-primary/5 border-2 border-dashed border-primary/20 rounded-2xl w-[90%]">
-                      <p className="text-[10px] font-black text-primary uppercase tracking-widest">Configuration des dossiers</p>
+                      <p className="text-[10px] font-black text-primary uppercase tracking-widest">Configuration de l'espace</p>
                       
                       <div className="flex flex-wrap gap-1">
                         {(pendingAction.subCategories || []).map((sub: string, idx: number) => (
@@ -210,7 +210,7 @@ export function ChatAssistant() {
 
                       <div className="flex gap-1">
                         <Input 
-                          placeholder="Ajouter un sous-dossier..." 
+                          placeholder="Sous-dossier..." 
                           value={newSubCat}
                           onChange={(e) => setNewSubCat(e.target.value)}
                           onKeyDown={(e) => e.key === 'Enter' && handleAddSubCat()}
@@ -248,7 +248,7 @@ export function ChatAssistant() {
           <CardFooter className="p-4 border-t rounded-b-[2rem] bg-white">
             <div className="flex w-full items-center gap-2">
               <Input
-                placeholder={!isPatron ? "Accès réservé au Patron" : (pendingAction ? "Ajustez vos dossiers ci-dessus..." : "Ex: Créer dossier Juridique")}
+                placeholder={!isPatron ? "Accès administrateur uniquement" : (pendingAction ? "Ajustez vos dossiers..." : "Ex: Nouveau dossier Technique")}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}

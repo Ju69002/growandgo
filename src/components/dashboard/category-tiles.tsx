@@ -120,16 +120,16 @@ export function CategoryTiles({ profile }: CategoryTilesProps) {
           id: cat.id,
           label: cat.label,
           badgeCount: 0,
-          visibleToEmployees: cat.id !== 'finance', // Par défaut, finance masqué pour les tests
+          visibleToEmployees: cat.id !== 'finance',
           type: 'standard',
           companyId: companyId,
           icon: cat.icon,
           subCategories: cat.subCategories || []
         }, { merge: true });
       }
-      toast({ title: "Studio initialisé !" });
+      toast({ title: "Espace initialisé !" });
     } catch (e) {
-      toast({ variant: "destructive", title: "Erreur d'initialisation" });
+      toast({ variant: "destructive", title: "Erreur" });
     } finally {
       setIsInitializing(false);
     }
@@ -149,12 +149,9 @@ export function CategoryTiles({ profile }: CategoryTilesProps) {
 
   const displayableCategories = (categories || []).filter(cat => {
     if (cat.id === 'agenda') return false; 
-    
     if (!isAdminOrSuper) {
-      // Filtrage strict : si ce n'est pas explicitement true, c'est masqué
       return cat.visibleToEmployees === true;
     }
-    
     return true;
   });
 
@@ -172,8 +169,8 @@ export function CategoryTiles({ profile }: CategoryTilesProps) {
         <div className="bg-primary/5 border-2 border-dashed border-primary/20 p-8 rounded-[2rem] text-center space-y-4 animate-in fade-in slide-in-from-top-4">
           <Wand2 className="w-12 h-12 text-primary mx-auto opacity-40" />
           <div className="space-y-1">
-            <h3 className="text-xl font-bold text-primary">Initialisez votre Studio</h3>
-            <p className="text-sm text-muted-foreground max-w-md mx-auto">Configurez instantanément vos 6 dossiers experts pour toute votre équipe.</p>
+            <h3 className="text-xl font-bold text-primary">Initialisez votre Espace</h3>
+            <p className="text-sm text-muted-foreground max-w-md mx-auto">Configurez instantanément vos 6 dossiers pour toute votre équipe.</p>
           </div>
           <Button 
             onClick={handleInitialize} 
@@ -181,7 +178,7 @@ export function CategoryTiles({ profile }: CategoryTilesProps) {
             className="rounded-full bg-primary hover:bg-primary/90 h-12 px-8 font-bold shadow-lg"
           >
             {isInitializing ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Plus className="w-5 h-5 mr-2" />}
-            Générer la structure
+            Générer l'espace
           </Button>
         </div>
       )}

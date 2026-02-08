@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -77,10 +78,10 @@ export function AppSidebar() {
           </div>
           <div className="flex flex-col group-data-[collapsible=icon]:hidden max-w-[160px]">
             <span className="text-lg leading-tight tracking-tight text-white truncate">
-              {profile?.companyName || companyId || "Grow&Go"}
+              {profile?.companyName || companyId || "GROW&GO"}
             </span>
             <span className="text-[10px] uppercase tracking-widest opacity-70 font-medium text-white truncate">
-              {isSuperAdmin ? "Administration" : "Espace Studio"}
+              {isSuperAdmin ? "Administration" : "Espace de travail"}
             </span>
           </div>
         </div>

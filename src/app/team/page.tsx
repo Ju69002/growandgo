@@ -38,7 +38,7 @@ export default function TeamPage() {
             <h1 className="text-4xl font-black tracking-tighter text-primary uppercase">Mon Équipe</h1>
             <p className="text-muted-foreground font-medium flex items-center gap-2">
               <Building2 className="w-4 h-4" />
-              Collaborateurs de {companyId}
+              Collaborateurs de votre espace de travail
             </p>
           </div>
           <Badge className="bg-primary/10 text-primary font-bold border-primary/20 h-7 px-3">
@@ -49,7 +49,7 @@ export default function TeamPage() {
         {isLoading ? (
           <div className="flex flex-col items-center justify-center p-20 gap-4">
             <Loader2 className="w-12 h-12 animate-spin text-primary opacity-30" />
-            <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Synchronisation de l'équipe...</p>
+            <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Chargement...</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -80,12 +80,12 @@ export default function TeamPage() {
                 <CardContent className="p-8 pt-0 space-y-4">
                   <div className="flex items-center gap-3 text-sm text-muted-foreground bg-muted/30 p-2 rounded-xl">
                     <Key className="w-4 h-4 text-primary/60" />
-                    <span className="font-medium text-xs">ID Studio: {member.loginId}</span>
+                    <span className="font-medium text-xs">Identifiant : {member.loginId}</span>
                   </div>
                   {member.role !== 'employee' && (
                     <div className="flex items-center gap-3 text-sm text-emerald-600 font-bold bg-emerald-50 p-2 rounded-xl border border-emerald-100">
                       <ShieldCheck className="w-4 h-4" />
-                      <span className="uppercase text-[10px] tracking-widest">Accès Administrateur</span>
+                      <span className="uppercase text-[10px] tracking-widest">Administrateur</span>
                     </div>
                   )}
                 </CardContent>

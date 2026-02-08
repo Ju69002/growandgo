@@ -42,7 +42,6 @@ function ThemeInjector({ children }: { children: React.ReactNode }) {
     return <div className="min-h-screen bg-[#F5F2EA]">{children}</div>;
   }
 
-  // Vérification de l'abonnement
   const isInactive = profile?.subscriptionStatus === 'inactive' && profile?.role !== 'super_admin';
 
   const handleLogout = async () => {
@@ -62,13 +61,13 @@ function ThemeInjector({ children }: { children: React.ReactNode }) {
           <div className="space-y-3">
             <h1 className="text-3xl font-black uppercase tracking-tighter text-primary">Accès Suspendu</h1>
             <p className="text-muted-foreground font-medium">
-              Désolé <strong>{profile?.name}</strong>, votre abonnement Grow&Go Studio n'est plus actif.
+              Désolé <strong>{profile?.name}</strong>, votre accès à l'espace de travail GROW&GO n'est plus actif.
             </p>
           </div>
           <div className="bg-rose-50 p-6 rounded-2xl border border-rose-100 flex items-start gap-3 text-left">
             <ShieldAlert className="w-5 h-5 text-rose-600 mt-0.5 shrink-0" />
             <p className="text-xs text-rose-900 leading-relaxed font-bold">
-              Votre accès a été désactivé par le Super Administrateur. Veuillez contacter votre responsable pour rétablir votre studio.
+              Votre accès a été désactivé par l'administrateur. Veuillez contacter votre responsable pour rétablir vos accès.
             </p>
           </div>
           <Button onClick={handleLogout} variant="outline" className="w-full rounded-full h-12 font-bold gap-2">

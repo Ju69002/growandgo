@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -50,7 +51,6 @@ export default function Home() {
 
   const { data: profile, isLoading: isProfileLoading } = useDoc<User>(userRef);
   
-  // Normalisation systématique du companyId pour le partage
   const companyId = profile?.companyId ? normalizeId(profile.companyId) : null;
 
   const pendingDocsQuery = useMemoFirebase(() => {
@@ -75,7 +75,7 @@ export default function Home() {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-[#F5F2EA] gap-4">
         <Loader2 className="w-10 h-10 animate-spin text-primary opacity-50" />
-        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground animate-pulse">Initialisation du studio...</p>
+        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground animate-pulse">Initialisation de l'espace...</p>
       </div>
     );
   }
@@ -130,7 +130,7 @@ export default function Home() {
               )}
             </div>
             <p className="text-muted-foreground font-medium italic">
-              Studio {profile?.companyName || "Grow&Go"}, Bienvenue {profile?.name}.
+              Espace {profile?.companyName || "GROW&GO"}, Bienvenue {profile?.name}.
             </p>
           </div>
         </header>
@@ -180,7 +180,7 @@ export default function Home() {
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-black uppercase tracking-tighter flex items-center gap-2">
                 <CalendarIcon className="w-5 h-5 text-primary" />
-                Agenda Collaboratif (3 jours)
+                Agenda collaboratif
               </h2>
               <Button asChild variant="outline" size="sm" className="rounded-full h-8 px-4 font-black uppercase text-[10px] tracking-widest gap-2">
                 <Link href="/categories/agenda">
@@ -203,7 +203,7 @@ export default function Home() {
         <section className="pt-8 border-t">
           <h2 className="text-2xl font-black uppercase tracking-tighter mb-8 flex items-center gap-3">
             <FileText className="w-7 h-7 text-primary" />
-            Dossiers du Studio
+            Dossiers de l'espace de travail
           </h2>
           {profile && <CategoryTiles profile={profile} />}
         </section>

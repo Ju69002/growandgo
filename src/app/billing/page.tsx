@@ -31,8 +31,8 @@ export default function BillingPage() {
 
   const getPlanName = () => {
     if (profile?.role === 'super_admin') return "Compte Super Administrateur";
-    if (profile?.role === 'admin') return "Plan Studio Patron";
-    return "Plan Studio Employé";
+    if (profile?.role === 'admin') return "Plan Patron";
+    return "Plan Employé";
   };
 
   return (
@@ -43,7 +43,7 @@ export default function BillingPage() {
             <CreditCard className="w-8 h-8" />
           </div>
           <div>
-            <h1 className="text-4xl font-black tracking-tighter text-primary uppercase leading-tight">Abonnement Studio</h1>
+            <h1 className="text-4xl font-black tracking-tighter text-primary uppercase leading-tight">Abonnement Espace</h1>
             <p className="text-muted-foreground font-medium">Gérez vos paiements et le statut de votre accès collaboratif.</p>
           </div>
         </div>
@@ -76,11 +76,11 @@ export default function BillingPage() {
                   {isActive ? <CheckCircle2 className="w-8 h-8" /> : <Ban className="w-8 h-8" />}
                 </div>
                 <div className="space-y-1">
-                  <h3 className="text-xl font-bold">{isActive ? "Votre Studio est pleinement opérationnel" : "Accès restreint par l'administrateur"}</h3>
+                  <h3 className="text-xl font-bold">{isActive ? "Votre espace de travail est pleinement opérationnel" : "Accès restreint par l'administrateur"}</h3>
                   <p className="text-sm text-muted-foreground">
                     {isActive 
                       ? "Tous vos outils collaboratifs et documents sont accessibles sans restriction." 
-                      : "Veuillez contacter votre Super Administrateur (JSecchi) pour rétablir vos accès."}
+                      : "Veuillez contacter votre administrateur pour rétablir vos accès."}
                   </p>
                 </div>
               </div>

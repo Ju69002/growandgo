@@ -90,7 +90,7 @@ export default function SettingsPage() {
             <UserIcon className="w-8 h-8" />
           </div>
           <div>
-            <h1 className="text-4xl font-black tracking-tighter text-primary uppercase">Mon Profil Studio</h1>
+            <h1 className="text-4xl font-black tracking-tighter text-primary uppercase">Mon Profil</h1>
             <p className="text-muted-foreground font-medium">Gérez votre identité et vos accès.</p>
           </div>
         </div>
@@ -115,7 +115,7 @@ export default function SettingsPage() {
             <CardContent className="p-8 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Identifiant Studio (Fixe)</Label>
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Identifiant (Fixe)</Label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-3.5 w-4 h-4 text-muted-foreground/40" />
                     <Input 
@@ -126,7 +126,7 @@ export default function SettingsPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Entreprise Studio (Fixe)</Label>
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Entreprise (Fixe)</Label>
                   <div className="relative">
                     <Building2 className="absolute left-3 top-3.5 w-4 h-4 text-muted-foreground/40" />
                     <Input 
@@ -135,7 +135,6 @@ export default function SettingsPage() {
                       className="pl-10 rounded-xl bg-muted/30 border-primary/5 h-12 font-bold opacity-70 cursor-not-allowed"
                     />
                   </div>
-                  <p className="text-[8px] font-bold text-muted-foreground/60 px-1 uppercase italic">Seul le Super Admin peut modifier l'entreprise pour l'indépendance des comptes.</p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="uname" className="text-[10px] font-black uppercase text-muted-foreground ml-1 flex items-center gap-2">
