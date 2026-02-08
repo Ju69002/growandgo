@@ -2,7 +2,7 @@
 'use client';
 
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { FileText, Clock, AlertCircle, ArrowRight, CheckCircle2 } from 'lucide-react';
@@ -32,9 +32,11 @@ export default function NotificationsPage() {
 
   const pendingDocsQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
+    // On exclut les tâches de facturation des notifications
     return query(
       collection(db, 'companies', companyId, 'documents'),
-      where('status', '!=', 'archived')
+      where('status', '!=', 'archived'),
+      where('isBillingTask', '!=', true)
     );
   }, [db, companyId]);
 
@@ -46,7 +48,7 @@ export default function NotificationsPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">Centre de Notifications</h1>
           <p className="text-muted-foreground mt-1">
-            Retrouvez ici toutes les tâches et validations en attente sur vos documents.
+            Retrouvez ici toutes les validations en attente sur vos documents importés.
           </p>
         </div>
 
@@ -92,7 +94,7 @@ export default function NotificationsPage() {
             <div className="text-center py-20 bg-card rounded-2xl border-2 border-dashed">
               <CheckCircle2 className="w-16 h-16 text-emerald-500 mx-auto mb-4 opacity-50" />
               <h2 className="text-xl font-bold">Bravo ! Tout est à jour.</h2>
-              <p className="text-muted-foreground">Vous n'avez aucune action en attente.</p>
+              <p className="text-muted-foreground">Vous n'avez aucune notification de document.</p>
             </div>
           )}
         </div>

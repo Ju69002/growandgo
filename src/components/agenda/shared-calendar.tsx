@@ -11,7 +11,6 @@ import {
   Trash2,
   DownloadCloud,
   CalendarDays,
-  User as UserIcon,
   Users
 } from 'lucide-react';
 import { 
@@ -20,14 +19,13 @@ import {
   useMemoFirebase, 
   useUser, 
   useAuth,
-  setDocumentNonBlocking,
   deleteDocumentNonBlocking,
   addDocumentNonBlocking,
   updateDocumentNonBlocking
 } from '@/firebase';
-import { collection, query, doc, where } from 'firebase/firestore';
-import { CalendarEvent, User } from '@/lib/types';
-import { format, isSameDay, parseISO, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isToday, startOfWeek, endOfWeek, isValid, addMinutes, setHours, startOfDay, differenceInMinutes, parse } from 'date-fns';
+import { collection, query, doc } from 'firebase/firestore';
+import { CalendarEvent } from '@/lib/types';
+import { format, isSameDay, parseISO, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isToday, startOfWeek, endOfWeek, isValid, addMinutes, differenceInMinutes, parse } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import {
@@ -49,7 +47,6 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { signInWithGoogleCalendar } from '@/firebase/non-blocking-login';
 import { getSyncTimeRange, fetchGoogleEvents, mapGoogleEvent, syncEventToFirestore } from '@/services/calendar-sync';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { useSearchParams } from 'next/navigation';
 
@@ -111,10 +108,10 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
     }
   }, [searchParams]);
 
-  // Plage horaire strictly de 8h à 20h
+  // Plage horaire fixée de 8h à 20h
   const startHour = 8;
   const endHour = 20;
-  const hourHeight = 52; // Ajusté pour tenir sans scroll dans h-[750px]
+  const hourHeight = 45; // Hauteur optimisée pour tenir sans scroll dans 750px
 
   const eventsQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
@@ -129,7 +126,6 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
     return events
       .filter(e => {
         if (!e.debut) return false;
-        if (e.isBillingEvent && !e.id.startsWith('event_v1')) return false;
         try {
           const eventDate = parseISO(e.debut);
           return isValid(eventDate) && isSameDay(eventDate, day);
@@ -288,7 +284,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
                <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setCurrentDate(addDays(currentDate, 1))}><ChevronRight className="w-5 h-5" /></Button>
              </div>
              <Badge className="bg-primary/5 text-primary border-primary/20 h-9 px-4 font-black uppercase text-[11px] tracking-widest gap-2">
-                <Users className="w-4 h-4" /> Agenda 8h - 20h
+                <Users className="w-4 h-4" /> 8h - 20h
              </Badge>
            </div>
            <div className="flex gap-3">
@@ -347,7 +343,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
                           onMouseDown={(e) => handleMouseDown(e, event)}
                           className={cn(
                             "absolute left-0 right-0 mx-1 z-10 rounded-xl border-l-4 shadow-sm cursor-pointer p-3 overflow-hidden flex flex-col select-none transition-all",
-                            event.source === 'google' ? "bg-white border-primary" : "bg-amber-50/90 border-amber-500",
+                            event.isBillingEvent ? "bg-amber-50 border-amber-500" : (event.source === 'google' ? "bg-white border-primary" : "bg-primary/5 border-primary/40"),
                             isCurrentDragged && "z-30 opacity-90 scale-[1.02] shadow-2xl ring-2 ring-primary"
                           )}
                           style={{ 
@@ -401,7 +397,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
             return (
               <div key={idx} className={cn("border-r border-b p-2 flex flex-col gap-1 min-h-[100px]", !isCurrentMonth && "bg-muted/10 opacity-30", isToday(day) && "bg-primary/[0.04]")}>
                 <span className={cn("text-xs font-black w-6 h-6 flex items-center justify-center rounded-lg", isToday(day) ? "bg-primary text-white" : "text-muted-foreground")}>{format(day, "d")}</span>
-                {dayEvents.slice(0, 3).map(e => <div key={e.id} onClick={() => openEditEvent(e)} className="text-[9px] font-bold p-1 rounded bg-amber-50 border-l-2 border-amber-500 truncate cursor-pointer">{e.titre}</div>)}
+                {dayEvents.slice(0, 3).map(e => <div key={e.id} onClick={() => openEditEvent(e)} className={cn("text-[9px] font-bold p-1 rounded border-l-2 truncate cursor-pointer", e.isBillingEvent ? "bg-amber-50 border-amber-500" : "bg-muted border-primary")}>{e.titre}</div>)}
               </div>
             );
           })}
