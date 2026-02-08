@@ -12,7 +12,7 @@ import {
   useMemoFirebase, 
   useCollection 
 } from '@/firebase';
-import { doc, collection, query, where } from 'firebase/firestore';
+import { doc, collection, query } from 'firebase/firestore';
 import { User } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { 
@@ -50,9 +50,10 @@ export default function BillingPage() {
 
   const isSuperAdmin = profile?.role === 'super_admin';
 
+  // Récupération plus large pour éviter de rater des profils (filtrage en mémoire)
   const allUsersQuery = useMemoFirebase(() => {
     if (!db || !isSuperAdmin) return null;
-    return query(collection(db, 'users'), where('isProfile', '==', true));
+    return query(collection(db, 'users'));
   }, [db, isSuperAdmin]);
 
   const { data: allUsers, isLoading: isLoadingUsers } = useCollection<User>(allUsersQuery);
@@ -61,7 +62,7 @@ export default function BillingPage() {
   useEffect(() => {
     if (db && user && isSuperAdmin && allUsers && !syncLock.current) {
       syncLock.current = true;
-      syncBillingTasks(db, user.uid, allUsers);
+      syncBillingTasks(db, user.uid, allUsers.filter(u => u.isProfile));
     }
   }, [db, user, isSuperAdmin, allUsers]);
 
@@ -94,10 +95,11 @@ export default function BillingPage() {
 
   const uniqueProfiles = useMemo(() => {
     if (!allUsers) return [];
+    // Filtrage des profils uniques et suppression des doublons de session
     return Array.from(
       new Map(
         allUsers
-          .filter(u => u.loginId || u.loginId_lower)
+          .filter(u => u.isProfile && (u.loginId || u.loginId_lower))
           .map(u => {
             const lowerId = (u.loginId_lower || u.loginId?.toLowerCase());
             return [lowerId, u];
@@ -127,7 +129,7 @@ export default function BillingPage() {
                className="rounded-full h-10 gap-2 font-bold text-xs uppercase"
                onClick={() => {
                  if (db && user && allUsers) {
-                   syncBillingTasks(db, user.uid, allUsers);
+                   syncBillingTasks(db, user.uid, allUsers.filter(u => u.isProfile));
                    toast({ title: "Synchronisation forcée", description: "Tâches et agenda mis à jour." });
                  }
                }}
