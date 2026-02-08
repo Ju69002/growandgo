@@ -26,13 +26,12 @@ export async function fetchGoogleEvents(token: string, timeMin: string, timeMax:
 }
 
 /**
- * Mappe un événement externe (Google).
+ * Mappe un événement Google.
  */
-export function mapExternalEvent(event: any, companyId: string, userId: string): Partial<CalendarEvent> {
-  const start = event.start?.dateTime || event.start?.date || event.start || new Date().toISOString();
-  const end = event.end?.dateTime || event.end?.date || event.end || new Date().toISOString();
+export function mapGoogleEvent(event: any, companyId: string, userId: string): Partial<CalendarEvent> {
+  const start = event.start?.dateTime || event.start?.date || new Date().toISOString();
+  const end = event.end?.dateTime || event.end?.date || new Date().toISOString();
   
-  // Sécurisation du mapping des participants
   const attendees = event.attendees?.map((a: any) => a.email || a.displayName || '').filter(Boolean) || [];
 
   return {
@@ -48,13 +47,6 @@ export function mapExternalEvent(event: any, companyId: string, userId: string):
     type: 'meeting',
     derniere_maj: event.updated || new Date().toISOString()
   };
-}
-
-/**
- * Alias pour compatibilité.
- */
-export function mapGoogleEvent(event: any, companyId: string, userId: string) {
-  return mapExternalEvent(event, companyId, userId);
 }
 
 /**

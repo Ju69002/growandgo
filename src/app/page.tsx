@@ -36,21 +36,14 @@ import { cn } from '@/lib/utils';
 import { format, startOfToday, addDays, parseISO, isValid, isWithinInterval } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
-const statusConfig: Record<string, { label: string; icon: any; color: string }> = {
-  waiting_verification: { label: 'À vérifier', icon: AlertCircle, color: 'text-blue-600 bg-blue-50' },
-  waiting_validation: { label: 'À valider', icon: Clock, color: 'text-amber-600 bg-amber-50' },
-  pending_analysis: { label: 'Analyse...', icon: Loader2, color: 'text-muted-foreground bg-muted' },
-  dated: { label: 'Échéance', icon: CalendarDays, color: 'text-rose-600 bg-rose-50' }
-};
-
 export default function Home() {
+  const router = useRouter();
+  const { user, isUserLoading } = useUser();
+  const db = useFirestore();
   const [mounted, setMounted] = useState(false);
   const [isCalendarFull, setIsCalendarFull] = useState(false);
-  const { user, isUserLoading } = useUser();
-  const router = useRouter();
-  const db = useFirestore();
 
-  // IMPORTANT: All Hooks must be at the top level
+  // DECLARE ALL HOOKS FIRST
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user) return null;
     return doc(db, 'users', user.uid);
@@ -136,21 +129,21 @@ export default function Home() {
     }
   }, [user, isUserLoading, router, mounted]);
 
-  // Loading states must be AFTER all hooks
+  // RENDER LOGIC AFTER ALL HOOKS
   if (!mounted || isUserLoading || isProfileLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="text-center space-y-4">
           <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto" />
-          <p className="text-muted-foreground font-black uppercase text-[10px] tracking-widest">Chargement du studio...</p>
+          <p className="text-muted-foreground font-black uppercase text-[10px] tracking-widest">Initialisation du studio...</p>
         </div>
       </div>
     );
   }
 
-  if (!user) return null;
+  if (!user || !profile) return null;
 
-  const isSuperAdmin = profile?.role === 'super_admin';
+  const isSuperAdmin = profile.role === 'super_admin';
 
   return (
     <DashboardLayout>
@@ -160,14 +153,14 @@ export default function Home() {
             <h1 className="text-4xl font-black tracking-tighter text-primary uppercase">Tableau de bord</h1>
             <Badge className={cn(
               "font-black uppercase text-[10px] h-5 px-2 shadow-sm",
-              profile?.role === 'super_admin' ? "bg-rose-950 text-white" : 
-              profile?.role === 'admin' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+              profile.role === 'super_admin' ? "bg-rose-950 text-white" : 
+              profile.role === 'admin' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
             )}>
-              {profile?.role === 'super_admin' ? 'Super Admin' : profile?.role === 'admin' ? 'Patron' : 'Employé'}
+              {profile.role === 'super_admin' ? 'Super Admin' : profile.role === 'admin' ? 'Patron' : 'Employé'}
             </Badge>
           </div>
           <p className="text-muted-foreground mt-1 flex items-center gap-2 font-medium">
-            Bienvenue {profile?.name || profile?.loginId}.
+            Bienvenue {profile.name || profile.loginId}.
           </p>
         </header>
 
@@ -199,8 +192,8 @@ export default function Home() {
                         </span>
                       </div>
                     </div>
-                    <Badge className={cn("text-[10px] uppercase font-black", statusConfig[task.status]?.color)}>
-                      {statusConfig[task.status]?.label || task.subCategory}
+                    <Badge className={cn("text-[10px] uppercase font-black")}>
+                      {task.subCategory || 'Action'}
                     </Badge>
                   </div>
                 ))

@@ -64,13 +64,23 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
+      const normalizedId = loginId.toLowerCase().trim();
+      
       if (isSignUp) {
-        // Enregistrement : email interne par défaut basé sur l'identifiant
-        const internalEmail = `${loginId.toLowerCase().trim()}@studio.internal`;
+        // Vérifier si l'ID existe déjà dans Firestore pour éviter les doublons invisibles
+        const usersRef = collection(db, 'users');
+        const q = query(usersRef, where('loginId', '==', normalizedId));
+        const checkSnap = await getDocs(q);
+        
+        if (!checkSnap.empty) {
+          throw new Error("Cet identifiant est déjà utilisé.");
+        }
+
+        const internalEmail = `${normalizedId}@studio.internal`;
         const userCredential = await createUserWithEmailAndPassword(auth, internalEmail, password);
         const newUser = userCredential.user;
         
-        const isTargetSuperAdmin = loginId.toLowerCase() === 'jsecchi';
+        const isTargetSuperAdmin = normalizedId === 'jsecchi';
         const companyId = isTargetSuperAdmin ? 'growandgo-hq' : 'default-studio';
         const companyName = isTargetSuperAdmin ? 'Grow&Go HQ' : 'Mon Studio';
 
@@ -84,16 +94,15 @@ export default function LoginPage() {
           adminMode: isTargetSuperAdmin,
           isCategoryModifier: isTargetSuperAdmin,
           name: name || loginId,
-          loginId: loginId,
-          email: internalEmail
+          loginId: normalizedId,
+          email: internalEmail,
+          createdAt: new Date().toISOString()
         });
 
-        toast({ title: "Bienvenue !", description: "Votre studio Grow&Go est prêt." });
-        // Redirection sera gérée par l'useEffect
+        toast({ title: "Bienvenue !", description: "Votre compte studio a été créé avec succès." });
       } else {
-        // Connexion : on cherche l'email associé à l'Identifiant Studio
         const usersRef = collection(db, 'users');
-        const q = query(usersRef, where('loginId', '==', loginId));
+        const q = query(usersRef, where('loginId', '==', normalizedId));
         const querySnapshot = await getDocs(q);
 
         if (querySnapshot.empty) {
@@ -104,16 +113,15 @@ export default function LoginPage() {
         const emailToUse = userData.email;
 
         await signInWithEmailAndPassword(auth, emailToUse, password);
-        toast({ title: "Connexion réussie", description: "Chargement du studio..." });
-        router.push('/');
+        toast({ title: "Connexion réussie", description: "Chargement de votre studio..." });
       }
     } catch (error: any) {
       console.error("Auth Error:", error);
-      let message = "Une erreur est survenue.";
+      let message = error.message || "Une erreur est survenue.";
       
       if (error.code === 'auth/email-already-in-use') {
-        message = "Cet identifiant est déjà utilisé.";
-      } else if (error.code === 'auth/invalid-credential' || error.message === "Identifiant inconnu.") {
+        message = "Cet identifiant est déjà associé à un compte.";
+      } else if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
         message = "Identifiant ou mot de passe incorrect.";
       } else if (error.code === 'auth/weak-password') {
         message = "Le mot de passe doit faire au moins 6 caractères.";
@@ -144,7 +152,7 @@ export default function LoginPage() {
           <div>
             <CardTitle className="text-2xl font-bold text-[#1E4D3B] uppercase tracking-tighter">Grow&Go Studio</CardTitle>
             <CardDescription className="text-[#1E4D3B]/60 font-medium">
-              Accès réservé via votre Identifiant.
+              {isSignUp ? "Créez votre accès studio" : "Accès réservé via votre Identifiant"}
             </CardDescription>
           </div>
         </CardHeader>
