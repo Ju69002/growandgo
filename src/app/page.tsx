@@ -25,18 +25,19 @@ export default function Home() {
     setMounted(true);
   }, []);
 
+  // Redirection immédiate si non connecté
+  useEffect(() => {
+    if (mounted && !isUserLoading && !user) {
+      router.push('/login');
+    }
+  }, [mounted, user, isUserLoading, router]);
+
   const userRef = useMemoFirebase(() => {
     if (!db || !user) return null;
     return doc(db, 'users', user.uid);
   }, [db, user]);
 
   const { data: profile, isLoading: isProfileLoading } = useDoc<User>(userRef);
-
-  useEffect(() => {
-    if (mounted && !isUserLoading && !user) {
-      router.push('/login');
-    }
-  }, [mounted, user, isUserLoading, router]);
 
   const handleLogout = async () => {
     if (auth) {
@@ -56,6 +57,7 @@ export default function Home() {
 
   if (!user) return null;
 
+  // Gestion du cas "Profil inexistant"
   if (!isProfileLoading && !profile) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-[#F5F2EA] p-8 text-center space-y-6">
@@ -63,14 +65,14 @@ export default function Home() {
            <AlertTriangle className="w-12 h-12 text-rose-600" />
         </div>
         <div className="space-y-2">
-          <h2 className="text-2xl font-black text-primary uppercase tracking-tighter">Profil introuvable</h2>
+          <h2 className="text-2xl font-black text-primary uppercase tracking-tighter">Profil Introuvable</h2>
           <p className="text-muted-foreground max-w-sm mx-auto font-medium">
-            Votre compte est actif mais aucun profil Studio n'est rattaché à votre session.
+            Votre session est active mais aucun profil Studio n'est rattaché à cet identifiant.
           </p>
         </div>
         <Button onClick={handleLogout} variant="outline" className="rounded-full px-8 h-12 font-bold gap-2">
           <LogOut className="w-4 h-4" />
-          Retourner à la connexion
+          Retourner au Login
         </Button>
       </div>
     );
@@ -80,7 +82,7 @@ export default function Home() {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-[#F5F2EA] gap-4">
         <Loader2 className="w-10 h-10 animate-spin text-primary opacity-50" />
-        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Chargement...</p>
+        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Chargement du Studio...</p>
       </div>
     );
   }
@@ -96,7 +98,7 @@ export default function Home() {
             {profile && (
               <Badge className={cn(
                 "font-black uppercase text-[10px] h-5 px-2",
-                isSuperAdmin ? "bg-rose-950 text-white" : "bg-primary text-primary-foreground"
+                isSuperAdmin ? "bg-rose-950 text-white" : profile.role === 'admin' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
               )}>
                 {isSuperAdmin ? 'Super Admin' : profile.role === 'admin' ? 'Patron' : 'Employé'}
               </Badge>

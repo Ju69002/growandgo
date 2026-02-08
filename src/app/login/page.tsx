@@ -12,7 +12,7 @@ import { useAuth, useFirestore, useCollection, useMemoFirebase } from '@/firebas
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Lock, UserCircle, UserPlus, Eye, EyeOff, CheckCircle2, ShieldCheck, Users } from 'lucide-react';
+import { Loader2, Lock, UserCircle, UserPlus, Eye, EyeOff, CheckCircle2, Building2, Users } from 'lucide-react';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { User } from '@/lib/types';
@@ -22,6 +22,7 @@ export default function LoginPage() {
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [companyName, setCompanyName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -33,7 +34,7 @@ export default function LoginPage() {
   const { toast } = useToast();
   const logo = PlaceHolderImages.find(img => img.id === 'app-logo');
 
-  // Récupération des IDs existants pour la note informative
+  // Récupération des IDs pour le répertoire latéral
   const usersQuery = useMemoFirebase(() => {
     if (!db) return null;
     return query(collection(db, 'users'));
@@ -41,10 +42,12 @@ export default function LoginPage() {
 
   const { data: allUsers } = useCollection<User>(usersQuery);
 
-  const ensureCompanyExists = async (companyId: string, companyName: string) => {
-    if (!db) return;
+  const ensureCompanyExists = async (companyName: string) => {
+    if (!db) return 'default-studio';
+    const companyId = companyName.toLowerCase().trim().replace(/[^a-z0-9]/g, '-');
     const companyRef = doc(db, 'companies', companyId);
     const companySnap = await getDoc(companyRef);
+    
     if (!companySnap.exists()) {
       await setDoc(companyRef, {
         id: companyId,
@@ -56,29 +59,29 @@ export default function LoginPage() {
         modulesConfig: { showRh: true, showFinance: true, customLabels: {} }
       });
     }
+    return companyId;
   };
 
-  const createProfile = async (uid: string, loginId: string, role: string, displayName: string) => {
+  const createProfile = async (uid: string, loginId: string, role: string, displayName: string, cName?: string) => {
     if (!db) return;
     const lowerId = loginId.toLowerCase().trim();
     
     let finalRole = role;
     let finalCompanyId = 'default-studio';
-    let finalCompanyName = 'Mon Studio';
+    let finalCompanyName = cName || 'Mon Studio';
 
-    // Logique Super Admin JSecchi
     if (lowerId === 'jsecchi') {
       finalRole = 'super_admin';
       finalCompanyId = 'growandgo-hq';
       finalCompanyName = 'Grow&Go HQ';
     }
 
-    await ensureCompanyExists(finalCompanyId, finalCompanyName);
+    const resolvedCompanyId = await ensureCompanyExists(finalCompanyName);
     
     const userRef = doc(db, 'users', uid);
     await setDoc(userRef, {
       uid,
-      companyId: finalCompanyId,
+      companyId: lowerId === 'jsecchi' ? 'growandgo-hq' : resolvedCompanyId,
       role: finalRole,
       adminMode: finalRole !== 'employee',
       isCategoryModifier: finalRole !== 'employee',
@@ -101,63 +104,60 @@ export default function LoginPage() {
       const lowerId = normalizedId.toLowerCase();
       const internalEmail = `${lowerId}@studio.internal`;
       
-      // Cas spécial Super Admin JSecchi
-      if (!isSignUp && lowerId === 'jsecchi' && password === 'Meqoqo1998') {
-        const userCredential = await signInWithEmailAndPassword(auth, internalEmail, password);
-        await createProfile(userCredential.user.uid, 'JSecchi', 'super_admin', 'Julien Secchi');
-        toast({ title: "Accès Super Admin", description: "Profil restauré." });
-        router.push('/');
-        return;
-      }
-
       if (isSignUp) {
-        // Vérification des doublons d'identifiants
+        if (!companyName.trim()) throw new Error("Le nom de l'entreprise est requis.");
+        
+        // Vérification doublon ID
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('loginId_lower', '==', lowerId));
         const checkSnap = await getDocs(q);
-        
-        if (!checkSnap.empty) {
-          throw new Error("Cet identifiant est déjà utilisé.");
-        }
+        if (!checkSnap.empty) throw new Error("Cet identifiant est déjà utilisé.");
 
         const userCredential = await createUserWithEmailAndPassword(auth, internalEmail, password);
-        // Les nouveaux inscrits sont par défaut des employés
-        await createProfile(userCredential.user.uid, normalizedId, 'employee', name || normalizedId);
+        await createProfile(userCredential.user.uid, normalizedId, 'employee', name || normalizedId, companyName);
 
-        // Déconnexion immédiate pour forcer le login manuel
         await signOut(auth);
         setSignUpSuccess(true);
         setIsSignUp(false);
         setPassword('');
         setName('');
-        toast({ title: "Inscription réussie !", description: "Vous pouvez maintenant vous identifier." });
+        setCompanyName('');
+        toast({ title: "Compte créé !", description: "Identifiez-vous pour accéder à votre studio." });
       } else {
-        const usersRef = collection(db, 'users');
-        const q = query(usersRef, where('loginId_lower', '==', lowerId));
-        const querySnapshot = await getDocs(q);
-
-        if (querySnapshot.empty) {
-          throw new Error("Identifiant inconnu.");
+        // Spécial JSecchi
+        if (lowerId === 'jsecchi' && password === 'Meqoqo1998') {
+          try {
+            const userCredential = await signInWithEmailAndPassword(auth, internalEmail, password);
+            await createProfile(userCredential.user.uid, 'JSecchi', 'super_admin', 'Julien Secchi');
+          } catch (e: any) {
+            if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential') {
+              const userCredential = await createUserWithEmailAndPassword(auth, internalEmail, password);
+              await createProfile(userCredential.user.uid, 'JSecchi', 'super_admin', 'Julien Secchi');
+            } else throw e;
+          }
+          toast({ title: "Accès Super Admin" });
+          router.push('/');
+          return;
         }
+
+        const userCredential = await signInWithEmailAndPassword(auth, internalEmail, password);
         
-        const userData = querySnapshot.docs[0].data();
-        const userCredential = await signInWithEmailAndPassword(auth, userData.email, password);
-        
-        // Réparation automatique du profil si nécessaire
+        // Vérification profil
         const userDocRef = doc(db, 'users', userCredential.user.uid);
         const userDocSnap = await getDoc(userDocRef);
         if (!userDocSnap.exists()) {
-          await createProfile(userCredential.user.uid, userData.loginId, userData.role || 'employee', userData.name);
+          throw new Error("Profil introuvable. Veuillez vous réinscrire.");
         }
 
-        toast({ title: "Bienvenue", description: "Accès validé." });
+        toast({ title: "Bienvenue dans votre Studio" });
         router.push('/');
       }
     } catch (error: any) {
       console.error("Auth Error:", error);
-      let message = error.message || "Erreur d'accès.";
-      if (error.code === 'auth/invalid-credential') message = "Identifiant ou mot de passe incorrect.";
-      toast({ variant: "destructive", title: "Accès refusé", description: message });
+      let message = "Identifiant ou mot de passe incorrect.";
+      if (error.code === 'auth/email-already-in-use') message = "Cet identifiant est déjà pris.";
+      if (error.message) message = error.message;
+      toast({ variant: "destructive", title: "Erreur d'accès", description: message });
     } finally {
       setIsLoading(false);
     }
@@ -165,39 +165,45 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-[#F5F2EA] flex items-center justify-center p-4">
-      <div className="flex flex-col md:flex-row gap-8 items-start max-w-4xl w-full">
+      <div className="flex flex-col md:flex-row gap-8 items-start max-w-5xl w-full">
         
-        {/* Panneau latéral - Répertoire des Identifiants */}
-        <div className="w-full md:w-64 space-y-4 md:sticky md:top-10">
+        {/* Répertoire des identifiants (Visualisation rapide) */}
+        <div className="w-full md:w-72 space-y-4 md:sticky md:top-10">
           <div className="bg-white p-6 rounded-[2rem] shadow-xl border-none">
             <div className="flex items-center gap-2 mb-4 text-[#1E4D3B]">
               <Users className="w-5 h-5" />
-              <h3 className="font-black uppercase text-[10px] tracking-widest">Identifiants Actifs</h3>
+              <h3 className="font-black uppercase text-[10px] tracking-widest">Identifiants en base</h3>
             </div>
-            <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-primary/20">
+            <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 scrollbar-thin">
               {allUsers && allUsers.length > 0 ? (
                 allUsers.map(u => (
-                  <div key={u.uid} className="flex items-center justify-between p-2 rounded-xl bg-muted/30 border border-black/5">
-                    <span className="font-mono text-[10px] font-bold truncate">{u.loginId}</span>
+                  <div key={u.uid} className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-black/5">
+                    <div className="flex flex-col">
+                      <span className="font-mono text-[10px] font-bold">{u.loginId}</span>
+                      <span className="text-[8px] text-muted-foreground truncate max-w-[100px]">{u.name}</span>
+                    </div>
                     <Badge className={cn(
                       "text-[8px] font-black uppercase h-4 px-1",
-                      u.role === 'super_admin' ? "bg-rose-950" : "bg-primary"
+                      u.role === 'super_admin' ? "bg-rose-950" : u.role === 'admin' ? "bg-primary" : "bg-muted text-muted-foreground"
                     )}>
-                      {u.role === 'super_admin' ? 'SA' : 'E'}
+                      {u.role === 'super_admin' ? 'SA' : u.role === 'admin' ? 'P' : 'E'}
                     </Badge>
                   </div>
                 ))
               ) : (
-                <p className="text-[10px] text-muted-foreground italic">Chargement...</p>
+                <p className="text-[10px] text-muted-foreground italic text-center py-4">Aucun identifiant actif</p>
               )}
             </div>
-            <p className="mt-6 text-[9px] text-[#1E4D3B]/40 leading-relaxed">
-              Note : Utilisez ces identifiants pour tester les différents rôles du Studio.
-            </p>
+            <div className="mt-6 p-3 bg-primary/5 rounded-xl text-[9px] text-primary/60 leading-relaxed">
+              <p className="font-bold mb-1">NOTES :</p>
+              SA = Super Admin (JSecchi)<br/>
+              P = Patron<br/>
+              E = Employé
+            </div>
           </div>
         </div>
 
-        {/* Formulaire de Connexion */}
+        {/* Formulaire Principal */}
         <Card className="flex-1 w-full shadow-2xl border-none p-4 rounded-[2.5rem] bg-white">
           <CardHeader className="text-center space-y-4">
             <div className="relative w-20 h-20 mx-auto overflow-hidden rounded-2xl border bg-white shadow-xl">
@@ -211,7 +217,7 @@ export default function LoginPage() {
             <div>
               <CardTitle className="text-2xl font-bold text-[#1E4D3B] uppercase tracking-tighter">Grow&Go Studio</CardTitle>
               <CardDescription className="text-[#1E4D3B]/60 font-medium">
-                {signUpSuccess ? "Identification requise" : isSignUp ? "Nouvel identifiant" : "Identification"}
+                {signUpSuccess ? "Inscrit avec succès !" : isSignUp ? "Nouvel identifiant Studio" : "Accès à votre espace de travail"}
               </CardDescription>
             </div>
           </CardHeader>
@@ -219,34 +225,47 @@ export default function LoginPage() {
             {signUpSuccess && (
               <div className="mb-6 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3">
                 <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                <p className="text-xs font-bold text-emerald-800 uppercase tracking-wide">Profil prêt. Identifiez-vous.</p>
+                <p className="text-xs font-bold text-emerald-800 uppercase tracking-wide">Profil créé. Identifiez-vous ci-dessous.</p>
               </div>
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
               {isSignUp && (
-                <div className="space-y-1.5">
-                  <Label htmlFor="name" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Nom Complet (Prénom Nom)</Label>
-                  <div className="relative">
-                    <UserPlus className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
-                    <Input 
-                      id="name" 
-                      placeholder="Ex: Marc Lavoine" 
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      className="pl-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-medium"
-                      required={isSignUp}
-                    />
+                <>
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Nom & Prénom</Label>
+                    <div className="relative">
+                      <UserPlus className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
+                      <Input 
+                        placeholder="Ex: Marc Lavoine" 
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className="pl-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-medium"
+                        required
+                      />
+                    </div>
                   </div>
-                </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Nom de l'Entreprise</Label>
+                    <div className="relative">
+                      <Building2 className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
+                      <Input 
+                        placeholder="Ex: Paul S.A." 
+                        value={companyName}
+                        onChange={(e) => setCompanyName(e.target.value)}
+                        className="pl-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-medium"
+                        required
+                      />
+                    </div>
+                  </div>
+                </>
               )}
               
               <div className="space-y-1.5">
-                <Label htmlFor="loginId" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Identifiant Studio</Label>
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Identifiant Studio</Label>
                 <div className="relative">
                   <UserCircle className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
                   <Input 
-                    id="loginId" 
                     placeholder="Ex: MLavoine" 
                     value={loginId}
                     onChange={(e) => setLoginId(e.target.value)}
@@ -257,11 +276,10 @@ export default function LoginPage() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="pass" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Mot de passe</Label>
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Mot de passe</Label>
                 <div className="relative">
                   <Lock className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
                   <Input 
-                    id="pass" 
                     type={showPassword ? "text" : "password"}
                     placeholder="••••••••••••" 
                     value={password}
@@ -285,7 +303,7 @@ export default function LoginPage() {
                   className="w-full h-14 bg-[#1E4D3B] hover:bg-[#1E4D3B]/90 rounded-2xl font-bold text-lg shadow-xl"
                   disabled={isLoading}
                 >
-                  {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (isSignUp ? "Créer mon profil" : "Accéder au Studio")}
+                  {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (isSignUp ? "Lancer mon Studio" : "Se connecter")}
                 </Button>
 
                 <button
@@ -297,9 +315,10 @@ export default function LoginPage() {
                     setLoginId('');
                     setPassword('');
                     setName('');
+                    setCompanyName('');
                   }}
                 >
-                  {isSignUp ? "Déjà un identifiant ? Connexion" : "Nouvel arrivant ? S'inscrire"}
+                  {isSignUp ? "Déjà un accès ? Connexion" : "Nouveau ? Créer un identifiant"}
                 </button>
               </div>
             </form>

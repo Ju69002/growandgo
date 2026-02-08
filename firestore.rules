@@ -7,11 +7,11 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Gestion des profils
+    // Gestion des profils utilisateurs
     match /users/{userId} {
-      // Autoriser la lecture publique des IDs pour la liste sur la page login (prototype uniquement)
+      // Autoriser la lecture publique des IDs pour la liste sur la page login (facilite les tests du prototype)
       allow list: if true;
-      // Un utilisateur peut lire et modifier son propre profil
+      // Un utilisateur peut lire et modifier son propre profil dès qu'il est connecté
       allow get, update: if isSignedIn() && request.auth.uid == userId;
       // Les super admins peuvent tout faire
       allow read, write: if isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin';
@@ -24,7 +24,7 @@ service cloud.firestore {
     }
 
     match /companies/{companyId} {
-      allow read: if belongsToCompany(companyId);
+      allow read: if isSignedIn(); // Permet de récupérer le nom de l'entreprise pour l'affichage
       allow write: if isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin';
     }
 
