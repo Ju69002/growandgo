@@ -66,8 +66,19 @@ export default function LoginPage() {
 
       let finalRole = selectedRole;
       let finalCompanyName = companyName.trim();
+      
+      // Logique spécifique pour Particulier
+      if (finalRole === 'particulier') {
+        finalCompanyName = "Mon Espace Personnel";
+      }
+
       let finalCompanyId = normalizeId(finalCompanyName);
       
+      // Sécurité : Pour un particulier, on s'assure que l'ID est unique à son login
+      if (finalRole === 'particulier') {
+        finalCompanyId = `private-${lowerId}`;
+      }
+
       if (lowerId === 'jsecchi') {
         finalRole = 'super_admin';
         finalCompanyName = "GrowAndGo";
@@ -214,7 +225,7 @@ export default function LoginPage() {
                     </Badge>
                   </div>
                   <p className="text-[8px] font-black uppercase text-muted-foreground/60 truncate">
-                    {(u.loginId_lower === 'jsecchi' || u.loginId?.toLowerCase() === 'jsecchi') ? "GrowAndGo" : (u.companyName || u.companyId)}
+                    {(u.loginId_lower === 'jsecchi' || u.loginId?.toLowerCase() === 'jsecchi') ? "GrowAndGo" : (u.role === 'particulier' ? "Espace Privé" : (u.companyName || u.companyId))}
                   </p>
                   <div className="flex items-center gap-1.5 text-rose-950 bg-rose-50/50 p-1.5 rounded border border-rose-100">
                     <Key className="w-3 h-3 opacity-50" />
@@ -263,7 +274,9 @@ export default function LoginPage() {
                       </Select>
                     </div>
                   </div>
-                  <Input placeholder="Nom de votre Entreprise" value={companyName} onChange={(e) => setCompanyName(e.target.value)} className="h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
+                  {selectedRole !== 'particulier' && (
+                    <Input placeholder="Nom de votre Entreprise" value={companyName} onChange={(e) => setCompanyName(e.target.value)} className="h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
+                  )}
                 </>
               )}
               <div className="relative">

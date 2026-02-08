@@ -82,6 +82,8 @@ export default function SettingsPage() {
     );
   }
 
+  const isParticulier = profile?.role === 'particulier';
+
   return (
     <DashboardLayout>
       <div className="max-w-4xl mx-auto py-10 px-6 space-y-8">
@@ -127,17 +129,19 @@ export default function SettingsPage() {
                     />
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Entreprise (Fixe)</Label>
-                  <div className="relative">
-                    <Building2 className="absolute left-3 top-3.5 w-4 h-4 text-muted-foreground/40" />
-                    <Input 
-                      value={profile?.companyName || profile?.companyId || 'Non défini'}
-                      disabled
-                      className="pl-10 rounded-xl bg-muted/30 border-primary/5 h-12 font-bold opacity-70 cursor-not-allowed"
-                    />
+                {!isParticulier && (
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Entreprise (Fixe)</Label>
+                    <div className="relative">
+                      <Building2 className="absolute left-3 top-3.5 w-4 h-4 text-muted-foreground/40" />
+                      <Input 
+                        value={profile?.companyName || profile?.companyId || 'Non défini'}
+                        disabled
+                        className="pl-10 rounded-xl bg-muted/30 border-primary/5 h-12 font-bold opacity-70 cursor-not-allowed"
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
                 <div className="space-y-2">
                   <Label htmlFor="uname" className="text-[10px] font-black uppercase text-muted-foreground ml-1 flex items-center gap-2">
                     <Edit2 className="w-3 h-3" /> Nom Complet

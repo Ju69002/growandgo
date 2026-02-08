@@ -47,14 +47,17 @@ export function AppSidebar() {
   const { data: profile } = useDoc<User>(userRef);
 
   const isSuperAdmin = profile?.role === 'super_admin';
+  const isParticulier = profile?.role === 'particulier';
   const isJSecchi = profile?.loginId?.toLowerCase() === 'jsecchi' || profile?.loginId_lower === 'jsecchi';
   
-  // Force l'affichage GrowAndGo pour JSecchi
-  const displayName = isJSecchi ? "GrowAndGo" : (profile?.companyName || profile?.companyId || "GrowAndGo");
+  // Nom d'affichage adapté au rôle
+  let displayName = profile?.companyName || profile?.companyId || "GrowAndGo";
+  if (isJSecchi) displayName = "GrowAndGo";
+  if (isParticulier) displayName = "Mon Espace";
 
   const mainItems = [
     { title: 'Tableau de bord', icon: LayoutDashboard, url: '/' },
-    { title: 'Équipe', icon: Users, url: '/team' },
+    { title: isParticulier ? 'Mes Accès' : 'Équipe', icon: Users, url: '/team' },
   ];
 
   const configItems = [
@@ -84,7 +87,7 @@ export function AppSidebar() {
               {displayName}
             </span>
             <span className="text-[10px] uppercase tracking-widest opacity-70 font-medium text-white truncate">
-              {isSuperAdmin ? "Administration" : "Espace de travail"}
+              {isSuperAdmin ? "Administration" : isParticulier ? "Espace Privé" : "Espace de travail"}
             </span>
           </div>
         </div>

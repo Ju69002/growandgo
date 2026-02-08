@@ -8,7 +8,7 @@ import { User } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, ShieldCheck, User as UserIcon, Building2, Key } from 'lucide-react';
+import { Loader2, ShieldCheck, User as UserIcon, Building2, Key, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function TeamPage() {
@@ -22,6 +22,7 @@ export default function TeamPage() {
 
   const { data: profile } = useDoc<User>(userProfileRef);
   const companyId = profile?.companyId;
+  const isParticulier = profile?.role === 'particulier';
 
   const teamQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
@@ -29,6 +30,31 @@ export default function TeamPage() {
   }, [db, companyId]);
 
   const { data: teamMembers, isLoading } = useCollection<User>(teamQuery);
+
+  if (isParticulier) {
+    return (
+      <DashboardLayout>
+        <div className="max-w-4xl mx-auto py-20 px-6 text-center space-y-8 flex flex-col items-center">
+          <div className="p-6 bg-amber-50 rounded-[3rem] border-2 border-dashed border-amber-200">
+            <UserIcon className="w-20 h-20 text-amber-600 opacity-40 mx-auto" />
+          </div>
+          <div className="space-y-3">
+            <h1 className="text-4xl font-black tracking-tighter text-primary uppercase">Espace Privé</h1>
+            <p className="text-muted-foreground font-medium max-w-md mx-auto">
+              En tant que <strong>Particulier</strong>, vous disposez d'un accès strictement confidentiel. 
+              Aucun autre utilisateur n'est lié à votre espace de travail.
+            </p>
+          </div>
+          <div className="bg-primary/5 p-6 rounded-2xl border flex items-start gap-4 text-left max-w-lg">
+            <Info className="w-6 h-6 text-primary mt-1 shrink-0" />
+            <p className="text-sm leading-relaxed">
+              Toutes vos données (documents, agenda, paramètres) sont isolées. Vous ne pouvez pas ajouter de collaborateurs à cet abonnement privé.
+            </p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>

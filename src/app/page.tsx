@@ -57,6 +57,7 @@ export default function Home() {
   const { data: profile, isLoading: isProfileLoading } = useDoc<User>(userRef);
   
   const isSuperAdmin = profile?.role === 'super_admin';
+  const isParticulier = profile?.role === 'particulier';
   const companyId = profile?.companyId ? profile.companyId : null;
 
   const allUsersQuery = useMemoFirebase(() => {
@@ -125,7 +126,7 @@ export default function Home() {
   if (!user) return null;
 
   const isJSecchi = profile?.loginId?.toLowerCase() === 'jsecchi' || profile?.loginId_lower === 'jsecchi';
-  const companyDisplayName = isJSecchi ? "GrowAndGo" : (profile?.companyName || "GrowAndGo");
+  const companyDisplayName = isParticulier ? "Espace Privé" : (isJSecchi ? "GrowAndGo" : (profile?.companyName || "GrowAndGo"));
 
   return (
     <DashboardLayout>
@@ -147,7 +148,7 @@ export default function Home() {
               )}
             </div>
             <p className="text-muted-foreground font-medium italic">
-              Espace {companyDisplayName}, Bienvenue {profile?.name}.
+              {companyDisplayName}, Bienvenue {profile?.name}.
             </p>
           </div>
         </header>
@@ -205,7 +206,7 @@ export default function Home() {
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-black uppercase tracking-tighter flex items-center gap-2">
                 <CalendarIcon className="w-5 h-5 text-primary" />
-                Agenda collaboratif
+                {isParticulier ? "Mon Agenda" : "Agenda collaboratif"}
               </h2>
               <Button asChild variant="outline" size="sm" className="rounded-full h-8 px-4 font-black uppercase text-[10px] tracking-widest gap-2">
                 <Link href="/categories/agenda">
@@ -228,7 +229,7 @@ export default function Home() {
         <section className="pt-8 border-t">
           <h2 className="text-2xl font-black uppercase tracking-tighter mb-8 flex items-center gap-3">
             <FileText className="w-7 h-7 text-primary" />
-            Dossiers de l'espace de travail
+            {isParticulier ? "Mes Dossiers Personnels" : "Dossiers de l'espace de travail"}
           </h2>
           {profile && <CategoryTiles profile={profile} />}
         </section>
