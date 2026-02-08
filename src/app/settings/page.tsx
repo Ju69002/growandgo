@@ -10,7 +10,8 @@ import {
   ShieldCheck, 
   Fingerprint,
   Mail,
-  Edit2
+  Edit2,
+  Lock
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -123,19 +124,25 @@ export default function SettingsPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Identifiant Studio (Fixe)</Label>
-                  <Input 
-                    value={profile?.loginId || ''}
-                    disabled
-                    className="rounded-xl bg-muted/50 border-primary/5 h-12 font-bold opacity-60"
-                  />
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-3.5 w-4 h-4 text-muted-foreground/40" />
+                    <Input 
+                      value={profile?.loginId || ''}
+                      disabled
+                      className="pl-10 rounded-xl bg-muted/30 border-primary/5 h-12 font-bold opacity-70 cursor-not-allowed"
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Entreprise Studio</Label>
-                  <Input 
-                    value={company?.name || profile?.companyId || ''}
-                    disabled
-                    className="rounded-xl bg-muted/50 border-primary/5 h-12 font-bold opacity-60"
-                  />
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Entreprise Studio (Fixe)</Label>
+                  <div className="relative">
+                    <Building2 className="absolute left-3 top-3.5 w-4 h-4 text-muted-foreground/40" />
+                    <Input 
+                      value={company?.name || profile?.companyId || 'Non défini'}
+                      disabled
+                      className="pl-10 rounded-xl bg-muted/30 border-primary/5 h-12 font-bold opacity-70 cursor-not-allowed"
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="uname" className="text-[10px] font-black uppercase text-muted-foreground ml-1 flex items-center gap-2">

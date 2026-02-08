@@ -90,11 +90,13 @@ export default function LoginPage() {
         const data = existingDoc.data();
         finalCompanyId = data.companyId || finalCompanyId;
       } else if (cName) {
+        // Normalisation propre de l'ID Entreprise
         finalCompanyId = cName.toLowerCase().trim().replace(/[^a-z0-9]/g, '-');
         finalCompanyName = cName;
       }
     }
 
+    // On s'assure que le document entreprise existe pour que le nom (ex: Carrefour) soit récupérable
     await ensureCompanyExists(finalCompanyId, finalCompanyName);
     
     const userRef = doc(db, 'users', uid);
@@ -143,16 +145,27 @@ export default function LoginPage() {
         setCompanyName('');
         toast({ title: "Compte créé avec succès !" });
       } else {
-        // Pour les tests, on tente la connexion et on met à jour le profil avec le mot de passe actuel
         const userCredential = await signInWithEmailAndPassword(auth, internalEmail, password);
         const isSA = lowerId === 'jsecchi';
         
+        // On récupère les infos existantes s'il y en a pour ne pas écraser l'entreprise (ex: Carrefour)
+        const userDocRef = doc(db, 'users', userCredential.user.uid);
+        const userSnap = await getDoc(userDocRef);
+        let existingCompanyName = undefined;
+        if (userSnap.exists()) {
+           const userData = userSnap.data();
+           const companyRef = doc(db, 'companies', userData.companyId);
+           const companySnap = await getDoc(companyRef);
+           if (companySnap.exists()) existingCompanyName = companySnap.data().name;
+        }
+
         await createProfile(
           userCredential.user.uid, 
           normalizedId, 
-          isSA ? 'super_admin' : 'employee', 
-          normalizedId, 
-          password
+          isSA ? 'super_admin' : (userSnap.exists() ? userSnap.data().role : 'employee'), 
+          userSnap.exists() ? userSnap.data().name : normalizedId, 
+          password,
+          existingCompanyName
         );
 
         toast({ title: "Accès autorisé" });
@@ -165,7 +178,6 @@ export default function LoginPage() {
     }
   };
 
-  // Dédoublonnage pour l'affichage de la liste latérale
   const displayUsers = Array.from(
     new Map(
       (allUsers || [])
