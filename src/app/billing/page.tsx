@@ -2,7 +2,7 @@
 'use client';
 
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
-import { CreditCard, ShieldCheck, Ban, CheckCircle2, Users, Calendar, Euro, FileDown, Loader2 } from 'lucide-react';
+import { CreditCard, ShieldCheck, Ban, CheckCircle2, Users, Calendar, Euro, FileDown, Loader2, Zap } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -12,7 +12,7 @@ import {
   useMemoFirebase, 
   useCollection 
 } from '@/firebase';
-import { doc, collection, query } from 'firebase/firestore';
+import { doc, collection, query, where } from 'firebase/firestore';
 import { User } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { 
@@ -23,10 +23,11 @@ import {
   TableHeader, 
   TableRow 
 } from '@/components/ui/table';
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { generateInvoicePDF } from '@/lib/invoice-utils';
 import { useToast } from '@/hooks/use-toast';
+import { syncBillingTasks } from '@/services/billing-sync';
 
 export default function BillingPage() {
   const { user } = useUser();
@@ -34,6 +35,7 @@ export default function BillingPage() {
   const { toast } = useToast();
   const [mounted, setMounted] = useState(false);
   const [isGenerating, setIsGenerating] = useState<string | null>(null);
+  const syncLock = useRef(false);
 
   useEffect(() => {
     setMounted(true);
@@ -50,10 +52,18 @@ export default function BillingPage() {
 
   const allUsersQuery = useMemoFirebase(() => {
     if (!db || !isSuperAdmin) return null;
-    return query(collection(db, 'users'));
+    return query(collection(db, 'users'), where('isProfile', '==', true));
   }, [db, isSuperAdmin]);
 
   const { data: allUsers, isLoading: isLoadingUsers } = useCollection<User>(allUsersQuery);
+
+  // Synchronisation des tâches au chargement de la page pour l'Admin
+  useEffect(() => {
+    if (db && user && isSuperAdmin && allUsers && !syncLock.current) {
+      syncLock.current = true;
+      syncBillingTasks(db, user.uid, allUsers);
+    }
+  }, [db, user, isSuperAdmin, allUsers]);
 
   const isActive = profile?.subscriptionStatus !== 'inactive' || isSuperAdmin;
 
@@ -88,7 +98,6 @@ export default function BillingPage() {
       new Map(
         allUsers
           .filter(u => u.loginId || u.loginId_lower)
-          .sort((a, b) => (a.isProfile ? 1 : -1))
           .map(u => {
             const lowerId = (u.loginId_lower || u.loginId?.toLowerCase());
             return [lowerId, u];
@@ -102,14 +111,31 @@ export default function BillingPage() {
   return (
     <DashboardLayout>
       <div className="max-w-6xl mx-auto py-12 px-6 space-y-10">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-primary/10 rounded-2xl text-primary">
-            <CreditCard className="w-8 h-8" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-primary/10 rounded-2xl text-primary">
+              <CreditCard className="w-8 h-8" />
+            </div>
+            <div>
+              <h1 className="text-4xl font-black tracking-tighter text-primary uppercase leading-tight">Abonnement Espace</h1>
+              <p className="text-muted-foreground font-medium">Gestion des accès et récapitulatif des comptes actifs.</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-4xl font-black tracking-tighter text-primary uppercase leading-tight">Abonnement Espace</h1>
-            <p className="text-muted-foreground font-medium">Gestion des accès et récapitulatif des comptes actifs.</p>
-          </div>
+          {isSuperAdmin && (
+             <Button 
+               variant="outline" 
+               className="rounded-full h-10 gap-2 font-bold text-xs uppercase"
+               onClick={() => {
+                 if (db && user && allUsers) {
+                   syncBillingTasks(db, user.uid, allUsers);
+                   toast({ title: "Synchronisation forcée", description: "Tâches et agenda mis à jour." });
+                 }
+               }}
+             >
+               <Zap className="w-4 h-4 text-amber-500" />
+               Actualiser les tâches
+             </Button>
+          )}
         </div>
 
         {isSuperAdmin ? (

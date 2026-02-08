@@ -21,7 +21,7 @@ export interface Company {
 export interface User {
   uid: string;
   companyId: string;
-  companyName: string; // Nom d'affichage indépendant
+  companyName: string; 
   role: UserRole;
   adminMode: boolean;
   isCategoryModifier: boolean;
@@ -31,6 +31,7 @@ export interface User {
   password?: string;
   email: string;
   subscriptionStatus?: SubscriptionStatus;
+  createdAt?: string;
 }
 
 export interface Category {
@@ -65,6 +66,9 @@ export interface BusinessDocument {
   fileUrl: string;
   createdAt: string;
   companyId: string;
+  isBillingTask?: boolean;
+  billingMonthId?: string;
+  targetUserId?: string;
 }
 
 export interface CalendarEvent {
@@ -80,4 +84,5 @@ export interface CalendarEvent {
   source: 'local' | 'google';
   type: 'meeting' | 'task' | 'event';
   derniere_maj: string;
+  isBillingEvent?: boolean;
 }

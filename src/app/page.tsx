@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser, useFirestore, useDoc, useMemoFirebase, useAuth, useCollection } from '@/firebase';
 import { doc, collection, query, where, limit } from 'firebase/firestore';
@@ -18,7 +18,8 @@ import {
   Calendar as CalendarIcon, 
   ChevronRight, 
   CheckCircle2,
-  Maximize2
+  Maximize2,
+  Zap
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -26,6 +27,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { signOut } from 'firebase/auth';
 import Link from 'next/link';
+import { syncBillingTasks } from '@/services/billing-sync';
 
 export default function Home() {
   const router = useRouter();
@@ -33,6 +35,7 @@ export default function Home() {
   const { user, isUserLoading } = useUser();
   const db = useFirestore();
   const [mounted, setMounted] = useState(false);
+  const syncLock = useRef(false);
 
   useEffect(() => {
     setMounted(true);
@@ -51,14 +54,31 @@ export default function Home() {
 
   const { data: profile, isLoading: isProfileLoading } = useDoc<User>(userRef);
   
+  const isSuperAdmin = profile?.role === 'super_admin';
   const companyId = profile?.companyId ? profile.companyId : null;
+
+  // Récupération de tous les utilisateurs pour la synchro Admin
+  const allUsersQuery = useMemoFirebase(() => {
+    if (!db || !isSuperAdmin) return null;
+    return query(collection(db, 'users'), where('isProfile', '==', true));
+  }, [db, isSuperAdmin]);
+
+  const { data: allUsers } = useCollection<User>(allUsersQuery);
+
+  // Synchronisation des tâches de facturation pour l'Admin
+  useEffect(() => {
+    if (db && user && isSuperAdmin && allUsers && !syncLock.current) {
+      syncLock.current = true;
+      syncBillingTasks(db, user.uid, allUsers);
+    }
+  }, [db, user, isSuperAdmin, allUsers]);
 
   const pendingDocsQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
     return query(
       collection(db, 'companies', companyId, 'documents'),
       where('status', '!=', 'archived'),
-      limit(5)
+      limit(10)
     );
   }, [db, companyId]);
 
@@ -111,7 +131,6 @@ export default function Home() {
     );
   }
 
-  const isSuperAdmin = profile?.role === 'super_admin';
   const isJSecchi = profile?.loginId?.toLowerCase() === 'jsecchi' || profile?.loginId_lower === 'jsecchi';
   const companyDisplayName = isJSecchi ? "GrowAndGo" : (profile?.companyName || "GrowAndGo");
 
@@ -142,22 +161,30 @@ export default function Home() {
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-black uppercase tracking-tighter flex items-center gap-2">
                 <ListTodo className="w-5 h-5 text-primary" />
-                Tâches de la semaine
+                Tâches à traiter
               </h2>
             </div>
             
             <div className="space-y-3">
               {pendingTasks && pendingTasks.length > 0 ? (
                 pendingTasks.map((task) => (
-                  <Link href={`/categories/${task.categoryId}`} key={task.id}>
-                    <Card className="border-none shadow-sm hover:shadow-md transition-all rounded-2xl overflow-hidden group">
+                  <Link href={task.isBillingTask ? `/billing` : `/categories/${task.categoryId}`} key={task.id}>
+                    <Card className={cn(
+                      "border-none shadow-sm hover:shadow-md transition-all rounded-2xl overflow-hidden group",
+                      task.isBillingTask && "bg-amber-50/50 border border-amber-100"
+                    )}>
                       <CardContent className="p-4 flex items-center gap-3">
-                        <div className="p-2 bg-primary/5 rounded-lg text-primary">
-                          <CheckCircle2 className="w-4 h-4" />
+                        <div className={cn(
+                          "p-2 rounded-lg",
+                          task.isBillingTask ? "bg-amber-100 text-amber-600" : "bg-primary/5 text-primary"
+                        )}>
+                          {task.isBillingTask ? <Zap className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-bold truncate group-hover:text-primary transition-colors">{task.name}</p>
-                          <p className="text-[10px] font-black uppercase text-muted-foreground opacity-60">{task.status.replace('_', ' ')}</p>
+                          <p className="text-[10px] font-black uppercase text-muted-foreground opacity-60">
+                            {task.isBillingTask ? "Facturation" : task.status.replace('_', ' ')}
+                          </p>
                         </div>
                         <ChevronRight className="w-4 h-4 text-muted-foreground/30 group-hover:translate-x-1 transition-transform" />
                       </CardContent>
@@ -169,11 +196,6 @@ export default function Home() {
                   <CheckCircle2 className="w-8 h-8 text-primary/30 mx-auto" />
                   <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Tout est à jour</p>
                 </div>
-              )}
-              {pendingTasks && pendingTasks.length > 0 && (
-                <Button asChild variant="ghost" className="w-full font-black uppercase text-[10px] tracking-widest h-10 rounded-xl">
-                  <Link href="/notifications">Voir tout</Link>
-                </Button>
               )}
             </div>
           </aside>
