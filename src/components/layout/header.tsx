@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Search, Bell, UserCircle, LogOut, Clock, AlertCircle, CheckCircle2, ShieldCheck } from 'lucide-react';
@@ -56,6 +57,12 @@ export function Header() {
       await auth.signOut();
       router.push('/login');
     }
+  };
+
+  const getRoleLabel = (role?: string) => {
+    if (role === 'super_admin') return 'ADMIN';
+    if (role === 'admin') return 'PATRON';
+    return 'EMPLOYÉ';
   };
 
   return (
@@ -125,12 +132,12 @@ export function Header() {
           <DropdownMenuContent align="end" className="w-56 shadow-2xl border-none rounded-2xl p-2">
             <DropdownMenuLabel className="px-4 py-3 flex flex-col">
               <span className="font-bold text-base truncate">{profile?.name || 'Mon Compte'}</span>
-              <span className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">{profile?.role}</span>
+              <span className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">{getRoleLabel(profile?.role)}</span>
             </DropdownMenuLabel>
             <DropdownMenuSeparator className="bg-muted/50" />
             <DropdownMenuItem asChild className="rounded-xl cursor-pointer">
               <Link href="/settings" className="flex items-center gap-2 py-2">
-                <UserCircle className="w-4 h-4" /> Profil & Studio
+                <UserCircle className="w-4 h-4" /> Profil & Espace
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild className="rounded-xl cursor-pointer">

@@ -72,7 +72,7 @@ export default function TeamPage() {
                           member.role === 'admin' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
                         )}
                       >
-                        {member.role === 'super_admin' ? 'Admin' : member.role === 'admin' ? 'Patron' : 'Employé'}
+                        {member.role === 'super_admin' ? 'ADMIN' : member.role === 'admin' ? 'PATRON' : 'EMPLOYÉ'}
                       </Badge>
                     </div>
                   </div>

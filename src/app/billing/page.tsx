@@ -30,7 +30,7 @@ export default function BillingPage() {
   };
 
   const getPlanName = () => {
-    if (profile?.role === 'super_admin') return "Compte Super Administrateur";
+    if (profile?.role === 'super_admin') return "Plan Admin";
     if (profile?.role === 'admin') return "Plan Patron";
     return "Plan Employé";
   };

@@ -23,7 +23,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { cn, normalizeId } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { signOut } from 'firebase/auth';
 import Link from 'next/link';
 
@@ -127,7 +127,7 @@ export default function Home() {
                   "font-black uppercase text-[10px] h-5 px-2",
                   isSuperAdmin ? "bg-rose-950 text-white" : profile.role === 'admin' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
                 )}>
-                  {isSuperAdmin ? 'Admin' : profile.role === 'admin' ? 'Patron' : 'Employé'}
+                  {isSuperAdmin ? 'ADMIN' : profile.role === 'admin' ? 'PATRON' : 'EMPLOYÉ'}
                 </Badge>
               )}
             </div>

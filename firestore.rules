@@ -7,40 +7,24 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isSuperAdmin() {
-      return isSignedIn() && (
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin'
-      );
-    }
-
     // Gestion des profils utilisateurs
     match /users/{userId} {
-      allow read, write: if true; 
+      allow read, write: if isSignedIn(); 
       
-      // Factures privées de l'utilisateur
-      match /invoices/{invoiceId} {
-        allow read, write: if isSignedIn() && request.auth.uid == userId;
-      }
-      
-      // Factures reçues par l'admin
+      // Factures reçues par l'admin (pour usage futur si réactivé)
       match /received_invoices/{invoiceId} {
         allow read: if isSignedIn() && request.auth.uid == userId;
-        allow write: if isSignedIn(); // Permet aux utilisateurs d'envoyer une copie à l'admin
+        allow write: if isSignedIn();
       }
     }
 
     // Gestion des entreprises
     match /companies/{companyId} {
-      // Seul l'Admin peut modifier le répertoire (nom d'entreprise)
+      // Accès global authentifié pour l'Espace de travail
       allow read, write: if isSignedIn();
 
-      match /categories/{categoryId} {
-        allow read, write: if isSignedIn();
-      }
-
-      // Seul l'utilisateur de l'entreprise peut voir ses propres documents
-      match /documents/{documentId} {
+      // Autoriser récursivement toutes les sous-collections (catégories, documents, événements)
+      match /{allSubcollections=**} {
         allow read, write: if isSignedIn();
       }
     }
