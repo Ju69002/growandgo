@@ -22,7 +22,7 @@ import {
   updateDocumentNonBlocking,
   deleteDocumentNonBlocking
 } from '@/firebase';
-import { collection, doc, query, where, getDocs } from 'firebase/firestore';
+import { collection, doc, query } from 'firebase/firestore';
 import { User, UserRole } from '@/lib/types';
 import { 
   ShieldCheck, 
@@ -161,11 +161,12 @@ export default function AccountsPage() {
     );
   }
 
+  // Logique de dédoublonnage : On privilégie les documents 'isProfile: true'
   const uniqueUsers = Array.from(
     new Map(
       (allProfiles || [])
         .filter(u => u.loginId || u.loginId_lower)
-        .sort((a, b) => (a.isProfile ? -1 : 1))
+        .sort((a, b) => (a.isProfile ? 1 : -1)) // Le profil (true) vient après la session (false) et l'écrase dans la Map
         .map(u => [u.loginId_lower || u.loginId?.toLowerCase(), u])
     ).values()
   ).sort((a, b) => {

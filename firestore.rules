@@ -6,41 +6,56 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Récupère le profil de l'utilisateur pour vérifier son appartenance
+    // Récupère les données de la session actuelle de l'utilisateur
     function getUserData() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
-    // Vérifie si l'utilisateur appartient à l'entreprise demandée
-    function belongsToCompany(companyId) {
-      return isSignedIn() && getUserData().companyId == companyId;
-    }
-
     // Gestion des profils utilisateurs
     match /users/{userId} {
-      // Un utilisateur peut lire son propre profil ou un Super Admin peut tout lire
-      allow read: if isSignedIn() && (request.auth.uid == userId || getUserData().role == 'super_admin');
-      // La création est autorisée pour l'inscription, la mise à jour pour le Super Admin ou l'utilisateur lui-même
+      // Un utilisateur peut lire son propre profil. 
+      // Pour le Super Admin, on utilise un get direct pour éviter la récursion infinie
+      allow read: if isSignedIn() && (
+        request.auth.uid == userId || 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin'
+      );
+      // La création est autorisée pour tout le monde (inscription/session)
       allow write: if true; 
     }
 
-    // Gestion des entreprises (Isolation forte)
+    // Gestion des entreprises et de leurs sous-collections
     match /companies/{companyId} {
-      allow read: if belongsToCompany(companyId) || (isSignedIn() && getUserData().role == 'super_admin');
-      allow write: if belongsToCompany(companyId) || (isSignedIn() && getUserData().role == 'super_admin');
+      
+      // Vérifie l'appartenance à l'entreprise ou le rôle Super Admin
+      function canAccessCompany() {
+        let userData = getUserData();
+        return userData.companyId == companyId || userData.role == 'super_admin';
+      }
+
+      // Vérifie si l'utilisateur est Admin de l'entreprise ou Super Admin
+      function canManageCompany() {
+        let userData = getUserData();
+        return (userData.companyId == companyId && userData.role == 'admin') || userData.role == 'super_admin';
+      }
+
+      allow read: if isSignedIn() && canAccessCompany();
+      allow write: if isSignedIn() && canManageCompany();
 
       match /categories/{categoryId} {
-        allow read, write: if belongsToCompany(companyId) || (isSignedIn() && getUserData().role == 'super_admin');
+        allow read: if isSignedIn() && canAccessCompany();
+        allow write: if isSignedIn() && canManageCompany();
       }
       match /documents/{documentId} {
-        allow read, write: if belongsToCompany(companyId) || (isSignedIn() && getUserData().role == 'super_admin');
+        allow read: if isSignedIn() && canAccessCompany();
+        allow write: if isSignedIn() && canAccessCompany(); // Les employés peuvent aussi uploader/modifier des docs
       }
       match /events/{eventId} {
-        allow read, write: if belongsToCompany(companyId) || (isSignedIn() && getUserData().role == 'super_admin');
+        allow read: if isSignedIn() && canAccessCompany();
+        allow write: if isSignedIn() && canAccessCompany(); // Les employés peuvent aussi gérer l'agenda
       }
     }
 
-    // Autoriser la lecture des modules pour la configuration
+    // Autoriser la lecture des modules pour tous les connectés
     match /modules/{moduleId} {
       allow read: if isSignedIn();
     }
