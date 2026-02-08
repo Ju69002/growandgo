@@ -74,7 +74,6 @@ export default function LoginPage() {
         finalCompanyId = "GrowAndGo";
       }
 
-      // Enregistrement forcé de la date de création au format ISO
       const now = new Date().toISOString();
 
       await setDoc(doc(db, 'users', profileId), {

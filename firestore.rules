@@ -9,7 +9,9 @@ service cloud.firestore {
 
     // Gestion des profils utilisateurs
     match /users/{userId} {
-      allow read, write: if isSignedIn(); 
+      // Lecture publique autorisée pour le répertoire d'aide à la connexion (MVP)
+      allow read: if true; 
+      allow write: if isSignedIn(); 
       
       // Factures reçues par l'admin
       match /received_invoices/{invoiceId} {
