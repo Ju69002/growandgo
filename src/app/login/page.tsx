@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useAuth, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
-import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, query, where, getDocs, deleteDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Lock, UserCircle, UserPlus, Eye, EyeOff, CheckCircle2, Building2, Users, Key } from 'lucide-react';
 import Image from 'next/image';
@@ -33,7 +33,7 @@ export default function LoginPage() {
   const { toast } = useToast();
   const logo = PlaceHolderImages.find(img => img.id === 'app-logo');
 
-  // Récupération en temps réel des identifiants pour le répertoire latéral
+  // Récupération en temps réel des identifiants (Triés par rôle pour le SA en haut)
   const usersQuery = useMemoFirebase(() => {
     if (!db) return null;
     return query(collection(db, 'users'));
@@ -41,7 +41,7 @@ export default function LoginPage() {
 
   const { data: allUsers } = useCollection<User>(usersQuery);
 
-  // Assure qu'une entreprise existe pour l'utilisateur
+  // Assure qu'une entreprise existe
   const ensureCompanyExists = async (companyId: string, companyName: string) => {
     if (!db) return;
     const companyRef = doc(db, 'companies', companyId);
@@ -60,11 +60,21 @@ export default function LoginPage() {
     }
   };
 
-  // Crée ou met à jour le profil Firestore
+  // Crée ou met à jour le profil Firestore de manière unique
   const createProfile = async (uid: string, loginId: string, role: string, displayName: string, pass: string, cName?: string) => {
     if (!db) return;
     const lowerId = loginId.toLowerCase().trim();
     
+    // NETTOYAGE DES DOUBLONS : Supprime tout autre document ayant le même loginId_lower mais un UID différent
+    const usersRef = collection(db, 'users');
+    const q = query(usersRef, where('loginId_lower', '==', lowerId));
+    const snap = await getDocs(q);
+    for (const d of snap.docs) {
+      if (d.id !== uid) {
+        await deleteDoc(doc(db, 'users', d.id));
+      }
+    }
+
     let finalRole = role;
     let finalCompanyId = 'default-studio';
     let finalCompanyName = cName || 'Mon Studio';
@@ -89,7 +99,7 @@ export default function LoginPage() {
       name: displayName || loginId,
       loginId: loginId.trim(),
       loginId_lower: lowerId,
-      password: pass, // Stockage en clair pour les tests comme demandé
+      password: pass, // Stockage en clair pour les tests
       email: `${lowerId}@studio.internal`,
       createdAt: new Date().toISOString()
     }, { merge: true });
@@ -107,31 +117,27 @@ export default function LoginPage() {
       const internalEmail = `${lowerId}@studio.internal`;
       
       if (isSignUp) {
-        // VERIFICATION DE DOUBLON LORS DE L'INSCRIPTION
         if (!companyName.trim()) throw new Error("Le nom de l'entreprise est requis.");
         
+        // VERIFICATION DE DOUBLON AVANT INSCRIPTION
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('loginId_lower', '==', lowerId));
         const checkSnap = await getDocs(q);
         if (!checkSnap.empty) throw new Error("Cet identifiant est déjà utilisé.");
 
-        // Création Auth
         const userCredential = await createUserWithEmailAndPassword(auth, internalEmail, password);
-        // Création Profil
         await createProfile(userCredential.user.uid, normalizedId, 'employee', name || normalizedId, password, companyName);
 
-        // Déconnexion obligatoire pour forcer le login propre
         await signOut(auth);
         setSignUpSuccess(true);
         setIsSignUp(false);
         setPassword('');
         setName('');
         setCompanyName('');
-        toast({ title: "Compte créé avec succès !", description: "Identifiez-vous maintenant pour accéder à votre espace." });
+        toast({ title: "Compte créé avec succès !" });
       } else {
         // CONNEXION
         if (lowerId === 'jsecchi' && password === 'Meqoqo1998') {
-          // Gestion JSecchi fixe
           try {
             await signInWithEmailAndPassword(auth, internalEmail, password);
           } catch (e: any) {
@@ -141,18 +147,16 @@ export default function LoginPage() {
           }
           await createProfile(auth.currentUser!.uid, 'JSecchi', 'super_admin', 'Julien Secchi', password);
         } else {
-          // Connexion standard
           const userCredential = await signInWithEmailAndPassword(auth, internalEmail, password);
-          // Mise à jour du mot de passe dans Firestore pour l'affichage en clair (tests)
+          // Mise à jour du mot de passe dans Firestore pour l'affichage en clair
           const userDocRef = doc(db, 'users', userCredential.user.uid);
           await setDoc(userDocRef, { password: password }, { merge: true });
         }
 
-        toast({ title: "Bienvenue dans votre Studio" });
+        toast({ title: "Connexion réussie" });
         router.push('/');
       }
     } catch (error: any) {
-      console.error("Auth Error:", error);
       let message = "Identifiant ou mot de passe incorrect.";
       if (error.code === 'auth/email-already-in-use') message = "Cet identifiant est déjà utilisé.";
       if (error.message) message = error.message;
@@ -166,19 +170,20 @@ export default function LoginPage() {
     <div className="min-h-screen bg-[#F5F2EA] flex items-center justify-center p-4">
       <div className="flex flex-col md:flex-row gap-8 items-start max-w-5xl w-full">
         
-        {/* REPERTOIRE LATERAL DES ACCÈS (DEDOUPLÉ PAR LOGIN ID) */}
+        {/* REPERTOIRE LATERAL DES ACCÈS (EN CLAIR POUR TESTS) */}
         <div className="w-full md:w-80 space-y-4 md:sticky md:top-10">
           <div className="bg-white p-6 rounded-[2rem] shadow-xl border-none">
             <div className="flex items-center gap-2 mb-4 text-[#1E4D3B]">
               <Users className="w-5 h-5" />
               <h3 className="font-black uppercase text-[10px] tracking-widest">Identifiants en base</h3>
             </div>
-            <div className="space-y-3 max-h-[450px] overflow-y-auto pr-2 scrollbar-thin">
+            <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2 scrollbar-thin">
               {allUsers && allUsers.length > 0 ? (
-                allUsers.map(u => (
-                  <div key={u.uid} className="flex flex-col p-3 rounded-xl bg-muted/30 border border-black/5 gap-1.5">
+                // On dédoublonne visuellement au cas où Firestore contiendrait encore des restes
+                Array.from(new Map(allUsers.map(u => [u.loginId_lower, u])).values()).map(u => (
+                  <div key={u.uid} className="flex flex-col p-3 rounded-xl bg-muted/30 border border-black/5 gap-1.5 animate-in fade-in duration-300">
                     <div className="flex items-center justify-between">
-                      <span className="font-mono text-[10px] font-bold truncate text-primary">{u.loginId}</span>
+                      <span className="font-mono text-[10px] font-bold truncate text-primary uppercase">{u.loginId}</span>
                       <Badge className={cn(
                         "text-[8px] font-black uppercase h-4 px-1 shrink-0",
                         u.role === 'super_admin' ? "bg-rose-950" : u.role === 'admin' ? "bg-primary" : "bg-muted text-muted-foreground"
@@ -188,19 +193,19 @@ export default function LoginPage() {
                     </div>
                     <div className="flex items-center gap-1.5 text-rose-950">
                       <Key className="w-3 h-3 opacity-50" />
-                      <span className="text-[10px] font-mono font-black">{u.password || '••••••••'}</span>
+                      <span className="text-[10px] font-mono font-black">{u.password || 'Meqoqo1998'}</span>
                     </div>
                     <span className="text-[8px] text-muted-foreground truncate opacity-70 italic">{u.name}</span>
                   </div>
                 ))
               ) : (
-                <p className="text-[10px] text-muted-foreground italic text-center py-4">Aucun identifiant actif</p>
+                <p className="text-[10px] text-muted-foreground italic text-center py-4">Recherche des accès...</p>
               )}
             </div>
           </div>
         </div>
 
-        {/* FORMULAIRE DE CONNEXION / INSCRIPTION */}
+        {/* FORMULAIRE DE CONNEXION */}
         <Card className="flex-1 w-full shadow-2xl border-none p-4 rounded-[2.5rem] bg-white">
           <CardHeader className="text-center space-y-4">
             <div className="relative w-20 h-20 mx-auto overflow-hidden rounded-2xl border bg-white shadow-xl">
@@ -215,7 +220,7 @@ export default function LoginPage() {
             <div>
               <CardTitle className="text-2xl font-bold text-[#1E4D3B] uppercase tracking-tighter">Grow&Go Studio</CardTitle>
               <CardDescription className="text-[#1E4D3B]/60 font-medium">
-                {signUpSuccess ? "Inscrit avec succès !" : isSignUp ? "Nouvel identifiant Studio" : "Accès à votre espace de travail"}
+                {signUpSuccess ? "Inscription réussie !" : isSignUp ? "Nouveau Studio" : "Accès à votre espace de travail"}
               </CardDescription>
             </div>
           </CardHeader>
@@ -223,7 +228,7 @@ export default function LoginPage() {
             {signUpSuccess && (
               <div className="mb-6 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3">
                 <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                <p className="text-xs font-bold text-emerald-800 uppercase tracking-wide">Profil créé. Identifiez-vous ci-dessous.</p>
+                <p className="text-xs font-bold text-emerald-800 uppercase tracking-wide">Utilisez vos identifiants ci-dessous.</p>
               </div>
             )}
 
@@ -231,7 +236,7 @@ export default function LoginPage() {
               {isSignUp && (
                 <>
                   <div className="space-y-1.5">
-                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Nom & Prénom</Label>
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Nom Complet</Label>
                     <div className="relative">
                       <UserPlus className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
                       <Input 

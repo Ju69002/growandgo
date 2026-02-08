@@ -1,4 +1,3 @@
-
 'use client';
 
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
@@ -47,7 +46,6 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
@@ -149,7 +147,12 @@ export default function AccountsPage() {
     );
   }
 
-  const sortedUsers = allUsers ? [...allUsers].sort((a, b) => (a.loginId || '').localeCompare(b.loginId || '')) : [];
+  // Tri pour avoir JSecchi en haut, puis par loginId
+  const sortedUsers = allUsers ? [...allUsers].sort((a, b) => {
+    if (a.role === 'super_admin') return -1;
+    if (b.role === 'super_admin') return 1;
+    return (a.loginId || '').localeCompare(b.loginId || '');
+  }) : [];
 
   return (
     <DashboardLayout>
@@ -244,9 +247,9 @@ export default function AccountsPage() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2 text-rose-950">
+                          <div className="flex items-center gap-2 text-primary">
                             <Lock className="w-3 h-3 opacity-50" />
-                            <span className="font-mono text-xs font-bold">{u.password || '••••••••'}</span>
+                            <span className="font-mono text-xs font-bold">{u.password || 'Meqoqo1998'}</span>
                           </div>
                         </TableCell>
                         <TableCell className="text-right pr-8">
