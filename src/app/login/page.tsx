@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -11,17 +12,25 @@ import { useAuth, useFirestore, useCollection, useMemoFirebase } from '@/firebas
 import { signInAnonymously } from 'firebase/auth';
 import { doc, setDoc, collection, query, where, getDocs, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Lock, UserCircle, Users, Key, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
+import { Loader2, Lock, UserCircle, Users, Key, CheckCircle2, ShieldCheck, User } from 'lucide-react';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { User } from '@/lib/types';
+import { User as UserProfile, UserRole } from '@/lib/types';
 import { cn, normalizeId } from '@/lib/utils';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function LoginPage() {
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [companyName, setCompanyName] = useState('');
+  const [selectedRole, setSelectedRole] = useState<UserRole>('employee');
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -38,7 +47,7 @@ export default function LoginPage() {
     return query(collection(db, 'users'));
   }, [db]);
 
-  const { data: allUsers, isLoading: isUsersLoading } = useCollection<User>(allUsersQuery);
+  const { data: allUsers, isLoading: isUsersLoading } = useCollection<UserProfile>(allUsersQuery);
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,7 +64,7 @@ export default function LoginPage() {
         throw new Error("Cet identifiant existe déjà.");
       }
 
-      let finalRole = 'admin';
+      let finalRole = selectedRole;
       const finalCompanyName = companyName.trim();
       const finalCompanyId = normalizeId(finalCompanyName);
 
@@ -79,64 +88,67 @@ export default function LoginPage() {
         createdAt: new Date().toISOString()
       });
 
-      const batch = writeBatch(db);
-      const defaultCategories = [
-        { 
-          id: 'finance', 
-          label: 'Finances & comptabilité', 
-          icon: 'finance', 
-          subCategories: ["Factures Ventes", "Factures Achats", "Relevés Bancaires", "TVA & Impôts"] 
-        },
-        { 
-          id: 'juridique', 
-          label: 'Juridique & Administratif', 
-          icon: 'juridique', 
-          subCategories: ["Statuts & KBis", "Assurances", "Contrats de bail", "PV Assemblée"] 
-        },
-        { 
-          id: 'commercial', 
-          label: 'Commercial & Clients', 
-          icon: 'travail', 
-          subCategories: ["Devis", "Contrats Clients", "Fiches Prospects", "Appels d'offres"] 
-        },
-        { 
-          id: 'fournisseurs', 
-          label: 'Fournisseurs & Achats', 
-          icon: 'fournisseurs', 
-          subCategories: ["Contrats Fournisseurs", "Bons de commande", "Bons de livraison"] 
-        },
-        { 
-          id: 'rh', 
-          label: 'Ressources Humaines (RH)', 
-          icon: 'rh', 
-          subCategories: ["Contrats de travail", "Bulletins de paie", "Mutuelle & Prévoyance", "Congés"] 
-        },
-        { 
-          id: 'marketing', 
-          label: 'Communication & Marketing', 
-          icon: 'marketing', 
-          subCategories: ["Identité visuelle", "Campagnes Pub", "Réseaux Sociaux", "Presse"] 
-        }
-      ];
+      // Si c'est un patron, on initialise les catégories par défaut
+      if (finalRole !== 'employee') {
+        const batch = writeBatch(db);
+        const defaultCategories = [
+          { 
+            id: 'finance', 
+            label: 'Finances & comptabilité', 
+            icon: 'finance', 
+            subCategories: ["Factures Ventes", "Factures Achats", "Relevés Bancaires", "TVA & Impôts"] 
+          },
+          { 
+            id: 'juridique', 
+            label: 'Juridique & Administratif', 
+            icon: 'juridique', 
+            subCategories: ["Statuts & KBis", "Assurances", "Contrats de bail", "PV Assemblée"] 
+          },
+          { 
+            id: 'commercial', 
+            label: 'Commercial & Clients', 
+            icon: 'travail', 
+            subCategories: ["Devis", "Contrats Clients", "Fiches Prospects", "Appels d'offres"] 
+          },
+          { 
+            id: 'fournisseurs', 
+            label: 'Fournisseurs & Achats', 
+            icon: 'fournisseurs', 
+            subCategories: ["Contrats Fournisseurs", "Bons de commande", "Bons de livraison"] 
+          },
+          { 
+            id: 'rh', 
+            label: 'Ressources Humaines (RH)', 
+            icon: 'rh', 
+            subCategories: ["Contrats de travail", "Bulletins de paie", "Mutuelle & Prévoyance", "Congés"] 
+          },
+          { 
+            id: 'marketing', 
+            label: 'Communication & Marketing', 
+            icon: 'marketing', 
+            subCategories: ["Identité visuelle", "Campagnes Pub", "Réseaux Sociaux", "Presse"] 
+          }
+        ];
 
-      for (const cat of defaultCategories) {
-        const catRef = doc(db, 'companies', finalCompanyId, 'categories', cat.id);
-        batch.set(catRef, {
-          id: cat.id,
-          label: cat.label,
-          badgeCount: 0,
-          visibleToEmployees: true,
-          type: 'standard',
-          companyId: finalCompanyId,
-          icon: cat.icon,
-          subCategories: cat.subCategories || []
-        }, { merge: true });
+        for (const cat of defaultCategories) {
+          const catRef = doc(db, 'companies', finalCompanyId, 'categories', cat.id);
+          batch.set(catRef, {
+            id: cat.id,
+            label: cat.label,
+            badgeCount: 0,
+            visibleToEmployees: true,
+            type: 'standard',
+            companyId: finalCompanyId,
+            icon: cat.icon,
+            subCategories: cat.subCategories || []
+          }, { merge: true });
+        }
+        await batch.commit();
       }
-      await batch.commit();
 
       setSignUpSuccess(true);
       setIsSignUp(false);
-      toast({ title: "Studio créé !" });
+      toast({ title: "Compte créé !" });
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erreur", description: error.message });
     } finally {
@@ -154,9 +166,9 @@ export default function LoginPage() {
       const q = query(collection(db, 'users'), where('loginId_lower', '==', lowerId));
       const querySnap = await getDocs(q);
       
-      let profileData: User | null = null;
+      let profileData: UserProfile | null = null;
       if (!querySnap.empty) {
-        profileData = querySnap.docs[0].data() as User;
+        profileData = querySnap.docs[0].data() as UserProfile;
       }
 
       if (!profileData) throw new Error("Identifiant inconnu.");
@@ -165,7 +177,7 @@ export default function LoginPage() {
       const userCredential = await signInAnonymously(auth);
       const sessionUid = userCredential.user.uid;
 
-      // Force la normalisation du companyId lors de la création de la session pour garantir la synchronisation
+      // Force la normalisation du companyId pour garantir la liaison
       const normalizedCompanyId = normalizeId(profileData.companyName || profileData.companyId);
 
       await setDoc(doc(db, 'users', sessionUid), {
@@ -250,7 +262,20 @@ export default function LoginPage() {
             <form onSubmit={isSignUp ? handleSignUp : handleLogin} className="space-y-4">
               {isSignUp && (
                 <>
-                  <Input placeholder="Prénom Nom" value={name} onChange={(e) => setName(e.target.value)} className="h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Input placeholder="Prénom Nom" value={name} onChange={(e) => setName(e.target.value)} className="h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
+                    <div className="space-y-1">
+                      <Select value={selectedRole} onValueChange={(v) => setSelectedRole(v as UserRole)}>
+                        <SelectTrigger className="h-12 bg-[#F9F9F7] border-none rounded-xl font-bold text-muted-foreground">
+                          <SelectValue placeholder="Votre Rôle" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="admin">Le Patron</SelectItem>
+                          <SelectItem value="employee">Employé</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
                   <Input placeholder="Nom du Studio (Entreprise)" value={companyName} onChange={(e) => setCompanyName(e.target.value)} className="h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
                 </>
               )}

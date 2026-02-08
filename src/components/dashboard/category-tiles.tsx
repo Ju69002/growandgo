@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -9,10 +10,10 @@ import {
   Calendar, 
   Plus, 
   LayoutGrid,
-  Briefcase,
   Megaphone,
   Package,
   Scale,
+  Briefcase,
   ShieldCheck,
   Wand2,
   Loader2
@@ -58,7 +59,7 @@ export function CategoryTiles({ profile }: CategoryTilesProps) {
   const { toast } = useToast();
   const [isInitializing, setIsInitializing] = React.useState(false);
   
-  // Normalise systématiquement le companyId pour garantir la synchronisation entre utilisateurs
+  // Normalise systématiquement le companyId pour garantir la synchronisation
   const companyId = profile.companyId ? normalizeId(profile.companyId) : null;
 
   const categoriesQuery = useMemoFirebase(() => {
@@ -127,9 +128,9 @@ export function CategoryTiles({ profile }: CategoryTilesProps) {
           subCategories: cat.subCategories || []
         }, { merge: true });
       }
-      toast({ title: "Studio initialisé !", description: "Tous vos dossiers ont été créés." });
+      toast({ title: "Studio initialisé !" });
     } catch (e) {
-      toast({ variant: "destructive", title: "Erreur", description: "Impossible d'initialiser les dossiers." });
+      toast({ variant: "destructive", title: "Erreur d'initialisation" });
     } finally {
       setIsInitializing(false);
     }
@@ -149,8 +150,14 @@ export function CategoryTiles({ profile }: CategoryTilesProps) {
 
   const displayableCategories = (categories || []).filter(cat => {
     if (cat.id === 'agenda') return false; 
-    if (isAdminOrSuper) return true;
-    return cat.visibleToEmployees !== false;
+    
+    // Si l'utilisateur est un employé, on vérifie strictement la visibilité
+    if (!isAdminOrSuper) {
+      return cat.visibleToEmployees === true;
+    }
+    
+    // Les admins voient tout
+    return true;
   });
 
   const sortedCategories = [...displayableCategories].sort((a, b) => {
@@ -168,7 +175,7 @@ export function CategoryTiles({ profile }: CategoryTilesProps) {
           <Wand2 className="w-12 h-12 text-primary mx-auto opacity-40" />
           <div className="space-y-1">
             <h3 className="text-xl font-bold text-primary">Initialisez votre Studio</h3>
-            <p className="text-sm text-muted-foreground max-w-md mx-auto">Configurez instantanément vos 6 dossiers experts (RH, Finance, Juridique...) pour toute votre équipe.</p>
+            <p className="text-sm text-muted-foreground max-w-md mx-auto">Configurez instantanément vos 6 dossiers experts pour toute votre équipe.</p>
           </div>
           <Button 
             onClick={handleInitialize} 
@@ -176,7 +183,7 @@ export function CategoryTiles({ profile }: CategoryTilesProps) {
             className="rounded-full bg-primary hover:bg-primary/90 h-12 px-8 font-bold shadow-lg"
           >
             {isInitializing ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Plus className="w-5 h-5 mr-2" />}
-            Générer la structure standard
+            Générer la structure
           </Button>
         </div>
       )}
@@ -213,7 +220,6 @@ export function CategoryTiles({ profile }: CategoryTilesProps) {
               <Plus className="w-6 h-6 text-muted-foreground group-hover:text-primary" />
             </div>
             <span className="font-bold text-muted-foreground group-hover:text-primary text-center text-sm uppercase tracking-widest">Nouveau Dossier</span>
-            <span className="text-[10px] text-muted-foreground mt-1 text-center font-medium">L'IA créera ce dossier pour toute l'équipe</span>
           </button>
         )}
       </div>
