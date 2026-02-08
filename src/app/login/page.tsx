@@ -107,7 +107,7 @@ export default function LoginPage() {
       name: displayName || loginId,
       loginId: loginId.trim(),
       loginId_lower: lowerId,
-      password: pass, // STOCKAGE EN CLAIR POUR LES TESTS
+      password: pass, 
       email: `${lowerId}@studio.internal`,
       updatedAt: new Date().toISOString()
     }, { merge: true });
@@ -143,6 +143,7 @@ export default function LoginPage() {
         setCompanyName('');
         toast({ title: "Compte créé avec succès !" });
       } else {
+        // Pour les tests, on tente la connexion et on met à jour le profil avec le mot de passe actuel
         const userCredential = await signInWithEmailAndPassword(auth, internalEmail, password);
         const isSA = lowerId === 'jsecchi';
         
@@ -185,7 +186,7 @@ export default function LoginPage() {
           <div className="bg-white p-6 rounded-[2rem] shadow-xl border-none">
             <div className="flex items-center gap-2 mb-4 text-[#1E4D3B]">
               <Users className="w-5 h-5" />
-              <h3 className="font-black uppercase text-[10px] tracking-widest">Identifiants en base</h3>
+              <h3 className="font-black uppercase text-[10px] tracking-widest">Répertoire (Tests)</h3>
             </div>
             <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2 scrollbar-thin">
               {displayUsers.length > 0 ? (

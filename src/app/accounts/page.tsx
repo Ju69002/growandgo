@@ -38,7 +38,8 @@ import {
   RefreshCcw,
   Building2,
   Edit2,
-  Lock
+  Lock,
+  Save
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
@@ -66,6 +67,8 @@ export default function AccountsPage() {
   const db = useFirestore();
   const { toast } = useToast();
   const [editingUser, setEditingUser] = useState<{ uid: string, name: string, companyId: string } | null>(null);
+  const [editingPasswordUser, setEditingPasswordUser] = useState<{ uid: string, loginId: string, password?: string } | null>(null);
+  const [newPassword, setNewPassword] = useState('');
 
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !currentUser) return null;
@@ -126,6 +129,18 @@ export default function AccountsPage() {
     setEditingUser(null);
   };
 
+  const handleUpdatePassword = () => {
+    if (!db || !editingPasswordUser || !newPassword.trim()) return;
+    const userRef = doc(db, 'users', editingPasswordUser.uid);
+    updateDocumentNonBlocking(userRef, { password: newPassword.trim() });
+    toast({ 
+      title: "Mot de passe modifié", 
+      description: `Le mot de passe de ${editingPasswordUser.loginId} a été mis à jour.` 
+    });
+    setEditingPasswordUser(null);
+    setNewPassword('');
+  };
+
   if (isProfileLoading) {
     return (
       <DashboardLayout>
@@ -149,10 +164,12 @@ export default function AccountsPage() {
     );
   }
 
-  // Dédoublonnage stricte par Identifiant pour la vue Super Admin
+  // Dédoublonnage stricte par Identifiant unique (insensible à la casse)
   const deduplicatedUsers = allUsers ? Array.from(
     new Map(
-      allUsers.map(u => [u.loginId?.toLowerCase().trim(), u])
+      allUsers
+        .filter(u => u.loginId)
+        .map(u => [u.loginId?.toLowerCase().trim(), u])
     ).values()
   ) : [];
 
@@ -256,9 +273,22 @@ export default function AccountsPage() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2 text-rose-900 font-black">
+                          <div className="flex items-center gap-2 text-rose-900 font-black group">
                             <Lock className="w-3 h-3 opacity-50" />
                             <span className="font-mono text-sm tracking-tight">{displayPassword}</span>
+                            {u.role !== 'super_admin' && (
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-6 w-6 opacity-0 group-hover:opacity-100 text-primary"
+                                onClick={() => {
+                                  setEditingPasswordUser({ uid: u.uid, loginId: u.loginId, password: u.password });
+                                  setNewPassword(u.password || '');
+                                }}
+                              >
+                                <Edit2 className="w-3 h-3" />
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                         <TableCell className="text-right pr-8">
@@ -336,6 +366,42 @@ export default function AccountsPage() {
           <DialogFooter>
             <Button variant="ghost" onClick={() => setEditingUser(null)} className="rounded-full font-bold">Annuler</Button>
             <Button onClick={handleUpdateUserAffiliation} className="rounded-full font-bold px-8 bg-primary">Appliquer</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editingPasswordUser} onOpenChange={(open) => !open && setEditingPasswordUser(null)}>
+        <DialogContent className="rounded-[2rem] border-none shadow-2xl max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-black uppercase tracking-tighter flex items-center gap-2">
+              <Key className="w-5 h-5" />
+              Changer le mot de passe
+            </DialogTitle>
+            <DialogDesc className="text-xs">
+              Modifier l'accès de l'identifiant <strong>{editingPasswordUser?.loginId}</strong>.
+            </DialogDesc>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Nouveau mot de passe (En clair)</Label>
+              <Input 
+                value={newPassword} 
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Ex: Secret123..."
+                className="rounded-xl border-primary/10 h-12 font-bold text-rose-900"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEditingPasswordUser(null)} className="rounded-full font-bold">Annuler</Button>
+            <Button 
+              onClick={handleUpdatePassword} 
+              disabled={!newPassword.trim()}
+              className="rounded-full font-bold px-8 bg-primary gap-2"
+            >
+              <Save className="w-4 h-4" />
+              Mettre à jour
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
