@@ -34,7 +34,7 @@ import {
 } from '@/firebase';
 import { collection, query, doc, where } from 'firebase/firestore';
 import { CalendarEvent, User } from '@/lib/types';
-import { format, isSameDay, parseISO, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isToday, startOfWeek, endOfWeek, isValid, addMinutes, setHours, setMinutes, eachHourOfInterval, startOfDay, endOfDay, differenceInMinutes, setSeconds, setMilliseconds } from 'date-fns';
+import { format, isSameDay, parseISO, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isToday, startOfWeek, endOfWeek, isValid, addMinutes, setHours, setMinutes, eachHourOfInterval, startOfDay, endOfDay, differenceInMinutes, setSeconds, setMilliseconds, parse } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import {
@@ -60,6 +60,7 @@ import { signInWithGoogleCalendar } from '@/firebase/non-blocking-login';
 import { getSyncTimeRange, fetchGoogleEvents, mapGoogleEvent, syncEventToFirestore, pushEventToGoogle } from '@/services/calendar-sync';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { useSearchParams } from 'next/navigation';
 
 interface SharedCalendarProps {
   companyId: string;
@@ -85,6 +86,7 @@ function roundToNearest10(date: Date): Date {
 }
 
 export function SharedCalendar({ companyId, isCompact = false, defaultView = '3day' }: SharedCalendarProps) {
+  const searchParams = useSearchParams();
   const [viewMode, setViewMode] = React.useState<'3day' | 'month'>(isCompact ? '3day' : defaultView);
   const [currentDate, setCurrentDate] = React.useState(new Date());
   const [isSyncing, setIsSyncing] = React.useState<'idle' | 'importing' | 'exporting'>('idle');
@@ -111,6 +113,21 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
   const auth = useAuth();
   const db = useFirestore();
   const { toast } = useToast();
+
+  // Gestion du focus sur une date via l'URL (ex: depuis le tableau de bord)
+  React.useEffect(() => {
+    const dateParam = searchParams.get('date');
+    if (dateParam) {
+      try {
+        const targetDate = parse(dateParam, 'yyyy-MM-dd', new Date());
+        if (isValid(targetDate)) {
+          setCurrentDate(targetDate);
+        }
+      } catch (e) {
+        console.error("Invalid date param", e);
+      }
+    }
+  }, [searchParams]);
 
   const startHour = 8;
   const endHour = 20;

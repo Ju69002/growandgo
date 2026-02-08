@@ -90,12 +90,13 @@ export default function Home() {
   const weeklyTasks = useMemo(() => {
     if (!pendingTasks) return [];
     const now = new Date();
-    // En France, la semaine commence le lundi
+    // La semaine commence le lundi et finit le dimanche
     const start = startOfWeek(now, { locale: fr, weekStartsOn: 1 });
     const end = endOfWeek(now, { locale: fr, weekStartsOn: 1 });
 
     return pendingTasks.filter(task => {
       try {
+        // createdAt est au format dd/MM/yyyy
         const taskDate = parse(task.createdAt, 'dd/MM/yyyy', new Date());
         return isWithinInterval(taskDate, { start, end });
       } catch (e) {
@@ -192,7 +193,12 @@ export default function Home() {
             <div className="space-y-3">
               {weeklyTasks.length > 0 ? (
                 weeklyTasks.map((task) => (
-                  <Link href={task.isBillingTask ? `/billing` : `/categories/${task.categoryId}`} key={task.id}>
+                  <Link 
+                    href={task.isBillingTask 
+                      ? `/categories/agenda?date=${task.createdAt.split('/').reverse().join('-')}` 
+                      : `/categories/${task.categoryId}`} 
+                    key={task.id}
+                  >
                     <Card className={cn(
                       "border-none shadow-sm hover:shadow-md transition-all rounded-2xl overflow-hidden group",
                       task.isBillingTask && "bg-amber-50/50 border border-amber-100"

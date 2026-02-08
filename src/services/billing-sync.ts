@@ -9,27 +9,31 @@ import { fr } from 'date-fns/locale';
 
 /**
  * Service pour synchroniser les tâches de facturation de l'Admin.
- * Gère la création pour les actifs et la suppression pour les inactifs sur 24 mois.
+ * Gère la répartition des RDV dans la journée (9h-16h).
  */
 export async function syncBillingTasks(db: Firestore, adminUid: string, allUsers: User[]) {
   const adminCompanyId = "GrowAndGo";
   const now = new Date();
 
-  // On synchronise sur une plage de 12 mois en arrière et 24 mois en avant pour assurer la continuité
+  // On synchronise sur une plage de 12 mois en arrière et 24 mois en avant
   const rangeStart = addMonths(now, -12);
   const rangeEnd = addMonths(now, 24);
 
-  for (const client of allUsers.filter(u => u.role !== 'super_admin')) {
+  // Trier les clients pour une répartition stable
+  const clients = allUsers
+    .filter(u => u.role !== 'super_admin')
+    .sort((a, b) => a.uid.localeCompare(b.uid));
+
+  clients.forEach((client, index) => {
     const isActive = client.subscriptionStatus !== 'inactive';
-    
-    // Si pas de date de création, on utilise la date par défaut (lancement du studio)
     const creationDateStr = client.createdAt || "2026-02-08T00:00:00.000Z";
     let startDate = parseISO(creationDateStr);
     if (!isValid(startDate)) startDate = new Date(2026, 1, 8);
 
     let checkDate = startDate;
+    // Répartition de l'heure : on décale de 1h par client (max 8 clients par jour avant de boucler)
+    const hourOffset = index % 8; 
 
-    // On parcourt les mois pour créer ou supprimer
     while (isBefore(checkDate, rangeEnd)) {
       const monthId = format(checkDate, 'yyyy-MM');
       const monthLabel = format(checkDate, 'MMMM yyyy', { locale: fr });
@@ -42,10 +46,9 @@ export async function syncBillingTasks(db: Firestore, adminUid: string, allUsers
       const eventRef = doc(db, 'companies', adminCompanyId, 'events', eventId);
 
       if (isActive) {
-        // Création/Mise à jour uniquement si la date est pertinente (après création et dans notre plage)
         if (isAfter(checkDate, rangeStart) || isSameDay(checkDate, rangeStart)) {
           const eventDate = new Date(checkDate);
-          eventDate.setHours(9, 0, 0, 0);
+          eventDate.setHours(9 + hourOffset, 0, 0, 0);
 
           const taskData: Partial<BusinessDocument> = {
             id: taskId,
@@ -70,7 +73,7 @@ export async function syncBillingTasks(db: Firestore, adminUid: string, allUsers
             titre: `Facturation ${client.name}`,
             description: `Tâche administrative : Générer la facture pour ${client.companyName || client.companyId}. Période : ${monthLabel}.`,
             debut: eventDate.toISOString(),
-            fin: new Date(eventDate.getTime() + 30 * 60000).toISOString(),
+            fin: new Date(eventDate.getTime() + 45 * 60000).toISOString(),
             attendees: [client.email],
             source: 'local',
             type: 'event',
@@ -82,12 +85,11 @@ export async function syncBillingTasks(db: Firestore, adminUid: string, allUsers
           setDocumentNonBlocking(eventRef, eventData, { merge: true });
         }
       } else {
-        // NETTOYAGE : Suppression immédiate si l'utilisateur est devenu inactif
         deleteDocumentNonBlocking(taskRef);
         deleteDocumentNonBlocking(eventRef);
       }
 
       checkDate = addMonths(checkDate, 1);
     }
-  }
+  });
 }
