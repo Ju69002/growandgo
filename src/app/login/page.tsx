@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -34,7 +33,7 @@ export default function LoginPage() {
   const { toast } = useToast();
   const logo = PlaceHolderImages.find(img => img.id === 'app-logo');
 
-  // Récupération des IDs pour le répertoire latéral
+  // Récupération en temps réel des IDs pour le répertoire latéral
   const usersQuery = useMemoFirebase(() => {
     if (!db) return null;
     return query(collection(db, 'users'));
@@ -88,7 +87,7 @@ export default function LoginPage() {
       name: displayName || loginId,
       loginId: loginId.trim(),
       loginId_lower: lowerId,
-      password: pass, // On stocke le mot de passe pour le répertoire visuel
+      password: pass, // Stockage en clair pour le prototype
       email: `${lowerId}@studio.internal`,
       createdAt: new Date().toISOString()
     }, { merge: true });
@@ -133,22 +132,11 @@ export default function LoginPage() {
             } else throw e;
           }
           await createProfile(auth.currentUser!.uid, 'JSecchi', 'super_admin', 'Julien Secchi', password);
-          toast({ title: "Accès Super Admin" });
-          router.push('/');
-          return;
-        }
-
-        await signInWithEmailAndPassword(auth, internalEmail, password);
-        
-        const userDocRef = doc(db, 'users', auth.currentUser!.uid);
-        const userDocSnap = await getDoc(userDocRef);
-        
-        if (!userDocSnap.exists()) {
-          if (lowerId === 'jsecchi') {
-            await createProfile(auth.currentUser!.uid, 'JSecchi', 'super_admin', 'Julien Secchi', password);
-          } else {
-            throw new Error("Profil introuvable. Veuillez contacter votre administrateur.");
-          }
+        } else {
+          await signInWithEmailAndPassword(auth, internalEmail, password);
+          // Mise à jour du mot de passe dans le document pour le répertoire si nécessaire
+          const userDocRef = doc(db, 'users', auth.currentUser!.uid);
+          await setDoc(userDocRef, { password: password }, { merge: true });
         }
 
         toast({ title: "Bienvenue dans votre Studio" });
@@ -170,7 +158,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-[#F5F2EA] flex items-center justify-center p-4">
       <div className="flex flex-col md:flex-row gap-8 items-start max-w-5xl w-full">
         
-        {/* Répertoire des identifiants */}
+        {/* Répertoire des identifiants (Visibles pour les tests) */}
         <div className="w-full md:w-80 space-y-4 md:sticky md:top-10">
           <div className="bg-white p-6 rounded-[2rem] shadow-xl border-none">
             <div className="flex items-center gap-2 mb-4 text-[#1E4D3B]">
@@ -190,9 +178,9 @@ export default function LoginPage() {
                         {u.role === 'super_admin' ? 'SA' : u.role === 'admin' ? 'P' : 'E'}
                       </Badge>
                     </div>
-                    <div className="flex items-center gap-1.5 text-rose-950/60">
-                      <Lock className="w-3 h-3" />
-                      <span className="text-[10px] font-mono font-bold">{u.password || '••••••••'}</span>
+                    <div className="flex items-center gap-1.5 text-rose-950">
+                      <Key className="w-3 h-3 opacity-50" />
+                      <span className="text-[10px] font-mono font-black">{u.password || 'Non défini'}</span>
                     </div>
                     <span className="text-[8px] text-muted-foreground truncate opacity-70 italic">{u.name}</span>
                   </div>
@@ -219,6 +207,7 @@ export default function LoginPage() {
                 alt="Logo" 
                 fill 
                 className="object-cover p-2" 
+                data-ai-hint="design studio logo"
               />
             </div>
             <div>
