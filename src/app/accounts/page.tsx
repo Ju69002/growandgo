@@ -64,6 +64,7 @@ export default function AccountsPage() {
   const { user: currentUser } = useUser();
   const db = useFirestore();
   const { toast } = useToast();
+  const [mounted, setMounted] = useState(false);
   
   // States pour les dialogues partagés
   const [editingPasswordUser, setEditingPasswordUser] = useState<User | null>(null);
@@ -72,6 +73,10 @@ export default function AccountsPage() {
   
   const [newPassword, setNewPassword] = useState('');
   const [newCompanyName, setNewCompanyName] = useState('');
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !currentUser) return null;
@@ -88,18 +93,6 @@ export default function AccountsPage() {
   }, [db, isSuperAdmin]);
 
   const { data: allProfiles, isLoading: isUsersLoading } = useCollection<User>(profilesQuery);
-
-  // Migration silencieuse pour les dates manquantes
-  useEffect(() => {
-    if (isSuperAdmin && allProfiles && db) {
-      allProfiles.forEach(u => {
-        if (u.isProfile && !u.createdAt) {
-          const ref = doc(db, 'users', u.uid);
-          updateDocumentNonBlocking(ref, { createdAt: '2026-02-08T10:00:00.000Z' });
-        }
-      });
-    }
-  }, [allProfiles, isSuperAdmin, db]);
 
   // Mémoïsation de la liste unique
   const uniqueUsers = useMemo(() => {
@@ -170,7 +163,7 @@ export default function AccountsPage() {
     setEditingCompanyUser(null);
   };
 
-  if (isProfileLoading || isUsersLoading) return <div className="flex items-center justify-center min-h-screen bg-[#F5F2EA]"><Loader2 className="animate-spin text-primary opacity-50" /></div>;
+  if (!mounted || isProfileLoading || isUsersLoading) return <div className="flex items-center justify-center min-h-screen bg-[#F5F2EA]"><Loader2 className="animate-spin text-primary opacity-50" /></div>;
 
   if (!isSuperAdmin) return <div className="flex flex-col items-center justify-center min-h-screen bg-[#F5F2EA] p-8 text-center gap-6"><ShieldAlert className="w-20 h-20 text-primary opacity-20" /><h1 className="text-2xl font-black uppercase tracking-tighter text-primary">Accès Admin Requis</h1><Button onClick={() => window.location.href = '/'}>Retour à l'accueil</Button></div>;
 
@@ -223,7 +216,7 @@ export default function AccountsPage() {
                         </div>
                         <div className="flex items-center gap-1.5 text-[9px] font-black uppercase text-muted-foreground">
                           <Calendar className="w-3 h-3 opacity-30" />
-                          {new Date(u.createdAt || '2026-02-08T10:00:00.000Z').toLocaleDateString('fr-FR')}
+                          {u.createdAt ? new Date(u.createdAt).toLocaleDateString('fr-FR') : '08/02/2026'}
                         </div>
                       </div>
                     </TableCell>

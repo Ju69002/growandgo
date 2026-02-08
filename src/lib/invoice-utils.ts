@@ -11,7 +11,7 @@ export const generateInvoicePDF = (userData: User, price: string) => {
   const doc = new jsPDF();
   const dateStr = format(new Date(), 'dd/MM/yyyy');
   const monthYear = format(new Date(), 'MMMM yyyy', { locale: fr });
-  const invoiceRef = `FAC-${format(new Date(), 'yyyyMM')}-${userData.loginId.toUpperCase()}`;
+  const invoiceRef = `FAC-${format(new Date(), 'yyyyMM')}-${(userData.loginId || 'INV').toUpperCase()}`;
 
   // En-tête
   doc.setFontSize(22);
@@ -41,9 +41,9 @@ export const generateInvoicePDF = (userData: User, price: string) => {
   doc.setFont('helvetica', 'bold');
   doc.text('DESTINATAIRE :', 20, 65);
   doc.setFont('helvetica', 'normal');
-  doc.text(userData.name, 20, 72);
-  doc.text(userData.companyName || userData.companyId, 20, 77);
-  doc.text(userData.email, 20, 82);
+  doc.text(userData.name || 'Client', 20, 72);
+  doc.text(userData.companyName || userData.companyId || 'Entreprise', 20, 77);
+  doc.text(userData.email || '', 20, 82);
 
   // Tableau
   const tableData = [

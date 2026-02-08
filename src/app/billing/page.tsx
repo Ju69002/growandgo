@@ -23,7 +23,7 @@ import {
   TableHeader, 
   TableRow 
 } from '@/components/ui/table';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { generateInvoicePDF } from '@/lib/invoice-utils';
 import { useToast } from '@/hooks/use-toast';
@@ -32,7 +32,12 @@ export default function BillingPage() {
   const { user } = useUser();
   const db = useFirestore();
   const { toast } = useToast();
+  const [mounted, setMounted] = useState(false);
   const [isGenerating, setIsGenerating] = useState<string | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const userRef = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -92,6 +97,8 @@ export default function BillingPage() {
     ).sort((a, b) => (a.role === 'super_admin' ? -1 : 1));
   }, [allUsers]);
 
+  if (!mounted) return null;
+
   return (
     <DashboardLayout>
       <div className="max-w-6xl mx-auto py-12 px-6 space-y-10">
@@ -149,7 +156,7 @@ export default function BillingPage() {
                       <TableCell>
                         <div className="flex items-center gap-2 text-muted-foreground text-sm font-medium">
                           <Calendar className="w-4 h-4 opacity-30" />
-                          {new Date(u.createdAt || '2026-02-08T10:00:00.000Z').toLocaleDateString('fr-FR')}
+                          {u.createdAt ? new Date(u.createdAt).toLocaleDateString('fr-FR') : '08/02/2026'}
                         </div>
                       </TableCell>
                       <TableCell>
