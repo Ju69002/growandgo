@@ -58,34 +58,45 @@ export function ChatAssistant() {
   }, [db, user]);
 
   const { data: profile } = useDoc<User>(userProfileRef);
-  const companyId = profile?.companyId || 'default-company';
-  const adminMode = profile?.role === 'admin' || profile?.role === 'super_admin' || profile?.adminMode === true;
+  const companyId = profile?.companyId;
+  const isPatron = profile?.role === 'admin' || profile?.role === 'super_admin';
 
   const companyRef = useMemoFirebase(() => {
     if (!db || !companyId) return null;
     return doc(db, 'companies', companyId);
   }, [db, companyId]);
 
-  // Écouter le signal de création de catégorie depuis le dashboard
   React.useEffect(() => {
     const handleOpenChat = () => {
       setIsOpen(true);
-      setMessages(prev => [
-        ...prev,
-        { role: 'assistant', content: "C'est parti ! Quel nom souhaitez-vous donner à ce nouveau dossier ?" }
-      ]);
+      if (isPatron) {
+        setMessages(prev => [
+          ...prev,
+          { role: 'assistant', content: "C'est parti ! Quel nom souhaitez-vous donner à ce nouveau dossier ?" }
+        ]);
+      } else {
+        setMessages(prev => [
+          ...prev,
+          { role: 'assistant', content: "Désolé, seul le Patron peut ajouter de nouvelles catégories au studio." }
+        ]);
+      }
     };
 
     window.addEventListener('open-chat-category-creation', handleOpenChat);
     return () => window.removeEventListener('open-chat-category-creation', handleOpenChat);
-  }, []);
+  }, [isPatron]);
 
   const executeAction = (action: any) => {
-    if (!db || !companyId || !companyRef || !adminMode) return;
+    if (!db || !companyId || !isPatron) return;
 
     const { type, categoryId, label, color, icon, moduleName, enabled } = action;
     const rawId = categoryId || label || '';
     const targetId = rawId.toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
+
+    if (!targetId && type !== 'change_theme_color' && type !== 'toggle_module') {
+      setMessages(prev => [...prev, { role: 'assistant', content: "Je n'ai pas pu identifier la cible de l'action." }]);
+      return;
+    }
 
     try {
       if (type === 'create_category' && label) {
@@ -101,23 +112,23 @@ export function ChatAssistant() {
           color: getColorStyle(color),
           icon: icon || 'maison'
         }, { merge: true });
-      } else if (type === 'delete_category' && targetId) {
+      } else if (type === 'delete_category') {
         const ref = doc(db, 'companies', companyId, 'categories', targetId);
         deleteDocumentNonBlocking(ref);
-      } else if (type === 'rename_category' && targetId && label) {
+      } else if (type === 'rename_category' && label) {
         const ref = doc(db, 'companies', companyId, 'categories', targetId);
         updateDocumentNonBlocking(ref, { label });
-      } else if (type === 'update_category_style' && targetId && color) {
+      } else if (type === 'update_category_style' && color) {
         const ref = doc(db, 'companies', companyId, 'categories', targetId);
         updateDocumentNonBlocking(ref, { color: getColorStyle(color) });
-      } else if (type === 'change_theme_color' && color) {
+      } else if (type === 'change_theme_color' && color && companyRef) {
         const theme = THEME_COLOR_MAP[color.toLowerCase()] || THEME_COLOR_MAP['blanc'];
         updateDocumentNonBlocking(companyRef, { 
           primaryColor: theme.primary,
           backgroundColor: theme.background,
           foregroundColor: theme.foreground
         });
-      } else if (type === 'toggle_module' && moduleName) {
+      } else if (type === 'toggle_module' && moduleName && companyRef) {
         const key = moduleName.toLowerCase() === 'rh' ? 'showRh' : 'showFinance';
         updateDocumentNonBlocking(companyRef, { [`modulesConfig.${key}`]: enabled ?? true });
       }
@@ -132,19 +143,19 @@ export function ChatAssistant() {
   const handleSend = async () => {
     if (!input.trim() || isLoading || !db || !companyId) return;
 
+    if (!isPatron) {
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: "Désolé, seul le Patron peut demander des modifications de structure sur le studio." 
+      }]);
+      setInput('');
+      return;
+    }
+
     const currentInput = input;
     setInput('');
     setMessages(prev => [...prev, { role: 'user', content: currentInput }]);
     setIsLoading(true);
-
-    if (!adminMode) {
-      setMessages(prev => [...prev, { 
-        role: 'assistant', 
-        content: "Désolé, je ne peux pas agir car vous n'avez pas les droits de modification sur ce studio." 
-      }]);
-      setIsLoading(false);
-      return;
-    }
 
     try {
       const result = await bossAiDataAnalysis({
@@ -161,7 +172,7 @@ export function ChatAssistant() {
         content: result.analysisResult || "Plan de design établi. Souhaitez-vous valider ?" 
       }]);
     } catch (error) {
-      setMessages(prev => [...prev, { role: 'assistant', content: "Je suis à votre écoute. Quelle modification de design souhaitez-vous ?" }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: "Je suis à votre écoute Patron. Quelle modification de design souhaitez-vous ?" }]);
     } finally {
       setIsLoading(false);
     }
@@ -177,7 +188,7 @@ export function ChatAssistant() {
           <Sparkles className="h-6 w-6 text-white" />
         </Button>
       ) : (
-        <Card className="w-[350px] sm:w-[380px] h-[500px] flex flex-col shadow-2xl border-none animate-in slide-in-from-bottom-5 rounded-[2rem]">
+        <Card className="w-[350px] sm:w-[380px] h-[500px] flex flex-col shadow-2xl border-none animate-in slide-in-from-bottom-5 rounded-[2rem] bg-white">
           <CardHeader className="bg-primary text-primary-foreground rounded-t-[2rem] p-5 flex flex-row items-center justify-between space-y-0">
             <div className="flex items-center gap-2">
               <Bot className="h-5 w-5" />
@@ -226,17 +237,17 @@ export function ChatAssistant() {
               </div>
             </ScrollArea>
           </CardContent>
-          <CardFooter className="p-4 border-t rounded-b-[2rem]">
+          <CardFooter className="p-4 border-t rounded-b-[2rem] bg-white">
             <div className="flex w-full items-center gap-2">
               <Input
-                placeholder={pendingAction ? "Action en attente..." : "Ex: site en vert..."}
+                placeholder={!isPatron ? "Accès réservé au Patron" : (pendingAction ? "Action en attente..." : "Ex: site en vert...")}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                disabled={isLoading || !!pendingAction}
-                className="flex-1 rounded-xl h-11"
+                disabled={isLoading || !!pendingAction || !isPatron}
+                className="flex-1 rounded-xl h-11 bg-muted/30 border-none"
               />
-              <Button size="icon" className="rounded-xl h-11 w-11" onClick={handleSend} disabled={isLoading || !input.trim() || !!pendingAction}>
+              <Button size="icon" className="rounded-xl h-11 w-11 bg-primary" onClick={handleSend} disabled={isLoading || !input.trim() || !!pendingAction || !isPatron}>
                 <Send className="h-4 w-4" />
               </Button>
             </div>
