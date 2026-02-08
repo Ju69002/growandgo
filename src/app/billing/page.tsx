@@ -38,7 +38,6 @@ export default function BillingPage() {
 
   const isSuperAdmin = profile?.role === 'super_admin';
 
-  // Récupération de tous les utilisateurs pour la vue Admin
   const allUsersQuery = useMemoFirebase(() => {
     if (!db || !isSuperAdmin) return null;
     return query(collection(db, 'users'));
@@ -60,7 +59,6 @@ export default function BillingPage() {
     return "EMPLOYÉ";
   };
 
-  // Logique de dédoublonnage pour afficher tous les comptes uniques (comme dans le répertoire)
   const uniqueProfiles = useMemo(() => {
     if (!allUsers) return [];
     return Array.from(
@@ -133,7 +131,7 @@ export default function BillingPage() {
                       <TableCell>
                         <div className="flex items-center gap-2 text-muted-foreground text-sm font-medium">
                           <Calendar className="w-4 h-4 opacity-30" />
-                          {u.createdAt ? new Date(u.createdAt).toLocaleDateString('fr-FR') : 'Non renseignée'}
+                          {u.createdAt ? new Date(u.createdAt).toLocaleDateString('fr-FR') : 'Compte antérieur'}
                         </div>
                       </TableCell>
                       <TableCell>

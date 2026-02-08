@@ -68,12 +68,14 @@ export default function LoginPage() {
       let finalCompanyName = companyName.trim();
       let finalCompanyId = normalizeId(finalCompanyName);
       
-      // Configuration spéciale pour le Super Admin initial
       if (lowerId === 'jsecchi') {
         finalRole = 'super_admin';
         finalCompanyName = "GrowAndGo";
         finalCompanyId = "GrowAndGo";
       }
+
+      // Enregistrement forcé de la date de création au format ISO
+      const now = new Date().toISOString();
 
       await setDoc(doc(db, 'users', profileId), {
         uid: profileId,
@@ -89,7 +91,7 @@ export default function LoginPage() {
         password: password.trim(),
         email: `${lowerId}@espace.internal`,
         subscriptionStatus: 'active',
-        createdAt: new Date().toISOString()
+        createdAt: now
       });
 
       if (finalRole !== 'employee') {
@@ -150,7 +152,6 @@ export default function LoginPage() {
       const userCredential = await signInAnonymously(auth);
       const sessionUid = userCredential.user.uid;
 
-      // Correction automatique pour le Super Admin
       let finalCompanyId = profileData.companyId;
       let finalCompanyName = profileData.companyName;
       if (lowerId === 'jsecchi') {
