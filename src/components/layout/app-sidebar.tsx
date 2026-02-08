@@ -15,7 +15,6 @@ import {
 } from '@/components/ui/sidebar';
 import {
   LayoutDashboard,
-  FileText,
   Users,
   Settings,
   CreditCard,
@@ -51,7 +50,6 @@ export function AppSidebar() {
 
   const mainItems = [
     { title: 'Dashboard', icon: LayoutDashboard, url: '/' },
-    { title: 'Documents', icon: FileText, url: '/documents' },
     { title: 'Équipe', icon: Users, url: '/team' },
   ];
 
