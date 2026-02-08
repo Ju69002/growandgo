@@ -197,7 +197,7 @@ export default function CategoryPage() {
           </div>
         ) : isAgenda ? (
           <div className="w-full bg-background min-h-[80vh]">
-            <SharedCalendar companyId={companyId} />
+            <SharedCalendar companyId={companyId} defaultView="month" />
           </div>
         ) : (
           <div className="bg-card border rounded-2xl overflow-hidden shadow-sm">
