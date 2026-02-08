@@ -67,22 +67,21 @@ export default function LoginPage() {
       let finalRole = selectedRole;
       let finalCompanyName = companyName.trim();
       
-      // Logique spécifique pour Particulier
       if (finalRole === 'particulier') {
         finalCompanyName = "Mon Espace Personnel";
       }
 
       let finalCompanyId = normalizeId(finalCompanyName);
       
-      // Sécurité : Pour un particulier, on s'assure que l'ID est unique à son login
       if (finalRole === 'particulier') {
         finalCompanyId = `private-${lowerId}`;
       }
 
+      // Harmonisation Super Admin
       if (lowerId === 'jsecchi') {
         finalRole = 'super_admin';
         finalCompanyName = "GrowAndGo";
-        finalCompanyId = "GrowAndGo";
+        finalCompanyId = "growandgo";
       }
 
       const now = new Date().toISOString();
@@ -165,7 +164,7 @@ export default function LoginPage() {
       let finalCompanyId = profileData.companyId;
       let finalCompanyName = profileData.companyName;
       if (lowerId === 'jsecchi') {
-        finalCompanyId = "GrowAndGo";
+        finalCompanyId = "growandgo";
         finalCompanyName = "GrowAndGo";
       }
 

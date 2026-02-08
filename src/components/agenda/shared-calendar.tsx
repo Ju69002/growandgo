@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -81,7 +82,6 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
   const [currentDate, setCurrentDate] = React.useState(new Date());
   const [isSyncing, setIsSyncing] = React.useState<'idle' | 'importing'>('idle');
   const [isEventDialogOpen, setIsEventDialogOpen] = React.useState(false);
-  const [selectedDay, setSelectedDay] = React.useState<Date | null>(null);
   const [editingEvent, setEditingEvent] = React.useState<CalendarEvent | null>(null);
   
   const [draggedEventId, setDraggedEventId] = React.useState<string | null>(null);
@@ -111,15 +111,16 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
     }
   }, [searchParams]);
 
-  // Plage horaire stricte 8h - 20h
+  // Plage horaire strictly de 8h à 20h
   const startHour = 8;
   const endHour = 20;
-  // Hauteur ajustée pour tenir sans scroll dans un conteneur de ~750px (p-10 + header inclus)
-  const hourHeight = 50; 
+  // Hauteur ajustée pour ne pas avoir de scroll dans un bloc de 750px (p-8 + header inclus)
+  const hourHeight = 45; 
 
   const eventsQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
-    return query(collection(db, 'companies', companyId, 'events'));
+    const normalizedId = companyId.toLowerCase();
+    return query(collection(db, 'companies', normalizedId, 'events'));
   }, [db, companyId]);
 
   const { data: events, isLoading } = useCollection<CalendarEvent>(eventsQuery);
@@ -129,6 +130,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
     return events
       .filter(e => {
         if (!e.debut) return false;
+        // On n'affiche que les événements V1 stables
         if (e.isBillingEvent && !e.id.startsWith('event_v1')) return false;
         try {
           const eventDate = parseISO(e.debut);
@@ -169,6 +171,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
         const daysDelta = Math.round(deltaX / (colWidth + 8));
 
         if ((minutesDelta !== 0 || daysDelta !== 0) && db && companyId) {
+          const normalizedId = companyId.toLowerCase();
           const oldStart = parseISO(event.debut);
           const oldEnd = parseISO(event.fin);
           let newStart = roundToNearest10(addMinutes(oldStart, minutesDelta));
@@ -176,7 +179,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
           const duration = differenceInMinutes(oldEnd, oldStart);
           const newEnd = addMinutes(newStart, duration);
 
-          const eventRef = doc(db, 'companies', companyId, 'events', event.id);
+          const eventRef = doc(db, 'companies', normalizedId, 'events', event.id);
           updateDocumentNonBlocking(eventRef, {
             debut: newStart.toISOString(),
             fin: newEnd.toISOString(),
@@ -199,6 +202,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
 
   const handleImportFromGoogle = async () => {
     if (!db || !companyId || !user || !auth) return;
+    const normalizedId = companyId.toLowerCase();
     setIsSyncing('importing');
     try {
       const result = await signInWithGoogleCalendar(auth);
@@ -206,7 +210,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
       const { timeMin, timeMax } = getSyncTimeRange();
       const externalEvents = await fetchGoogleEvents(result.token, timeMin, timeMax);
       for (const extEvent of externalEvents) {
-        const mapped = mapGoogleEvent(extEvent, companyId, user.uid);
+        const mapped = mapGoogleEvent(extEvent, normalizedId, user.uid);
         await syncEventToFirestore(db, mapped);
       }
       toast({ title: "Importation terminée !" });
@@ -244,12 +248,13 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
 
   const handleSaveEvent = () => {
     if (!db || !companyId || !user || !formTitre) return;
+    const normalizedId = companyId.toLowerCase();
     const [y, m, d] = formDate.split('-').map(Number);
     const startDate = roundToNearest10(new Date(y, m - 1, d, parseInt(formHour), parseInt(formMinute)));
     const endDate = addMinutes(startDate, parseInt(selectedDuration));
 
     const eventData: Partial<CalendarEvent> = {
-      companyId,
+      companyId: normalizedId,
       userId: user.uid,
       titre: formTitre,
       debut: startDate.toISOString(),
@@ -261,10 +266,10 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
     };
 
     if (editingEvent) {
-      const eventRef = doc(db, 'companies', companyId, 'events', editingEvent.id);
+      const eventRef = doc(db, 'companies', normalizedId, 'events', editingEvent.id);
       updateDocumentNonBlocking(eventRef, eventData);
     } else {
-      const eventsRef = collection(db, 'companies', companyId, 'events');
+      const eventsRef = collection(db, 'companies', normalizedId, 'events');
       addDocumentNonBlocking(eventsRef, { ...eventData, id_externe: Math.random().toString(36).substring(7) });
     }
     setIsEventDialogOpen(false);
@@ -285,7 +290,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
                <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setCurrentDate(addDays(currentDate, 1))}><ChevronRight className="w-5 h-5" /></Button>
              </div>
              <Badge className="bg-primary/5 text-primary border-primary/20 h-9 px-4 font-black uppercase text-[11px] tracking-widest gap-2">
-                <Users className="w-4 h-4" /> Agenda d'Équipe (8h - 20h)
+                <Users className="w-4 h-4" /> Agenda 8h - 20h
              </Badge>
            </div>
            <div className="flex gap-3">
@@ -316,7 +321,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
             <div className="w-16 flex-shrink-0 flex flex-col border-r bg-muted/5">
               {hours.map((h) => (
                 <div key={h} className="relative flex items-center justify-center border-b border-primary/5 last:border-0" style={{ height: `${hourHeight}px` }}>
-                  <span className="font-black text-primary/20 text-[10px]">{h}:00</span>
+                  <span className="font-black text-primary/30 text-[10px]">{h}:00</span>
                 </div>
               ))}
             </div>
@@ -344,7 +349,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
                           onMouseDown={(e) => handleMouseDown(e, event)}
                           className={cn(
                             "absolute left-0 right-0 mx-1 z-10 rounded-xl border-l-4 shadow-sm cursor-pointer p-2 overflow-hidden flex flex-col select-none transition-all",
-                            event.source === 'google' ? "bg-white border-primary" : "bg-amber-50/80 border-amber-500",
+                            event.source === 'google' ? "bg-white border-primary" : "bg-amber-50/90 border-amber-500",
                             isCurrentDragged && "z-30 opacity-90 scale-[1.02] shadow-2xl ring-2 ring-primary"
                           )}
                           style={{ 
@@ -353,10 +358,10 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
                             height: `${height}px`
                           }}
                         >
-                          <span className="font-black text-primary/40 text-[9px] mb-0.5">
+                          <span className="font-black text-primary/40 text-[9px] mb-0.5 leading-none">
                             {format(isCurrentDragged ? addMinutes(start, (dragOffset/hourHeight)*60) : start, "HH:mm")}
                           </span>
-                          <h4 className="font-bold text-[11px] leading-tight text-primary break-words line-clamp-2">
+                          <h4 className="font-bold text-[11px] leading-tight text-primary break-words line-clamp-2 mt-0.5">
                             {event.titre}
                           </h4>
                         </div>
@@ -463,7 +468,8 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
               {editingEvent && (
                 <Button variant="outline" className="flex-1 rounded-xl h-12 font-black uppercase text-[10px] tracking-widest text-rose-600 border-rose-100 hover:bg-rose-50" onClick={() => {
                    if (!db || !companyId) return;
-                   const eventRef = doc(db, 'companies', companyId, 'events', editingEvent.id);
+                   const normalizedId = companyId.toLowerCase();
+                   const eventRef = doc(db, 'companies', normalizedId, 'events', editingEvent.id);
                    deleteDocumentNonBlocking(eventRef);
                    setIsEventDialogOpen(false);
                    toast({ title: "RDV annulé" });

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useRef, useMemo } from 'react';
@@ -67,15 +68,16 @@ export default function Home() {
       syncLockRef.current = true;
       const timer = setTimeout(() => {
         syncBillingTasks(db, user.uid, allUsers);
-      }, 3000);
+      }, 2000);
       return () => clearTimeout(timer);
     }
   }, [db, user, isSuperAdmin, allUsers]);
 
   const pendingDocsQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
+    const normalizedId = companyId.toLowerCase();
     return query(
-      collection(db, 'companies', companyId, 'documents'),
+      collection(db, 'companies', normalizedId, 'documents'),
       where('status', '!=', 'archived')
     );
   }, [db, companyId]);
@@ -90,6 +92,7 @@ export default function Home() {
 
     return pendingTasks
       .filter(task => {
+        // On affiche les tâches V1
         if (task.isBillingTask && !task.id.startsWith('billing_v1')) return false;
         try {
           const taskDate = parse(task.createdAt, 'dd/MM/yyyy', new Date());
@@ -137,7 +140,7 @@ export default function Home() {
           </div>
         </header>
 
-        {/* Tâches de la semaine - TOUJOURS EN HAUT, PLEINE LARGEUR */}
+        {/* Tâches de la semaine - EN HAUT PLEINE LARGEUR */}
         <section className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-black uppercase tracking-tighter flex items-center gap-2">
@@ -146,7 +149,7 @@ export default function Home() {
             </h2>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {isTasksLoading ? (
               Array(2).fill(0).map((_, i) => (
                 <div key={i} className="h-24 bg-muted/50 rounded-2xl animate-pulse" />
@@ -196,7 +199,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Agenda - PLEINE LARGEUR POUR ÉVITER LES TEXTES COUPÉS */}
+        {/* Agenda - PLEINE LARGEUR */}
         <section className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-black uppercase tracking-tighter flex items-center gap-2">
@@ -220,7 +223,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Categories en bas */}
+        {/* Dossiers */}
         <section className="pt-10 border-t border-primary/10">
           <h2 className="text-2xl font-black uppercase tracking-tighter mb-8 flex items-center gap-3">
             <FileText className="w-7 h-7 text-primary" />
