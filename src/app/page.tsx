@@ -13,9 +13,6 @@ import {
   Maximize2, 
   FileText, 
   CheckCircle2, 
-  AlertCircle,
-  Clock,
-  CalendarDays,
   X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -40,10 +37,11 @@ export default function Home() {
   const router = useRouter();
   const { user, isUserLoading } = useUser();
   const db = useFirestore();
+  
   const [mounted, setMounted] = useState(false);
   const [isCalendarFull, setIsCalendarFull] = useState(false);
 
-  // DECLARE ALL HOOKS FIRST
+  // 1. ALL HOOKS MUST BE DECLARED AT THE TOP
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user) return null;
     return doc(db, 'users', user.uid);
@@ -78,7 +76,7 @@ export default function Home() {
     const tasks: any[] = [];
 
     documents?.forEach(doc => {
-      const extractedDate = doc.extractedData?.date || doc.extractedData?.expiryDate || doc.extractedData?.deliveryDate;
+      const extractedDate = doc.extractedData?.date || doc.extractedData?.expiryDate;
       let taskDate = today;
       if (extractedDate) {
         try {
@@ -92,7 +90,6 @@ export default function Home() {
           name: doc.name,
           date: taskDate,
           type: 'document',
-          status: extractedDate ? 'dated' : doc.status,
           subCategory: doc.subCategory,
           categoryId: doc.categoryId
         });
@@ -109,7 +106,6 @@ export default function Home() {
             name: meet.titre,
             date: meetDate,
             type: 'meeting',
-            status: 'event',
             subCategory: 'Réunion',
             categoryId: 'agenda'
           });
@@ -129,19 +125,31 @@ export default function Home() {
     }
   }, [user, isUserLoading, router, mounted]);
 
-  // RENDER LOGIC AFTER ALL HOOKS
+  // 2. RENDER LOGIC AFTER ALL HOOKS
   if (!mounted || isUserLoading || isProfileLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="text-center space-y-4">
           <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto" />
-          <p className="text-muted-foreground font-black uppercase text-[10px] tracking-widest">Initialisation du studio...</p>
+          <p className="text-muted-foreground font-black uppercase text-[10px] tracking-widest">Initialisation...</p>
         </div>
       </div>
     );
   }
 
-  if (!user || !profile) return null;
+  if (!user) return null;
+
+  // Si le profil est encore vide, on affiche un message d'attente
+  if (!profile) {
+    return (
+      <DashboardLayout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+          <Loader2 className="w-12 h-12 animate-spin text-primary opacity-30" />
+          <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Création de votre espace...</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   const isSuperAdmin = profile.role === 'super_admin';
 
@@ -250,7 +258,7 @@ export default function Home() {
               <div className="space-y-2">
                 <h2 className="text-2xl font-black uppercase tracking-tight text-primary">Console Super Admin</h2>
                 <p className="text-sm text-muted-foreground font-medium max-w-lg mx-auto">
-                  Gestion globale des accès. Les dossiers de travail sont réservés aux espaces Studios.
+                  Gestion globale des accès et des entreprises.
                 </p>
               </div>
             </div>

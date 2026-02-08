@@ -10,28 +10,29 @@ import { Firestore, doc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase';
 
 /**
- * Récupère les événements Google.
+ * Récupère les événements Google Calendar.
  */
 export async function fetchGoogleEvents(token: string, timeMin: string, timeMax: string) {
   try {
     const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&singleEvents=true&orderBy=startTime`;
     const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-    if (!response.ok) throw new Error(`Erreur Google API`);
+    if (!response.ok) throw new Error(`Erreur API Google Calendar`);
     const data = await response.json();
     return data.items || [];
   } catch (error) {
-    console.error(error);
+    console.error("Google Calendar Sync Error:", error);
     throw error;
   }
 }
 
 /**
- * Mappe un événement Google.
+ * Mappe un événement Google vers le format local.
  */
 export function mapGoogleEvent(event: any, companyId: string, userId: string): Partial<CalendarEvent> {
   const start = event.start?.dateTime || event.start?.date || new Date().toISOString();
   const end = event.end?.dateTime || event.end?.date || new Date().toISOString();
   
+  // Sécurisation de l'extraction des participants
   const attendees = event.attendees?.map((a: any) => a.email || a.displayName || '').filter(Boolean) || [];
 
   return {
@@ -50,7 +51,7 @@ export function mapGoogleEvent(event: any, companyId: string, userId: string): P
 }
 
 /**
- * Exporte vers Google.
+ * Exporte un événement local vers Google Calendar.
  */
 export async function pushEventToGoogle(token: string, event: CalendarEvent) {
   const url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
@@ -65,12 +66,12 @@ export async function pushEventToGoogle(token: string, event: CalendarEvent) {
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
-  if (!response.ok) throw new Error(`Erreur Export Google`);
+  if (!response.ok) throw new Error(`Erreur lors de l'exportation Google Calendar`);
   return response.json();
 }
 
 /**
- * Enregistre dans Firestore.
+ * Enregistre un événement dans Firestore de manière non-bloquante.
  */
 export async function syncEventToFirestore(db: Firestore, eventData: Partial<CalendarEvent>) {
   if (!eventData.id_externe || !eventData.companyId) return;
@@ -78,6 +79,9 @@ export async function syncEventToFirestore(db: Firestore, eventData: Partial<Cal
   setDocumentNonBlocking(eventRef, eventData, { merge: true });
 }
 
+/**
+ * Définit la plage de temps pour la synchronisation (15 jours passé, 45 jours futur).
+ */
 export function getSyncTimeRange() {
   const now = new Date();
   const timeMin = new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000).toISOString();
