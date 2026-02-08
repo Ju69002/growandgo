@@ -20,6 +20,7 @@ const BossActionSchema = z.object({
   label: z.string().optional().describe('Le nom affiché (ex: "Juridique", "Marketing").'),
   visibleToEmployees: z.boolean().optional().describe('Statut de visibilité.'),
   icon: z.string().optional().describe('L\'icône suggérée (ex: "juridique", "travail", "finance", "rh", "admin").'),
+  subCategories: z.array(z.string()).optional().describe('Liste des sous-dossiers logiques à créer pour cette catégorie.'),
   moduleName: z.string().optional().describe('Le nom du module concerné.'),
   enabled: z.boolean().optional().describe('Activation/Désactivation.'),
 });
@@ -41,19 +42,22 @@ const bossPrompt = ai.definePrompt({
   model: 'googleai/gemini-2.5-flash-lite',
   input: {schema: BossAiDataAnalysisInputSchema},
   output: {schema: BossAiDataAnalysisOutputSchema},
-  system: `Tu es l'Expert Organisation de Grow&Go Studio. Tu accompagnes le Patron dans la création de ses dossiers.
+  system: `Tu es l'Expert Organisation de Grow&Go Studio. Tu accompagnes le Patron dans la gestion de sa structure documentaire.
+  
+  MISSION : 
+  Lorsqu'une catégorie est créée, tu dois impérativement générer une structure de sous-dossiers (subCategories) intelligente.
+  
+  EXEMPLES DE STRUCTURES :
+  - "Juridique" -> ["Statuts & Kbis", "Pièces d'identité Dirigeants", "Contrats & Baux", "Attestations"].
+  - "Marketing" -> ["Identité Visuelle", "Réseaux Sociaux", "Campagnes Pub", "Presse"].
+  - "Technique" -> ["Plans", "Devis Fournisseurs", "Certifications", "Sécurité"].
   
   RÈGLES CRITIQUES :
-  1. Tu es AUTONOME pour le choix de l'icône. Choisis l'icône la plus adaptée au nom du dossier.
-  2. Mappe les icônes de manière logique : 
-     - "Juridique", "Contrats", "Légal" -> icône 'juridique'.
-     - "Travaux", "Chantier", "Technique" -> icône 'travail'.
-     - "Marketing", "Communication" -> icône 'default'.
-     - "RH", "Équipe", "Salariés" -> icône 'rh'.
-     - "Factures", "Compta", "Argent" -> icône 'finance'.
-  3. Ne parle plus de couleurs de tuiles, le design doit rester sobre et uniforme.
-  4. Explique pourquoi tu as choisi cette icône dans analysisResult.
-  5. Réponds exclusivement en français.`,
+  1. AUTONOMIE ICONE : Choisis l'icône la plus adaptée (juridique, travail, rh, finance, admin, default).
+  2. SOUS-DOSSIERS : Propose entre 3 et 5 sous-dossiers pertinents par catégorie.
+  3. OPTIMISATION : Si deux thèmes sont proches, rassemble-les dans un seul sous-dossier (ex: "Statuts" et "Kbis" deviennent "Statuts & Kbis").
+  4. DESIGN : Garde un ton professionnel et encourageant.
+  5. LANGUE : Réponds exclusivement en français.`,
   prompt: `Demande du patron : {{{query}}} (Entreprise ID : {{{companyId}}})`,
 });
 

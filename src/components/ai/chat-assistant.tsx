@@ -62,7 +62,7 @@ export function ChatAssistant() {
   const executeAction = (action: any) => {
     if (!db || !companyId || !isPatron) return;
 
-    const { type, categoryId, label, icon } = action;
+    const { type, categoryId, label, icon, subCategories } = action;
     const rawId = label || categoryId || '';
     const targetId = rawId.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '_');
 
@@ -77,7 +77,8 @@ export function ChatAssistant() {
           type: 'custom',
           aiInstructions: `Analyse spécialisée pour le dossier ${label}.`,
           companyId,
-          icon: icon || 'default'
+          icon: icon || 'default',
+          subCategories: subCategories || []
         }, { merge: true });
       } else if (type === 'delete_category') {
         const ref = doc(db, 'companies', companyId, 'categories', targetId);
@@ -87,11 +88,11 @@ export function ChatAssistant() {
         updateDocumentNonBlocking(ref, { label });
       }
 
-      setMessages(prev => [...prev, { role: 'assistant', content: "C'est fait ! Le dossier a été ajouté à votre tableau de bord." }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: `C'est fait ! Le dossier "${label}" a été créé avec ses sous-dossiers.` }]);
     } catch (error: any) {
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: `Erreur : ${error.message}`,
+        content: `Erreur technique : ${error.message}`,
         isError: true 
       }]);
     }
@@ -174,6 +175,13 @@ export function ChatAssistant() {
                   <div className="flex justify-start">
                     <div className="flex flex-col gap-2 p-4 bg-primary/5 border-2 border-dashed border-primary/20 rounded-2xl max-w-[85%]">
                       <p className="text-[10px] font-black text-primary uppercase tracking-widest">Confirmation Action</p>
+                      {pendingAction.subCategories && pendingAction.subCategories.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          {pendingAction.subCategories.map((sub: string) => (
+                            <span key={sub} className="text-[8px] bg-white px-1.5 py-0.5 rounded border border-primary/10 font-bold uppercase">{sub}</span>
+                          ))}
+                        </div>
+                      )}
                       <div className="flex gap-2">
                         <Button size="sm" onClick={() => executeAction(pendingAction)} className="bg-emerald-600 hover:bg-emerald-700 h-8 rounded-full font-bold px-4">
                           <Check className="w-4 h-4 mr-1" />
