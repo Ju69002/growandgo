@@ -22,8 +22,8 @@ import {
   updateDocumentNonBlocking,
   deleteDocumentNonBlocking
 } from '@/firebase';
-import { collection, doc, query, where } from 'firebase/firestore';
-import { User, UserRole, Company } from '@/lib/types';
+import { collection, doc, query, where, getDocs } from 'firebase/firestore';
+import { User, UserRole } from '@/lib/types';
 import { 
   ShieldCheck, 
   Trash2, 
@@ -33,7 +33,6 @@ import {
   Loader2,
   RefreshCcw,
   Lock,
-  Building2,
   Edit2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -83,9 +82,11 @@ export default function AccountsPage() {
 
   const { data: allProfiles, isLoading: isUsersLoading } = useCollection<User>(profilesQuery);
 
-  const updateAllUserDocs = (loginId: string, updates: Partial<User>) => {
+  const updateAllUserDocs = async (loginId: string, updates: Partial<User>) => {
     if (!db || !allProfiles) return;
     const lowerId = loginId.toLowerCase();
+    
+    // On met à jour tous les documents qui ont cet identifiant (maître et sessions)
     const related = allProfiles.filter(u => 
       (u.loginId_lower === lowerId) || 
       (u.loginId?.toLowerCase() === lowerId)
@@ -105,7 +106,7 @@ export default function AccountsPage() {
       adminMode: newRole === 'admin',
       isCategoryModifier: newRole === 'admin'
     });
-    toast({ title: "Rôle mis à jour pour tous les profils" });
+    toast({ title: "Rôle mis à jour avec succès" });
   };
 
   const handleDeleteUser = (loginId: string) => {
@@ -120,7 +121,7 @@ export default function AccountsPage() {
       const ref = doc(db, 'users', uDoc.uid);
       deleteDocumentNonBlocking(ref);
     });
-    toast({ title: "Compte supprimé intégralement" });
+    toast({ title: "Compte supprimé définitivement" });
   };
 
   const handleUpdatePassword = () => {
@@ -134,7 +135,7 @@ export default function AccountsPage() {
   const handleUpdateCompany = () => {
     if (!db || !editingCompanyUser || !newCompanyName.trim()) return;
     updateAllUserDocs(editingCompanyUser.loginId, { companyName: newCompanyName.trim() });
-    toast({ title: "Entreprise mise à jour instantanément" });
+    toast({ title: "Entreprise mise à jour" });
     setEditingCompanyUser(null);
     setNewCompanyName('');
   };
@@ -144,7 +145,7 @@ export default function AccountsPage() {
       <DashboardLayout>
         <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
           <Loader2 className="w-12 h-12 animate-spin text-primary opacity-30" />
-          <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Vérification...</p>
+          <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Vérification Super Admin...</p>
         </div>
       </DashboardLayout>
     );
@@ -161,11 +162,12 @@ export default function AccountsPage() {
     );
   }
 
+  // Filtrage strict par loginId pour garantir AUCUN DOUBLON dans l'affichage
   const uniqueUsers = Array.from(
     new Map(
       (allProfiles || [])
         .filter(u => u.loginId || u.loginId_lower)
-        .sort((a, b) => (a.isProfile ? -1 : 1)) 
+        .sort((a, b) => (a.isProfile ? -1 : 1)) // Priorité aux profils de référence
         .map(u => [u.loginId_lower || u.loginId?.toLowerCase(), u])
     ).values()
   ).sort((a, b) => {
@@ -183,7 +185,7 @@ export default function AccountsPage() {
             Répertoire des Accès
           </h1>
           <Badge variant="outline" className="px-4 py-1 border-primary/20 text-primary font-bold">
-            {uniqueUsers.length} COMPTES UNIQUES
+            {uniqueUsers.length} UTILISATEURS UNIQUES
           </Badge>
         </div>
 
@@ -191,7 +193,7 @@ export default function AccountsPage() {
           <CardHeader className="bg-primary text-primary-foreground p-8">
             <CardTitle className="text-xl flex items-center gap-2">
               <ShieldCheck className="w-6 h-6" />
-              Gestion des Profils
+              Gestion des Identifiants
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -247,7 +249,7 @@ export default function AccountsPage() {
                         <TableCell>
                           <div className="flex items-center gap-2 text-rose-900 font-black group">
                             <Lock className="w-3 h-3 opacity-50" />
-                            <span className="font-mono text-sm">{u.password || "Meqoqo1998"}</span>
+                            <span className="font-mono text-sm">{u.password || "••••••••"}</span>
                             {u.role !== 'super_admin' && (
                               <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 text-primary" onClick={() => { setEditingPasswordUser({ uid: u.uid, loginId: u.loginId, password: u.password }); setNewPassword(u.password || ''); }}>
                                 <Key className="w-3 h-3" />
@@ -260,7 +262,7 @@ export default function AccountsPage() {
                             <div className="flex items-center justify-end gap-2">
                               <Button variant="outline" size="sm" className="rounded-full font-bold text-[9px] uppercase h-8 px-3 gap-1.5" onClick={() => handleRoleChange(u.uid, u.loginId, u.role)}>
                                 <RefreshCcw className="w-3 h-3" />
-                                {u.role === 'admin' ? 'Employé' : 'Patron'}
+                                {u.role === 'admin' ? 'Passer Employé' : 'Passer Patron'}
                               </Button>
                               <AlertDialog>
                                 <Button asChild variant="ghost" size="icon" className="h-8 w-8 text-rose-950 cursor-pointer">
@@ -270,12 +272,12 @@ export default function AccountsPage() {
                                   <AlertDialogHeader>
                                     <AlertDialogTitle>Supprimer le compte ?</AlertDialogTitle>
                                     <AlertDialogDescription>
-                                      Cette action supprimera définitivement l'identifiant <strong>{u.loginId}</strong> et toutes ses sessions actives.
+                                      Cette action supprimera définitivement l'identifiant <strong>{u.loginId}</strong> et toutes ses sessions.
                                     </AlertDialogDescription>
                                   </AlertDialogHeader>
                                   <AlertDialogFooter>
                                     <AlertDialogCancel className="rounded-full">Annuler</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleDeleteUser(u.loginId)} className="bg-rose-950 rounded-full">Confirmer</AlertDialogAction>
+                                    <AlertDialogAction onClick={() => handleDeleteUser(u.loginId)} className="bg-rose-950 rounded-full">Supprimer</AlertDialogAction>
                                   </AlertDialogFooter>
                                 </AlertDialogContent>
                               </AlertDialog>
@@ -295,14 +297,14 @@ export default function AccountsPage() {
       <Dialog open={!!editingPasswordUser} onOpenChange={(open) => !open && setEditingPasswordUser(null)}>
         <DialogContent className="rounded-[2rem]">
           <DialogHeader>
-            <DialogTitle>Changer le mot de passe</DialogTitle>
-            <DialogDesc>Nouveau mot de passe pour {editingPasswordUser?.loginId}.</DialogDesc>
+            <DialogTitle>Modifier le mot de passe</DialogTitle>
+            <DialogDesc>Changer l'accès pour {editingPasswordUser?.loginId}.</DialogDesc>
           </DialogHeader>
           <div className="py-4">
-            <Input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="rounded-xl h-12 font-bold text-rose-900" placeholder="Mot de passe..." />
+            <Input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="rounded-xl h-12 font-bold text-rose-900" placeholder="Nouveau mot de passe..." />
           </div>
           <DialogFooter>
-            <Button onClick={handleUpdatePassword} disabled={!newPassword.trim()} className="rounded-full font-bold px-8 bg-primary">Mettre à jour</Button>
+            <Button onClick={handleUpdatePassword} disabled={!newPassword.trim()} className="rounded-full font-bold px-8 bg-primary">Enregistrer</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -311,7 +313,7 @@ export default function AccountsPage() {
         <DialogContent className="rounded-[2rem]">
           <DialogHeader>
             <DialogTitle>Modifier l'entreprise</DialogTitle>
-            <DialogDesc>Change le nom d'entreprise pour {editingCompanyUser?.loginId}.</DialogDesc>
+            <DialogDesc>Nouveau studio pour {editingCompanyUser?.loginId}.</DialogDesc>
           </DialogHeader>
           <div className="py-4">
             <Input 
@@ -322,7 +324,7 @@ export default function AccountsPage() {
             />
           </div>
           <DialogFooter>
-            <Button onClick={handleUpdateCompany} disabled={!newCompanyName.trim()} className="rounded-full font-bold px-8 bg-primary">Enregistrer</Button>
+            <Button onClick={handleUpdateCompany} disabled={!newCompanyName.trim()} className="rounded-full font-bold px-8 bg-primary">Mettre à jour</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

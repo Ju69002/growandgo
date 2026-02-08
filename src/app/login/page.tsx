@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -41,21 +40,12 @@ export default function LoginPage() {
 
   const { data: allUsers, isLoading: isUsersLoading } = useCollection<User>(allUsersQuery);
 
-  const ensureCompanyExists = async (companyId: string, companyName: string) => {
+  const cleanOldProfiles = async (lowerId: string) => {
     if (!db) return;
-    const companyRef = doc(db, 'companies', companyId);
-    const companySnap = await getDoc(companyRef);
-    if (!companySnap.exists()) {
-      await setDoc(companyRef, {
-        id: companyId,
-        name: companyName,
-        subscriptionStatus: 'active',
-        primaryColor: '157 44% 21%',
-        backgroundColor: '43 38% 96%',
-        foregroundColor: '157 44% 11%',
-        modulesConfig: { showRh: true, showFinance: true, customLabels: {} }
-      });
-    }
+    const q = query(collection(db, 'users'), where('loginId_lower', '==', lowerId));
+    const snap = await getDocs(q);
+    const deletePromises = snap.docs.map(d => deleteDoc(d.ref));
+    await Promise.all(deletePromises);
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -66,10 +56,11 @@ export default function LoginPage() {
     try {
       const lowerId = loginId.trim().toLowerCase();
       
+      // Vérification doublon avant création
       const q = query(collection(db, 'users'), where('loginId_lower', '==', lowerId));
       const snap = await getDocs(q);
       if (!snap.empty) {
-        throw new Error("Cet identifiant est déjà utilisé.");
+        throw new Error("Cet identifiant existe déjà. Veuillez en choisir un autre.");
       }
 
       let finalRole = 'employee';
@@ -82,11 +73,21 @@ export default function LoginPage() {
         finalCompanyName = 'Grow&Go HQ';
       }
 
-      await ensureCompanyExists(finalCompanyId, finalCompanyName);
+      // Création du document d'entreprise global
+      await setDoc(doc(db, 'companies', finalCompanyId), {
+        id: finalCompanyId,
+        name: finalCompanyName,
+        subscriptionStatus: 'active',
+        primaryColor: '157 44% 21%',
+        backgroundColor: '43 38% 96%',
+        foregroundColor: '157 44% 11%',
+        modulesConfig: { showRh: true, showFinance: true, customLabels: {} }
+      }, { merge: true });
       
-      const profileRef = doc(db, 'users', `profile_${lowerId}`);
-      await setDoc(profileRef, {
-        uid: profileRef.id,
+      // Création du PROFIL UNIQUE avec un ID de document FIXE
+      const profileId = `profile_${lowerId}`;
+      await setDoc(doc(db, 'users', profileId), {
+        uid: profileId,
         isProfile: true,
         companyId: finalCompanyId,
         companyName: finalCompanyName,
@@ -98,15 +99,12 @@ export default function LoginPage() {
         loginId_lower: lowerId,
         password: password,
         email: `${lowerId}@studio.internal`,
-        updatedAt: new Date().toISOString()
+        createdAt: new Date().toISOString()
       });
 
       setSignUpSuccess(true);
       setIsSignUp(false);
-      setPassword('');
-      setName('');
-      setCompanyName('');
-      toast({ title: "Compte créé !", description: "Vous pouvez maintenant vous connecter." });
+      toast({ title: "Studio créé !", description: "Connectez-vous pour commencer." });
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erreur", description: error.message });
     } finally {
@@ -121,18 +119,17 @@ export default function LoginPage() {
 
     try {
       const lowerId = loginId.trim().toLowerCase();
+      
+      // On cherche d'abord dans Firestore (Source de vérité pour le mot de passe)
       const q = query(collection(db, 'users'), where('loginId_lower', '==', lowerId));
       const querySnap = await getDocs(q);
       
       let profileData: User | null = null;
       if (!querySnap.empty) {
         profileData = querySnap.docs[0].data() as User;
-        // Supprimer les doublons techniques si nécessaire
-        if (querySnap.size > 1) {
-          querySnap.docs.slice(1).forEach(d => deleteDoc(d.ref));
-        }
       }
 
+      // Fallback Super Admin si la base est vide
       if (!profileData && lowerId === 'jsecchi') {
         profileData = {
           uid: 'profile_jsecchi',
@@ -147,12 +144,14 @@ export default function LoginPage() {
         } as User;
       }
 
-      if (!profileData) throw new Error("Identifiant inconnu.");
+      if (!profileData) throw new Error("Identifiant inconnu dans le studio.");
       if (profileData.password !== password) throw new Error("Mot de passe incorrect.");
 
+      // Authentification technique anonyme
       const userCredential = await signInAnonymously(auth);
       const sessionUid = userCredential.user.uid;
 
+      // Création du document de session actif
       await setDoc(doc(db, 'users', sessionUid), {
         ...profileData,
         uid: sessionUid,
@@ -161,15 +160,16 @@ export default function LoginPage() {
         lastLogin: serverTimestamp()
       });
 
-      toast({ title: "Accès autorisé", description: `Bienvenue ${profileData.name}` });
+      toast({ title: "Connexion réussie", description: `Bienvenue ${profileData.name}` });
       router.push('/');
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Erreur d'accès", description: error.message });
+      toast({ variant: "destructive", title: "Accès refusé", description: error.message });
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Filtrage mémoire pour le répertoire (Tests) - GARANTIT UNICITÉ VISUELLE
   const displayUsers = Array.from(
     new Map(
       (allUsers || [])
@@ -190,13 +190,13 @@ export default function LoginPage() {
           <div className="bg-white p-6 rounded-[2rem] shadow-xl border-none">
             <div className="flex items-center gap-2 mb-4 text-[#1E4D3B]">
               <Users className="w-5 h-5" />
-              <h3 className="font-black uppercase text-[10px] tracking-widest">Répertoire (Tests)</h3>
+              <h3 className="font-black uppercase text-[10px] tracking-widest">Répertoire Studio (Tests)</h3>
             </div>
             <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2 scrollbar-thin">
               {isUsersLoading ? (
                 <div className="py-8 text-center space-y-2">
                   <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary/20" />
-                  <p className="text-[10px] text-muted-foreground font-bold uppercase">Chargement...</p>
+                  <p className="text-[10px] text-muted-foreground font-bold uppercase">Accès base...</p>
                 </div>
               ) : displayUsers.length > 0 ? (
                 displayUsers.map(u => (
@@ -211,24 +211,17 @@ export default function LoginPage() {
                       </Badge>
                     </div>
                     <div className="flex flex-col gap-0.5">
-                       <p className="text-[8px] font-black uppercase text-muted-foreground/60">{u.companyName || u.companyId}</p>
+                       <p className="text-[8px] font-black uppercase text-muted-foreground/60 truncate">{u.companyName || u.companyId}</p>
                        <div className="flex items-center gap-1.5 text-rose-950 bg-rose-50/50 p-1.5 rounded border border-rose-100">
                          <Key className="w-3 h-3 opacity-50" />
-                         <span className="text-[11px] font-mono font-black tracking-tight">{u.password || 'Meqoqo1998'}</span>
+                         <span className="text-[11px] font-mono font-black tracking-tight">{u.password || '••••••'}</span>
                        </div>
                     </div>
                   </div>
                 ))
               ) : (
-                <div className="p-3 rounded-xl bg-muted/30 border border-black/5 gap-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-[12px] font-black text-primary">JSecchi</span>
-                    <Badge className="text-[8px] font-black uppercase h-4 px-1 bg-rose-950">SA</Badge>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-rose-950 bg-rose-50/50 p-1.5 rounded border border-rose-100">
-                    <Key className="w-3 h-3 opacity-50" />
-                    <span className="text-[11px] font-mono font-black tracking-tight">Meqoqo1998</span>
-                  </div>
+                <div className="p-4 text-center">
+                  <p className="text-[10px] font-bold uppercase text-muted-foreground">Aucun compte</p>
                 </div>
               )}
             </div>
@@ -243,7 +236,7 @@ export default function LoginPage() {
             <div>
               <CardTitle className="text-2xl font-bold text-[#1E4D3B] uppercase tracking-tighter">Grow&Go Studio</CardTitle>
               <CardDescription className="text-[#1E4D3B]/60 font-medium">
-                {signUpSuccess ? "Inscription réussie !" : isSignUp ? "Nouveau Studio" : "Accès à votre espace de travail"}
+                {signUpSuccess ? "Compte prêt !" : isSignUp ? "Nouvelle Inscription" : "Connectez-vous à votre studio"}
               </CardDescription>
             </div>
           </CardHeader>
@@ -251,7 +244,7 @@ export default function LoginPage() {
             {signUpSuccess && (
               <div className="mb-6 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3">
                 <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                <p className="text-xs font-bold text-emerald-800 uppercase tracking-wide">Compte créé ! Connectez-vous.</p>
+                <p className="text-xs font-bold text-emerald-800 uppercase tracking-wide">Compte validé ! Connectez-vous.</p>
               </div>
             )}
 
@@ -263,17 +256,17 @@ export default function LoginPage() {
                     <Input placeholder="Prénom Nom" value={name} onChange={(e) => setName(e.target.value)} className="h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Nom du Studio (Entreprise)</Label>
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Nom de votre Entreprise</Label>
                     <Input placeholder="Ex: Carrefour, Paul S.A..." value={companyName} onChange={(e) => setCompanyName(e.target.value)} className="h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
                   </div>
                 </>
               )}
               
               <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Identifiant Studio</Label>
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Identifiant Unique</Label>
                 <div className="relative">
                   <UserCircle className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
-                  <Input placeholder="Identifiant" value={loginId} onChange={(e) => setLoginId(e.target.value)} className="pl-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
+                  <Input placeholder="Votre ID" value={loginId} onChange={(e) => setLoginId(e.target.value)} className="pl-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
                 </div>
               </div>
 
@@ -281,7 +274,7 @@ export default function LoginPage() {
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Mot de passe</Label>
                 <div className="relative">
                   <Lock className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
-                  <Input type={showPassword ? "text" : "password"} placeholder="••••••••••••" value={password} onChange={(e) => setPassword(e.target.value)} className="pl-11 pr-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
+                  <Input type={showPassword ? "text" : "password"} placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} className="pl-11 pr-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
                   <button type="button" className="absolute right-2 top-2 h-8 w-8 p-0 flex items-center justify-center" onClick={() => setShowPassword(!showPassword)}>
                     {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
                   </button>
@@ -290,7 +283,7 @@ export default function LoginPage() {
 
               <div className="space-y-3 pt-4">
                 <Button type="submit" className="w-full h-14 bg-[#1E4D3B] hover:bg-[#1E4D3B]/90 rounded-2xl font-bold text-lg shadow-xl" disabled={isLoading}>
-                  {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (isSignUp ? "Lancer mon Studio" : "Se connecter")}
+                  {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (isSignUp ? "Créer mon Studio" : "Se connecter")}
                 </Button>
 
                 <button
@@ -299,11 +292,9 @@ export default function LoginPage() {
                   onClick={() => {
                     setSignUpSuccess(false);
                     setIsSignUp(!isSignUp);
-                    setLoginId('');
-                    setPassword('');
                   }}
                 >
-                  {isSignUp ? "Déjà un accès ? Connexion" : "Nouveau ? Créer un identifiant"}
+                  {isSignUp ? "Déjà un ID ? Connexion" : "Nouveau ? Créer un identifiant"}
                 </button>
               </div>
             </form>

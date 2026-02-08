@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -49,28 +48,29 @@ export default function Home() {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-[#F5F2EA] gap-4">
         <Loader2 className="w-10 h-10 animate-spin text-primary opacity-50" />
-        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground animate-pulse">Initialisation...</p>
+        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground animate-pulse">Initialisation du studio...</p>
       </div>
     );
   }
 
   if (!user) return null;
 
-  if (!isProfileLoading && !profile) {
+  // Si le chargement est terminé mais qu'aucun profil n'est trouvé, on affiche une alerte
+  if (!isProfileLoading && !profile && mounted) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-[#F5F2EA] p-8 text-center space-y-6">
         <div className="p-4 bg-rose-100 rounded-full">
            <AlertTriangle className="w-12 h-12 text-rose-600" />
         </div>
         <div className="space-y-2">
-          <h2 className="text-2xl font-black text-primary uppercase tracking-tighter">Profil Introuvable</h2>
+          <h2 className="text-2xl font-black text-primary uppercase tracking-tighter">Profil non synchronisé</h2>
           <p className="text-muted-foreground max-w-sm mx-auto font-medium">
-            Votre session est active mais aucun profil Studio n'est rattaché à cet identifiant.
+            Votre session est active mais les données de votre profil sont introuvables.
           </p>
         </div>
         <Button onClick={handleLogout} variant="outline" className="rounded-full px-8 h-12 font-bold gap-2">
           <LogOut className="w-4 h-4" />
-          Retourner au Login
+          Reconnecter mon ID
         </Button>
       </div>
     );
@@ -80,7 +80,7 @@ export default function Home() {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-[#F5F2EA] gap-4">
         <Loader2 className="w-10 h-10 animate-spin text-primary opacity-50" />
-        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Chargement...</p>
+        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Accès sécurisé...</p>
       </div>
     );
   }
@@ -103,7 +103,7 @@ export default function Home() {
             )}
           </div>
           <p className="text-muted-foreground mt-1 font-medium italic">
-            Bienvenue dans le Studio {profile?.companyName || profile?.companyId}, {profile?.name}.
+            Bienvenue dans le Studio {profile?.companyName || "Grow&Go"}, {profile?.name}.
           </p>
         </header>
 
@@ -112,9 +112,9 @@ export default function Home() {
             <div className="bg-primary/5 p-12 rounded-[3rem] border-2 border-dashed border-primary/20 flex flex-col items-center text-center gap-6">
               <ShieldCheck className="w-16 h-16 text-primary/30" />
               <div className="space-y-2">
-                <h2 className="text-2xl font-black uppercase tracking-tight text-primary">Console Super Administrateur</h2>
+                <h2 className="text-2xl font-black uppercase tracking-tight text-primary">Répertoire Global Activé</h2>
                 <p className="text-sm text-muted-foreground font-medium max-w-lg mx-auto">
-                  Gestion globale des identifiants et monitoring multi-entreprise.
+                  Utilisez le menu latéral pour gérer les comptes et les accès de tous les studios.
                 </p>
               </div>
             </div>
@@ -123,7 +123,7 @@ export default function Home() {
           <div className="pt-8">
             <h2 className="text-2xl font-black uppercase tracking-tighter mb-8 flex items-center gap-3">
                <FileText className="w-6 h-6 text-primary" />
-               Dossiers Studio
+               Dossiers du Studio
             </h2>
             {profile && <CategoryTiles profile={profile} />}
           </div>
