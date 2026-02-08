@@ -77,7 +77,6 @@ export default function AccountsPage() {
 
   const usersQuery = useMemoFirebase(() => {
     if (!db || !isSuperAdmin) return null;
-    // On requête absolument tous les utilisateurs
     return query(collection(db, 'users'));
   }, [db, isSuperAdmin]);
 
@@ -149,7 +148,6 @@ export default function AccountsPage() {
     );
   }
 
-  // Tri pour s'assurer que les plus récents ou JSecchi apparaissent bien
   const sortedUsers = allUsers ? [...allUsers].sort((a, b) => (a.loginId || '').localeCompare(b.loginId || '')) : [];
 
   return (

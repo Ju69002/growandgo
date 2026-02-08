@@ -13,7 +13,8 @@ import {
   Maximize2, 
   FileText, 
   CheckCircle2, 
-  X
+  X,
+  AlertTriangle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -41,7 +42,7 @@ export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [isCalendarFull, setIsCalendarFull] = useState(false);
 
-  // TOUS LES HOOKS EN HAUT (REGLE REACT)
+  // DECLARATION DE TOUS LES HOOKS AU SOMMET (RULES OF HOOKS)
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user) return null;
     return doc(db, 'users', user.uid);
@@ -72,7 +73,6 @@ export default function Home() {
     setMounted(true);
   }, []);
 
-  // REDIRECTION SI NON CONNECTE
   useEffect(() => {
     if (mounted && !isUserLoading && !user) {
       router.push('/login');
@@ -126,20 +126,39 @@ export default function Home() {
     return tasks.sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [mounted, documents, meetings]);
 
-  // AFFICHAGE DES ETATS DE CHARGEMENT
+  // GESTION DES RENDUS CONDITIONNELS APRES LES HOOKS
   if (!mounted || isUserLoading || isProfileLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#F5F2EA]">
         <div className="text-center space-y-4">
           <Loader2 className="w-10 h-10 animate-spin text-[#1E4D3B] mx-auto" />
-          <p className="text-[#1E4D3B] font-black uppercase text-[10px] tracking-widest opacity-50">Studio Grow&Go...</p>
+          <p className="text-[#1E4D3B] font-black uppercase text-[10px] tracking-widest opacity-50">Chargement du Studio...</p>
         </div>
       </div>
     );
   }
 
-  // SI TOUJOURS PAS D'UTILISATEUR (SECURITE)
-  if (!user || !profile) return null;
+  if (!user) return null;
+
+  if (!profile) {
+    return (
+      <DashboardLayout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] p-8 text-center space-y-4">
+          <AlertTriangle className="w-16 h-16 text-destructive opacity-50" />
+          <h2 className="text-2xl font-black uppercase tracking-tighter">Profil Introuvable</h2>
+          <p className="text-muted-foreground max-w-md">Nous n'avons pas pu charger votre profil Studio. Tentez de vous reconnecter.</p>
+          <Button 
+            onClick={() => {
+              window.location.href = '/login';
+            }}
+            className="rounded-full px-8 bg-primary font-bold"
+          >
+            Retour à la connexion
+          </Button>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   const isSuperAdmin = profile.role === 'super_admin';
 
