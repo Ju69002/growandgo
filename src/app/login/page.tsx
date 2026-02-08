@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useAuth, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { signInAnonymously } from 'firebase/auth';
-import { doc, getDoc, setDoc, collection, query, where, getDocs, deleteDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Lock, UserCircle, Users, Key, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
 import Image from 'next/image';
@@ -85,7 +85,8 @@ export default function LoginPage() {
 
       await ensureCompanyExists(finalCompanyId, finalCompanyName);
       
-      const profileRef = doc(db, 'users', `profile_${lowerId}_${Date.now()}`);
+      // Utilisation d'un ID de document FIXE pour empêcher les doublons au niveau Firestore
+      const profileRef = doc(db, 'users', `profile_${lowerId}`);
       await setDoc(profileRef, {
         uid: profileRef.id,
         isProfile: true,
@@ -122,11 +123,8 @@ export default function LoginPage() {
     try {
       const lowerId = loginId.trim().toLowerCase();
       
-      // Recherche du profil par loginId_lower (beaucoup plus robuste que par ID de doc)
-      const q = query(collection(db, 'users'), 
-        where('isProfile', '==', true), 
-        where('loginId_lower', '==', lowerId)
-      );
+      // Recherche du profil par loginId_lower
+      const q = query(collection(db, 'users'), where('loginId_lower', '==', lowerId));
       const querySnap = await getDocs(q);
       
       let profileData: User | null = null;
@@ -134,7 +132,7 @@ export default function LoginPage() {
         profileData = querySnap.docs[0].data() as User;
       }
 
-      // Fallback JSecchi si la base est vide
+      // Fallback JSecchi si la base est vide (pour le premier accès)
       if (!profileData && lowerId === 'jsecchi') {
         profileData = {
           uid: 'jsecchi-fixed',
@@ -172,11 +170,11 @@ export default function LoginPage() {
     }
   };
 
-  // Filtrage et dédoublonnage strict pour le répertoire visuel
+  // Filtrage et dédoublonnage strict pour le répertoire visuel (affiche tous les loginId uniques)
   const displayUsers = Array.from(
     new Map(
       (allUsers || [])
-        .filter(u => u.isProfile && u.loginId)
+        .filter(u => u.loginId || u.loginId_lower)
         .map(u => [u.loginId_lower || u.loginId?.toLowerCase(), u])
     ).values()
   ).sort((a, b) => {

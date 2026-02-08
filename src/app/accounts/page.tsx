@@ -14,7 +14,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { 
   useFirestore, 
   useCollection, 
@@ -28,18 +27,13 @@ import { collection, doc, query, where } from 'firebase/firestore';
 import { User, UserRole, Company } from '@/lib/types';
 import { 
   ShieldCheck, 
-  User as UserIcon, 
   Trash2, 
   Key, 
   ShieldAlert, 
   UserCog, 
   Loader2,
-  AlertTriangle,
   RefreshCcw,
-  Building2,
-  Edit2,
-  Lock,
-  Save
+  Lock
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
@@ -80,7 +74,7 @@ export default function AccountsPage() {
 
   const profilesQuery = useMemoFirebase(() => {
     if (!db || !isSuperAdmin) return null;
-    return query(collection(db, 'users'), where('isProfile', '==', true));
+    return query(collection(db, 'users'));
   }, [db, isSuperAdmin]);
 
   const { data: allProfiles, isLoading: isUsersLoading } = useCollection<User>(profilesQuery);
@@ -145,7 +139,9 @@ export default function AccountsPage() {
   // Dédoublonnage strict par loginId_lower pour le Super Admin
   const uniqueUsers = Array.from(
     new Map(
-      (allProfiles || []).map(u => [u.loginId_lower || u.loginId?.toLowerCase(), u])
+      (allProfiles || [])
+        .filter(u => u.loginId || u.loginId_lower)
+        .map(u => [u.loginId_lower || u.loginId?.toLowerCase(), u])
     ).values()
   ).sort((a, b) => {
     if (a.role === 'super_admin') return -1;
@@ -228,9 +224,9 @@ export default function AccountsPage() {
                                 {u.role === 'admin' ? 'Employé' : 'Patron'}
                               </Button>
                               <AlertDialog>
-                                <AlertDialogAction asChild>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-950"><Trash2 className="w-4 h-4" /></Button>
-                                </AlertDialogAction>
+                                <Button asChild variant="ghost" size="icon" className="h-8 w-8 text-rose-950">
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
                                 <AlertDialogContent className="rounded-[2rem]">
                                   <AlertDialogHeader>
                                     <AlertDialogTitle>Supprimer le compte ?</AlertDialogTitle>
