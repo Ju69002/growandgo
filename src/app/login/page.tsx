@@ -33,7 +33,7 @@ export default function LoginPage() {
   const { toast } = useToast();
   const logo = PlaceHolderImages.find(img => img.id === 'app-logo');
 
-  // Récupération en temps réel des identifiants pour le répertoire de test
+  // Récupération de TOUS les identifiants pour le répertoire de test
   const usersQuery = useMemoFirebase(() => {
     if (!db) return null;
     return query(collection(db, 'users'));
@@ -41,7 +41,6 @@ export default function LoginPage() {
 
   const { data: allUsers } = useCollection<User>(usersQuery);
 
-  // Assure qu'une entreprise existe
   const ensureCompanyExists = async (companyId: string, companyName: string) => {
     if (!db) return;
     const companyRef = doc(db, 'companies', companyId);
@@ -60,23 +59,21 @@ export default function LoginPage() {
     }
   };
 
-  // Crée ou met à jour le profil Firestore avec dédoublonnage strict
   const createProfile = async (uid: string, loginId: string, role: string, displayName: string, pass: string, cName?: string) => {
     if (!db) return;
     const lowerId = loginId.toLowerCase().trim();
     
-    // NETTOYAGE AGRESSIF DES DOUBLONS : Supprime tout autre document ayant le même loginId_lower mais un UID différent
+    // NETTOYAGE DES DOUBLONS : On s'assure qu'un seul doc existe pour ce loginId_lower
     const usersRef = collection(db, 'users');
     const q = query(usersRef, where('loginId_lower', '==', lowerId));
     const snap = await getDocs(q);
     
-    // On supprime les vieux docs si nécessaire
     for (const d of snap.docs) {
       if (d.id !== uid) {
         try {
           await deleteDoc(doc(db, 'users', d.id));
         } catch (e) {
-          console.warn("Impossible de supprimer un doublon (normal si pas de permissions)", e);
+          // Silencieux si pas de permission
         }
       }
     }
@@ -90,7 +87,6 @@ export default function LoginPage() {
       finalCompanyId = 'growandgo-hq';
       finalCompanyName = 'Grow&Go HQ';
     } else {
-      // On essaie de garder l'entreprise actuelle si elle existe déjà
       const existingDoc = snap.docs.find(d => d.id === uid);
       if (existingDoc?.exists()) {
         const data = existingDoc.data();
@@ -132,29 +128,26 @@ export default function LoginPage() {
       if (isSignUp) {
         if (!companyName.trim()) throw new Error("Le nom de l'entreprise est requis.");
         
-        // Vérification d'existence avant création Auth
+        // Vérification d'unicité STRICTE avant création
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('loginId_lower', '==', lowerId));
         const checkSnap = await getDocs(q);
-        if (!checkSnap.empty) throw new Error("Cet identifiant est déjà utilisé.");
+        if (!checkSnap.empty) throw new Error("Cet identifiant est déjà utilisé dans la base.");
 
         const userCredential = await createUserWithEmailAndPassword(auth, internalEmail, password);
         await createProfile(userCredential.user.uid, normalizedId, 'employee', name || normalizedId, password, companyName);
 
-        // Déconnexion forcée après inscription
         await signOut(auth);
         setSignUpSuccess(true);
         setIsSignUp(false);
         setPassword('');
         setName('');
         setCompanyName('');
-        toast({ title: "Compte créé avec succès !" });
+        toast({ title: "Compte créé !" });
       } else {
-        // CONNEXION
         const userCredential = await signInWithEmailAndPassword(auth, internalEmail, password);
-        
-        // RESTAURATION / MISE À JOUR DU PROFIL FIRESTORE SYSTÉMATIQUE
         const isSA = lowerId === 'jsecchi';
+        
         await createProfile(
           userCredential.user.uid, 
           normalizedId, 
@@ -163,37 +156,35 @@ export default function LoginPage() {
           password
         );
 
-        toast({ title: "Connexion réussie" });
+        toast({ title: "Accès autorisé" });
         router.push('/');
       }
     } catch (error: any) {
       let message = "Identifiant ou mot de passe incorrect.";
-      if (error.code === 'auth/email-already-in-use') message = "Cet identifiant est déjà utilisé.";
-      if (error.message) message = error.message;
+      if (error.message.includes('déjà utilisé')) message = error.message;
       toast({ variant: "destructive", title: "Erreur d'accès", description: message });
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Dédoublonnage visuel strict pour le répertoire latéral
-  const uniqueDisplayUsers = Array.from(
+  // Dédoublonnage visuel pour le répertoire latéral
+  const displayUsers = Array.from(
     new Map(
       (allUsers || [])
-        .filter(u => u.loginId_lower)
-        .map(u => [u.loginId_lower.trim().toLowerCase(), u])
+        .map(u => [u.loginId?.toLowerCase().trim() || u.uid, u])
     ).values()
   ).sort((a, b) => {
     if (a.role === 'super_admin') return -1;
     if (b.role === 'super_admin') return 1;
-    return a.loginId.localeCompare(b.loginId);
+    return (a.loginId || '').localeCompare(b.loginId || '');
   });
 
   return (
     <div className="min-h-screen bg-[#F5F2EA] flex items-center justify-center p-4">
       <div className="flex flex-col md:flex-row gap-8 items-start max-w-5xl w-full">
         
-        {/* REPERTOIRE DES ACCÈS */}
+        {/* REPERTOIRE DES ACCÈS EN TEMPS RÉEL */}
         <div className="w-full md:w-80 space-y-4 md:sticky md:top-10">
           <div className="bg-white p-6 rounded-[2rem] shadow-xl border-none">
             <div className="flex items-center gap-2 mb-4 text-[#1E4D3B]">
@@ -201,11 +192,11 @@ export default function LoginPage() {
               <h3 className="font-black uppercase text-[10px] tracking-widest">Identifiants en base</h3>
             </div>
             <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2 scrollbar-thin">
-              {uniqueDisplayUsers.length > 0 ? (
-                uniqueDisplayUsers.map(u => (
+              {displayUsers.length > 0 ? (
+                displayUsers.map(u => (
                   <div key={u.uid} className="flex flex-col p-3 rounded-xl bg-muted/30 border border-black/5 gap-1.5 animate-in fade-in duration-300">
                     <div className="flex items-center justify-between">
-                      <span className="font-mono text-[10px] font-bold truncate text-primary">{u.loginId}</span>
+                      <span className="font-mono text-[11px] font-black text-primary">{u.loginId}</span>
                       <Badge className={cn(
                         "text-[8px] font-black uppercase h-4 px-1 shrink-0",
                         u.role === 'super_admin' ? "bg-rose-950" : u.role === 'admin' ? "bg-primary" : "bg-muted text-muted-foreground"
@@ -215,19 +206,24 @@ export default function LoginPage() {
                     </div>
                     <div className="flex items-center gap-1.5 text-rose-950">
                       <Key className="w-3 h-3 opacity-50" />
-                      <span className="text-[10px] font-mono font-black">{u.password || '••••••'}</span>
+                      <span className="text-[11px] font-mono font-black">{u.password || '••••••'}</span>
                     </div>
-                    <span className="text-[8px] text-muted-foreground truncate opacity-70 italic">{u.name}</span>
+                    <span className="text-[8px] text-muted-foreground truncate opacity-70 italic font-bold">
+                      {u.name}
+                    </span>
                   </div>
                 ))
               ) : (
-                <p className="text-[10px] text-muted-foreground italic text-center py-4">Recherche des accès...</p>
+                <div className="py-8 text-center space-y-2">
+                  <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary/20" />
+                  <p className="text-[10px] text-muted-foreground font-bold uppercase">Chargement de la base...</p>
+                </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* FORMULAIRE DE CONNEXION */}
+        {/* FORMULAIRE D'ACCÈS */}
         <Card className="flex-1 w-full shadow-2xl border-none p-4 rounded-[2.5rem] bg-white">
           <CardHeader className="text-center space-y-4">
             <div className="relative w-20 h-20 mx-auto overflow-hidden rounded-2xl border bg-white shadow-xl">
@@ -265,7 +261,7 @@ export default function LoginPage() {
                         placeholder="Ex: Marc Lavoine" 
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        className="pl-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-medium"
+                        className="pl-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-bold"
                         required
                       />
                     </div>
@@ -278,7 +274,7 @@ export default function LoginPage() {
                         placeholder="Ex: Paul S.A." 
                         value={companyName}
                         onChange={(e) => setCompanyName(e.target.value)}
-                        className="pl-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-medium"
+                        className="pl-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-bold"
                         required
                       />
                     </div>
@@ -294,7 +290,7 @@ export default function LoginPage() {
                     placeholder="Ex: MLavoine" 
                     value={loginId}
                     onChange={(e) => setLoginId(e.target.value)}
-                    className="pl-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-medium"
+                    className="pl-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-bold"
                     required
                   />
                 </div>
@@ -309,7 +305,7 @@ export default function LoginPage() {
                     placeholder="••••••••••••" 
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="pl-11 pr-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-medium"
+                    className="pl-11 pr-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-bold"
                     required
                   />
                   <button
@@ -333,7 +329,7 @@ export default function LoginPage() {
 
                 <button
                   type="button"
-                  className="w-full text-xs font-bold uppercase tracking-widest text-[#1E4D3B]/60 hover:bg-[#1E4D3B]/5 py-2 rounded-xl transition-colors"
+                  className="w-full text-xs font-black uppercase tracking-widest text-[#1E4D3B]/60 hover:bg-[#1E4D3B]/5 py-2 rounded-xl transition-colors"
                   onClick={() => {
                     setSignUpSuccess(false);
                     setIsSignUp(!isSignUp);
