@@ -66,3 +66,12 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Animations accélérées pour plus de fluidité */
+.transition-all {
+  transition-duration: 200ms !important;
+}
+
+.animate-in {
+  animation-duration: 300ms !important;
+}

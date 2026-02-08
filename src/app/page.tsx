@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useRef, useMemo } from 'react';
@@ -11,20 +12,17 @@ import { SharedCalendar } from '@/components/agenda/shared-calendar';
 import { 
   Loader2, 
   FileText, 
-  LogOut, 
-  AlertTriangle, 
-  ListTodo, 
-  Calendar as CalendarIcon, 
   ChevronRight, 
   CheckCircle2,
   Maximize2,
-  Zap
+  Zap,
+  ListTodo,
+  Calendar as CalendarIcon
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { signOut } from 'firebase/auth';
 import Link from 'next/link';
 import { syncBillingTasks } from '@/services/billing-sync';
 import { startOfWeek, endOfWeek, isWithinInterval, parse, isValid } from 'date-fns';
@@ -32,11 +30,10 @@ import { fr } from 'date-fns/locale';
 
 export default function Home() {
   const router = useRouter();
-  const auth = useAuth();
   const { user, isUserLoading } = useUser();
   const db = useFirestore();
   const [mounted, setMounted] = useState(false);
-  const syncCountRef = useRef(0);
+  const syncLockRef = useRef(false);
 
   useEffect(() => {
     setMounted(true);
@@ -57,8 +54,10 @@ export default function Home() {
   
   const isSuperAdmin = profile?.role === 'super_admin';
   const isParticulier = profile?.role === 'particulier';
-  const companyId = profile?.companyId ? profile.companyId : null;
+  const companyId = profile?.companyId || null;
 
+  // Optimisation : On ne récupère les utilisateurs pour la synchro que si on est SuperAdmin
+  // et on ne le fait qu'une fois de manière asynchrone
   const allUsersQuery = useMemoFirebase(() => {
     if (!db || !isSuperAdmin) return null;
     return query(collection(db, 'users'));
@@ -67,15 +66,13 @@ export default function Home() {
   const { data: allUsers } = useCollection<User>(allUsersQuery);
 
   useEffect(() => {
-    if (db && user && isSuperAdmin && allUsers && allUsers.length > 0) {
-      const uniqueIdCount = new Set(
-        allUsers.map(u => (u.loginId_lower || u.loginId?.toLowerCase() || '').trim()).filter(Boolean)
-      ).size;
-
-      if (syncCountRef.current !== uniqueIdCount) {
-        syncCountRef.current = uniqueIdCount;
+    if (db && user && isSuperAdmin && allUsers && !syncLockRef.current) {
+      syncLockRef.current = true;
+      // Exécution différée pour ne pas bloquer le rendu initial
+      const timer = setTimeout(() => {
         syncBillingTasks(db, user.uid, allUsers);
-      }
+      }, 1500);
+      return () => clearTimeout(timer);
     }
   }, [db, user, isSuperAdmin, allUsers]);
 
@@ -87,7 +84,7 @@ export default function Home() {
     );
   }, [db, companyId]);
 
-  const { data: pendingTasks } = useCollection<BusinessDocument>(pendingDocsQuery);
+  const { data: pendingTasks, isLoading: isTasksLoading } = useCollection<BusinessDocument>(pendingDocsQuery);
 
   const weeklyTasks = useMemo(() => {
     if (!pendingTasks) return [];
@@ -97,6 +94,7 @@ export default function Home() {
 
     return pendingTasks
       .filter(task => {
+        // Uniquement les tâches v4 pour éviter le bruit
         if (task.isBillingTask && !task.id.startsWith('billing_v4')) return false;
         
         try {
@@ -114,22 +112,7 @@ export default function Home() {
       });
   }, [pendingTasks]);
 
-  const handleLogout = async () => {
-    if (auth) {
-      await signOut(auth);
-      router.push('/login');
-    }
-  };
-
-  if (!mounted || isUserLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-[#F5F2EA] gap-4">
-        <Loader2 className="w-10 h-10 animate-spin text-primary opacity-50" />
-        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground animate-pulse">Initialisation de l'espace...</p>
-      </div>
-    );
-  }
-
+  if (!mounted || isUserLoading) return null;
   if (!user) return null;
 
   const isJSecchi = profile?.loginId?.toLowerCase() === 'jsecchi' || profile?.loginId_lower === 'jsecchi';
@@ -137,12 +120,12 @@ export default function Home() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-500">
+      <div className="space-y-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-300">
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-3">
               <h1 className="text-4xl font-black tracking-tighter text-primary uppercase leading-none">Tableau de bord</h1>
-              {profile && (
+              {profile ? (
                 <Badge className={cn(
                   "font-black uppercase text-[10px] h-5 px-2",
                   isSuperAdmin ? "bg-rose-950 text-white" : 
@@ -152,10 +135,12 @@ export default function Home() {
                 )}>
                   {isSuperAdmin ? 'ADMIN' : profile.role === 'admin' ? 'PATRON' : profile.role === 'particulier' ? 'PARTICULIER' : 'EMPLOYÉ'}
                 </Badge>
+              ) : (
+                <div className="h-5 w-20 bg-muted animate-pulse rounded-full" />
               )}
             </div>
             <p className="text-muted-foreground font-medium italic">
-              {companyDisplayName}, Bienvenue {profile?.name}.
+              {companyDisplayName}, Bienvenue {profile?.name || '...'}.
             </p>
           </div>
         </header>
@@ -170,7 +155,11 @@ export default function Home() {
             </div>
             
             <div className="grid gap-3">
-              {weeklyTasks.length > 0 ? (
+              {isTasksLoading ? (
+                Array(3).fill(0).map((_, i) => (
+                  <div key={i} className="h-20 bg-muted rounded-2xl animate-pulse" />
+                ))
+              ) : weeklyTasks.length > 0 ? (
                 weeklyTasks.map((task) => {
                   const dateParts = task.createdAt.split('/');
                   const formattedDate = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
@@ -234,7 +223,7 @@ export default function Home() {
                 <SharedCalendar companyId={companyId} isCompact={true} />
               ) : (
                 <div className="h-full flex items-center justify-center text-muted-foreground animate-pulse">
-                   Initialisation de l'agenda...
+                   Chargement de l'agenda...
                 </div>
               )}
             </div>
