@@ -65,7 +65,6 @@ export default function BillingPage() {
   }, [db, user, isSuperAdmin, allUsers]);
 
   const getPriceData = (userData: User | null) => {
-    // Sécurisation critique contre le crash si userData est null au chargement
     if (!userData) return { price: "0,00", label: "CHARGEMENT..." };
     
     if (userData.companyId === 'admin_global' || userData.role === 'super_admin') {
@@ -80,7 +79,6 @@ export default function BillingPage() {
       return { price: "0,00", label: "INCLUS" };
     }
     
-    // Calcul pour le Patron (admin) selon les paliers d'employés
     const companyEmployees = allUsers?.filter(u => 
       u.companyId === userData.companyId && 
       u.role === 'employee' && 
@@ -88,12 +86,9 @@ export default function BillingPage() {
     ) || [];
     
     const n = companyEmployees.length;
-    // Patron + (0-5) employés = 199.99€
     if (n <= 5) return { price: "199,99", label: "FORFAIT 0-5 EMP." };
-    // Patron + (6-10) employés = 399.99€
     if (n <= 10) return { price: "399,99", label: "FORFAIT 6-10 EMP." };
     
-    // Patron + (11-infini) = 399.99 + 39.99 par employé sup
     const extra = (n - 10) * 39.99;
     const total = 399.99 + extra;
     return { 
@@ -120,7 +115,6 @@ export default function BillingPage() {
     const map = new Map();
     allUsers.forEach(u => {
       const id = (u.loginId_lower || u.loginId || '').toLowerCase();
-      // Filtrage du compte administrateur global pour ne pas l'afficher dans la liste
       if (id && !map.has(id) && u.companyId !== 'admin_global' && u.role !== 'super_admin') {
         map.set(id, u);
       }

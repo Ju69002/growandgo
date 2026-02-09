@@ -11,13 +11,20 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    function isGlobalAdmin() {
+      return isSignedIn() && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == 'admin_global' ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin'
+      );
+    }
+
     // Gestion des profils utilisateurs
     match /users/{userId} {
       allow read: if true; 
-      allow write: if isOwner(userId); 
+      allow write: if isOwner(userId) || isGlobalAdmin(); 
       
       match /received_invoices/{invoiceId} {
-        allow read: if isOwner(userId);
+        allow read: if isOwner(userId) || isGlobalAdmin();
         allow write: if isSignedIn();
       }
     }
@@ -29,12 +36,11 @@ service cloud.firestore {
 
       match /events/{eventId} {
         allow read: if isSignedIn();
-        // Autorisation si propriétaire de l'événement, admin jsecchi, ou membre admin_global
         allow write: if isSignedIn() && (
           request.resource.data.userId == request.auth.uid || 
           resource.data.userId == request.auth.uid ||
           companyId == 'admin_global' ||
-          request.auth.uid == 'jsecchi'
+          isGlobalAdmin()
         );
       }
 

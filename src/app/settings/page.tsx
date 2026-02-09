@@ -109,7 +109,6 @@ export default function SettingsPage() {
         });
       });
 
-      // Si c'est le patron, on met aussi à jour le document de l'entreprise
       if (profile.role === 'admin' || profile.companyId === 'admin_global') {
         const compRef = doc(db, 'companies', profile.companyId);
         updateDocumentNonBlocking(compRef, { name: companyName.trim() });
@@ -188,8 +187,8 @@ export default function SettingsPage() {
                     <Fingerprint className="absolute left-3 top-3.5 w-4 h-4 text-primary/40" />
                     <Input 
                       value={profile?.loginId || ''}
-                      disabled
-                      className="pl-10 rounded-xl bg-muted/20 border-primary/10 h-12 font-bold text-primary opacity-100 cursor-not-allowed"
+                      readOnly
+                      className="pl-10 rounded-xl bg-muted/5 border-primary/10 h-12 font-bold text-primary opacity-100 cursor-default"
                     />
                   </div>
                 </div>
@@ -269,7 +268,7 @@ export default function SettingsPage() {
                   className="rounded-full px-12 h-14 font-bold bg-primary hover:bg-primary/90 shadow-xl gap-3 text-lg"
                 >
                   {isSaving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
-                  Enregistrer en base de données
+                  Enregistrer les modifications
                 </Button>
               </div>
             </CardContent>
