@@ -8,7 +8,7 @@ import { format, addMonths, isBefore } from 'date-fns';
 
 /**
  * Service pour synchroniser les rendez-vous de facturation.
- * Ajout de try/catch et merge: true pour la stabilité.
+ * Ajout de try/catch et merge: true pour la stabilité totale.
  */
 export async function syncBillingTasks(db: Firestore, adminUid: string, allUsers: User[]) {
   try {
@@ -18,7 +18,7 @@ export async function syncBillingTasks(db: Firestore, adminUid: string, allUsers
     const uniqueUsersMap = new Map<string, User>();
     allUsers.forEach(u => {
       const id = (u.loginId_lower || u.loginId || u.uid || '').toLowerCase();
-      if (!id || u.role === 'super_admin') return;
+      if (!id || u.role === 'admin') return; // Ne pas facturer les admins
       if (!uniqueUsersMap.has(id) || u.isProfile) {
         uniqueUsersMap.set(id, u);
       }
@@ -54,12 +54,12 @@ export async function syncBillingTasks(db: Firestore, adminUid: string, allUsers
           
           eventDate.setHours(9 + hourOffset, 0, 0, 0);
 
-          // Utilisation impérative de merge: true pour ne jamais supprimer de données
           setDocumentNonBlocking(eventRef, {
             id: currentEventId,
             id_externe: currentEventId,
             companyId: adminCompanyId,
             userId: adminUid,
+            enterpriseId: 'admin_global',
             titre: `Facture - ${client.name || client.loginId}`,
             description: `Générer la facture pour le client ${client.name || client.loginId}.`,
             debut: eventDate.toISOString(),

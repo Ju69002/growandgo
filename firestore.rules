@@ -11,9 +11,13 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    function belongsToUser() {
+      return isSignedIn() && request.auth.uid == resource.data.userId;
+    }
+
     // Gestion des profils utilisateurs
     match /users/{userId} {
-      // Autoriser la lecture pour permettre la recherche par identifiant lors du login
+      // Autoriser la lecture publique pour permettre la recherche par identifiant lors du login
       allow read: if true; 
       allow write: if isOwner(userId); 
       
@@ -30,11 +34,11 @@ service cloud.firestore {
 
       match /events/{eventId} {
         allow read: if isSignedIn();
-        // Validation stricte du userId pour l'appartenance de l'événement ou Admin
+        // Validation par userId pour l'appartenance de l'événement ou Admin
         allow write: if isSignedIn() && (
           request.resource.data.userId == request.auth.uid || 
           resource.data.userId == request.auth.uid ||
-          request.auth.uid == 'jsecchi' // Sécurité Super Admin
+          request.auth.uid == 'jsecchi'
         );
       }
 
