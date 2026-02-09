@@ -27,7 +27,7 @@ import {
 } from '@/firebase';
 import { collection, doc, query, where } from 'firebase/firestore';
 import { sendPasswordResetEmail } from 'firebase/auth';
-import { User, UserRole, Company } from '@/lib/types';
+import { User, UserRole } from '@/lib/types';
 import { 
   ShieldCheck, 
   Trash2, 
@@ -35,13 +35,11 @@ import {
   Loader2,
   Search,
   Mail,
-  CreditCard,
   Building2,
-  UserCheck,
-  AlertTriangle,
   Key,
   Eye,
-  EyeOff
+  EyeOff,
+  AlertCircle
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useMemo, useEffect } from 'react';
@@ -107,7 +105,7 @@ export default function AccountsPage() {
   const uniqueUsers = useMemo(() => {
     if (!allProfiles) return [];
     
-    const realProfiles = allProfiles.filter(u => u.id === u.uid);
+    const realProfiles = allProfiles.filter(u => u.uid === u.id || u.isProfile);
     const companyCounts = new Map<string, number>();
     const companyPatrons = new Map<string, string>();
 
@@ -154,7 +152,7 @@ export default function AccountsPage() {
       await sendPasswordResetEmail(auth, email);
       toast({ title: "E-mail envoyé", description: `Lien de réinitialisation envoyé à ${email}.` });
     } catch (e: any) {
-      toast({ variant: "destructive", title: "Erreur", description: "L'utilisateur doit d'abord synchroniser son e-mail." });
+      toast({ variant: "destructive", title: "Erreur", description: "L'utilisateur n'existe pas encore dans Firebase Auth ou l'e-mail est invalide." });
     }
   };
 
@@ -181,7 +179,7 @@ export default function AccountsPage() {
     updateDocumentNonBlocking(doc(db, 'users', editingPassUser.id), { 
       password: newPassword.trim()
     });
-    toast({ title: "Mot de passe Firestore mis à jour", description: "Note: Le mot de passe réel de connexion n'est pas modifié ici." });
+    toast({ title: "Mémo mis à jour", description: "Le mot de passe Firestore est synchronisé avec le mode dev." });
     setEditingPassUser(null);
   };
 
@@ -295,11 +293,19 @@ export default function AccountsPage() {
       <Dialog open={!!editingPassUser} onOpenChange={(open) => !open && setEditingPassUser(null)}>
         <DialogContent className="rounded-[2rem]">
           <DialogHeader><DialogTitle>Modifier le mot de passe (Mémo)</DialogTitle></DialogHeader>
-          <div className="py-4 space-y-4">
+          <div className="py-4 space-y-6">
+            <div className="bg-amber-50 p-4 rounded-xl border border-amber-200 flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+              <div className="space-y-1">
+                <p className="text-xs font-bold text-amber-800">Information Importante</p>
+                <p className="text-[10px] text-amber-700 leading-relaxed">
+                  Modifier ce champ met à jour l'affichage et le mode développement. Pour changer l'accès réel, l'utilisateur doit utiliser un lien de réinitialisation.
+                </p>
+              </div>
+            </div>
             <div className="space-y-2">
               <Label>Nouveau mot de passe</Label>
               <Input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="rounded-xl font-bold" />
-              <p className="text-[10px] text-muted-foreground">Attention: Cela modifie uniquement l'affichage admin et le mode dev, pas l'accès réel si l'utilisateur l'a déjà changé.</p>
             </div>
           </div>
           <DialogFooter><Button onClick={handleUpdatePassword} className="rounded-full bg-primary px-8">Enregistrer</Button></DialogFooter>

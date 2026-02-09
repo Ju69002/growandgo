@@ -112,12 +112,26 @@ export default function LoginPage() {
       const querySnapshot = await getDocs(q);
       
       let targetEmail = `${lowerId}@espace.internal`;
+      let firestorePassword = '';
+
       if (!querySnapshot.empty) {
         const userData = querySnapshot.docs[0].data();
         if (userData.email) targetEmail = userData.email;
+        firestorePassword = userData.password || '';
       }
 
-      await signInWithEmailAndPassword(auth, targetEmail, password.trim());
+      try {
+        await signInWithEmailAndPassword(auth, targetEmail, password.trim());
+      } catch (authError: any) {
+        // Diagnostic intelligent
+        if (authError.code === 'auth/invalid-credential' || authError.code === 'auth/wrong-password') {
+          if (firestorePassword && password.trim() === firestorePassword) {
+            throw new Error("Désynchronisation : Le mot de passe correspond au répertoire mais pas au compte réel. Utilisez votre ancien mot de passe ou demandez un lien de réinitialisation.");
+          }
+        }
+        throw authError;
+      }
+
       const userCredential = auth.currentUser;
       if (!userCredential) throw new Error("Erreur d'authentification");
       
@@ -157,7 +171,7 @@ export default function LoginPage() {
       toast({ 
         variant: "destructive", 
         title: "Accès refusé", 
-        description: "Identifiant ou mot de passe incorrect. Si l'administrateur a changé votre mot de passe dans le répertoire, assurez-vous de l'utiliser." 
+        description: error.message || "Identifiant ou mot de passe incorrect."
       });
     } finally {
       setIsLoading(false);
