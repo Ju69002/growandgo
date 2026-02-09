@@ -83,7 +83,7 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" className="border-r-0 z-50">
       <SidebarHeader className="h-20 flex items-center justify-center group-data-[collapsible=icon]:p-2 p-4 bg-sidebar">
         <div className="flex items-center gap-3 font-bold text-sidebar-foreground w-full">
-          <div className="relative w-10 h-10 group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:h-8 overflow-hidden rounded-lg border border-white/20 shadow-xl bg-white shrink-0 mx-auto">
+          <div className="relative w-10 h-10 group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:h-8 overflow-hidden rounded-lg border border-white/20 shadow-xl bg-white shrink-0 mx-auto transition-all">
             <Image 
               src={logo?.imageUrl || "https://picsum.photos/seed/growgo/100/100"} 
               alt="Logo" 
@@ -116,7 +116,7 @@ export function AppSidebar() {
                       isActive={active}
                       className={cn(
                         "transition-all duration-200 h-11 rounded-xl font-bold",
-                        "group-data-[collapsible=icon]:!mx-auto group-data-[collapsible=icon]:!w-8",
+                        "group-data-[collapsible=icon]:!mx-auto group-data-[collapsible=icon]:!w-8 group-data-[collapsible=icon]:mx-0 group-data-[collapsible=icon]:px-0",
                         "mx-2 w-[calc(100%-1rem)] px-4",
                         active 
                           ? "bg-white text-primary shadow-lg hover:bg-white hover:text-primary" 
@@ -147,7 +147,7 @@ export function AppSidebar() {
                     isActive={isItemActive('/accounts')}
                     className={cn(
                       "transition-all duration-200 h-11 rounded-xl font-bold",
-                      "group-data-[collapsible=icon]:!mx-auto group-data-[collapsible=icon]:!w-8",
+                      "group-data-[collapsible=icon]:!mx-auto group-data-[collapsible=icon]:!w-8 group-data-[collapsible=icon]:mx-0 group-data-[collapsible=icon]:px-0",
                       "mx-2 w-[calc(100%-1rem)] px-4",
                       isItemActive('/accounts') 
                         ? "bg-white text-primary shadow-lg hover:bg-white hover:text-primary" 
@@ -179,7 +179,7 @@ export function AppSidebar() {
                       isActive={active}
                       className={cn(
                         "transition-all duration-200 h-11 rounded-xl font-bold",
-                        "group-data-[collapsible=icon]:!mx-auto group-data-[collapsible=icon]:!w-8",
+                        "group-data-[collapsible=icon]:!mx-auto group-data-[collapsible=icon]:!w-8 group-data-[collapsible=icon]:mx-0 group-data-[collapsible=icon]:px-0",
                         "mx-2 w-[calc(100%-1rem)] px-4",
                         active 
                           ? "bg-white text-primary shadow-lg hover:bg-white hover:text-primary" 
@@ -206,7 +206,7 @@ export function AppSidebar() {
               isActive={isItemActive('/settings')}
               className={cn(
                 "transition-all duration-200 h-11 rounded-xl font-bold",
-                "group-data-[collapsible=icon]:!mx-auto group-data-[collapsible=icon]:!w-8",
+                "group-data-[collapsible=icon]:!mx-auto group-data-[collapsible=icon]:!w-8 group-data-[collapsible=icon]:mx-0 group-data-[collapsible=icon]:px-0",
                 "mx-2 w-[calc(100%-1rem)] px-4",
                 isItemActive('/settings') 
                   ? "bg-white text-primary shadow-lg hover:bg-white hover:text-primary" 

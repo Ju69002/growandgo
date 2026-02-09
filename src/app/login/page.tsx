@@ -56,7 +56,6 @@ export default function LoginPage() {
       let finalCompanyName = companyName.trim();
       let finalCompanyId = normalizeId(finalCompanyName);
 
-      // FORÇAGE ADMIN JSECCHI LORS DE L'INSCRIPTION
       if (lowerId === 'jsecchi') {
         finalRole = 'admin';
         finalCompanyName = "GrowAndGo Admin";
@@ -104,7 +103,6 @@ export default function LoginPage() {
     try {
       const lowerId = loginId.trim().toLowerCase();
       
-      // Recherche de l'email associé au loginId dans Firestore
       const usersRef = collection(db, 'users');
       const q = query(usersRef, where('loginId_lower', '==', lowerId), limit(1));
       const querySnapshot = await getDocs(q);
@@ -118,7 +116,6 @@ export default function LoginPage() {
 
       const result = await signInWithEmailAndPassword(auth, targetEmail, password.trim());
       
-      // FORÇAGE ADMIN JSECCHI LORS DE LA CONNEXION
       if (lowerId === 'jsecchi') {
         await setDoc(doc(db, 'users', result.user.uid), {
           role: 'admin',
@@ -185,7 +182,7 @@ export default function LoginPage() {
               )}
               <div className="relative">
                 <UserCircle className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
-                <Input placeholder="Identifiant (ex: JSecchi)" value={loginId} onChange={(e) => setLoginId(e.target.value)} className="pl-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
+                <Input placeholder="Identifiant (ex: ADupont)" value={loginId} onChange={(e) => setLoginId(e.target.value)} className="pl-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
               </div>
               <div className="relative">
                 <Lock className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
