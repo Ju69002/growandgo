@@ -35,7 +35,8 @@ import {
   Search,
   Mail,
   CreditCard,
-  Building2
+  Building2,
+  UserCheck
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useMemo, useEffect } from 'react';
@@ -107,9 +108,14 @@ export default function AccountsPage() {
     
     // Compter le nombre d'utilisateurs par entreprise ID
     const companyCounts = new Map<string, number>();
+    const companyPatrons = new Map<string, string>();
+
     allProfiles.forEach(u => {
       if (u.companyId && u.isProfile) {
         companyCounts.set(u.companyId, (companyCounts.get(u.companyId) || 0) + 1);
+        if (u.role === 'admin') {
+          companyPatrons.set(u.companyId, u.name || u.loginId);
+        }
       }
     });
 
@@ -128,8 +134,8 @@ export default function AccountsPage() {
       
       const companyInfo = allCompanies?.find(c => c.id === baseDoc.companyId);
       const userCount = companyCounts.get(baseDoc.companyId) || 1;
+      const patronName = companyPatrons.get(baseDoc.companyId) || "son patron";
       
-      // Calculer le prix en direct pour l'affichage si l'objet n'existe pas encore
       const calculatedAmount = baseDoc.companyId === 'admin_global' ? 0 : (userCount * 39.99);
 
       return { 
@@ -138,7 +144,8 @@ export default function AccountsPage() {
         companyName: baseDoc.companyId === 'admin_global' ? "Grow&Go Admin" : (baseDoc.companyName || baseDoc.companyId),
         displaySubscription: {
           totalAmount: companyInfo?.subscription?.totalMonthlyAmount ?? calculatedAmount,
-          activeUsers: userCount
+          activeUsers: userCount,
+          patronName: patronName
         }
       };
     })
@@ -251,15 +258,20 @@ export default function AccountsPage() {
                     <TableCell className="py-4">
                       {u.companyId === 'admin_global' ? (
                         <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 font-bold text-[9px]">OFFERT (ADMIN)</Badge>
-                      ) : (
+                      ) : u.role === 'admin' ? (
                         <div className="flex flex-col">
                           <span className="text-xs font-black text-primary flex items-center gap-1">
                             <CreditCard className="w-3 h-3" />
                             {u.displaySubscription.totalAmount.toFixed(2).replace('.', ',')}€
                           </span>
                           <span className="text-[9px] text-muted-foreground font-bold">
-                            {u.displaySubscription.activeUsers} utilisateurs
+                            39,99€ × {u.displaySubscription.activeUsers} collaborateurs
                           </span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <UserCheck className="w-3 h-3" />
+                          <span className="text-[10px] font-bold">Couvert par {u.displaySubscription.patronName}</span>
                         </div>
                       )}
                     </TableCell>
