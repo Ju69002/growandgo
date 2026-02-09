@@ -8,9 +8,9 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useAuth, useFirestore } from '@/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, getDocs, collection, query, where, limit, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc, getDocs, collection, query, where, limit } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Lock, UserCircle, CheckCircle2, Eye, EyeOff, Terminal, AlertTriangle } from 'lucide-react';
+import { Loader2, Lock, UserCircle, Eye, EyeOff, Terminal } from 'lucide-react';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { UserRole } from '@/lib/types';
@@ -73,6 +73,7 @@ export default function LoginPage() {
         createdAt: new Date().toISOString()
       };
 
+      // Utilisation systématique de l'UID comme ID de document
       await setDoc(doc(db, 'users', uid), userData, { merge: true });
 
       const companyRef = doc(db, 'companies', finalCompanyId);
@@ -127,6 +128,7 @@ export default function LoginPage() {
       const uid = userCredential.uid;
       const userDocRef = doc(db, 'users', uid);
       
+      // Réparation/Mise à jour du profil réel au login
       await setDoc(userDocRef, {
         ...(legacyData || {}),
         uid: uid,
@@ -188,7 +190,7 @@ export default function LoginPage() {
               )}
               <div className="relative">
                 <UserCircle className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
-                <Input placeholder="ADupont" value={loginId} onChange={(e) => setLoginId(e.target.value)} className="pl-11 h-12 bg-muted/30 border-none rounded-xl font-bold" required />
+                <Input placeholder="Identifiant" value={loginId} onChange={(e) => setLoginId(e.target.value)} className="pl-11 h-12 bg-muted/30 border-none rounded-xl font-bold" required />
               </div>
               <div className="relative">
                 <Lock className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />

@@ -95,7 +95,7 @@ export default function AccountsPage() {
   const { data: myProfile, isLoading: isProfileLoading } = useDoc<User>(userProfileRef);
   const isGlobalAdmin = myProfile?.companyId === 'admin_global' || myProfile?.role === 'super_admin';
 
-  // RÉGLAGE CRITIQUE : Seuls les profils officiels sont récupérés
+  // RÉGLAGE CRITIQUE : Seuls les profils officiels (isProfile: true) sont récupérés
   const profilesQuery = useMemoFirebase(() => {
     if (!db || !isGlobalAdmin) return null;
     return query(collection(db, 'users'), where('isProfile', '==', true));
@@ -103,13 +103,13 @@ export default function AccountsPage() {
 
   const { data: allProfiles, isLoading: isUsersLoading } = useCollection<User>(profilesQuery);
 
-  // Diagnostic pour aider au nettoyage manuel des doublons (ID aléatoires vs UID)
+  // Diagnostic pour aider au nettoyage manuel des doublons
   useEffect(() => {
     if (allProfiles && isGlobalAdmin) {
       console.log("--- DIAGNOSTIC COMPTES RÉELS (isProfile: true) ---");
       allProfiles.forEach(u => {
         if (u.id !== u.uid) {
-          console.warn(`[DOUBLON DÉTECTÉ] User: ${u.loginId}, DocID: ${u.id}, UID: ${u.uid}. Ce document utilise un ID aléatoire au lieu de l'UID. Prévoyez de le supprimer.`);
+          console.warn(`[DOUBLON/FANTÔME] User: ${u.loginId}, DocID: ${u.id}, UID: ${u.uid}. Ce document utilise un ID obsolète. Prévoyez de le supprimer.`);
         }
       });
     }
@@ -118,11 +118,10 @@ export default function AccountsPage() {
   const uniqueUsers = useMemo(() => {
     if (!allProfiles) return [];
     
-    // On compte les membres par entreprise (insensible à la casse)
     const companyCounts = new Map<string, number>();
     const companyPatrons = new Map<string, string>();
 
-    // Premier passage : On identifie les patrons et compte les têtes
+    // Comptage par entreprise
     allProfiles.forEach(u => {
       const cId = u.companyId?.toLowerCase().trim();
       if (cId) {
@@ -133,14 +132,12 @@ export default function AccountsPage() {
       }
     });
 
-    // Second passage : On enrichit les données pour l'affichage
     return allProfiles.map(u => {
       const cId = u.companyId?.toLowerCase().trim();
       const userCount = companyCounts.get(cId) || 0;
       const patronName = companyPatrons.get(cId) || "son patron";
       const isInternalAdmin = u.companyId === 'admin_global';
       
-      // Seul le patron paie, et l'admin global paie 0
       const totalAmount = isInternalAdmin ? 0 : (userCount * 39.99);
 
       return { 
@@ -175,7 +172,7 @@ export default function AccountsPage() {
       await sendPasswordResetEmail(auth, email);
       toast({ title: "E-mail envoyé", description: `Lien envoyé à ${email}.` });
     } catch (e: any) {
-      toast({ variant: "destructive", title: "Erreur", description: "L'utilisateur doit d'abord synchroniser son e-mail via son profil." });
+      toast({ variant: "destructive", title: "Erreur", description: "L'utilisateur doit d'abord synchroniser son e-mail." });
     }
   };
 
@@ -219,9 +216,9 @@ export default function AccountsPage() {
           <div className="space-y-1">
             <h1 className="text-3xl font-black tracking-tighter text-primary uppercase flex items-center gap-3">
               <UserCog className="w-8 h-8" />
-              Répertoire & Abonnements
+              Répertoire Officiel
             </h1>
-            <p className="text-muted-foreground font-medium text-sm italic">Affichage exclusif des profils officiels (isProfile: true).</p>
+            <p className="text-muted-foreground font-medium text-sm italic">Affichage exclusif des profils actifs (isProfile: true).</p>
           </div>
           <div className="relative">
             <Search className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
@@ -325,7 +322,7 @@ export default function AccountsPage() {
               <div className="space-y-1">
                 <p className="text-xs font-bold text-amber-800">Note de synchronisation</p>
                 <p className="text-[10px] text-amber-700 leading-relaxed">
-                  Cette modification met à jour l'affichage dans le mode développement. Pour changer l'accès réel, envoyez un mail de réinitialisation.
+                  Cette modification met à jour l'affichage uniquement. Pour changer l'accès réel, envoyez un mail de réinitialisation.
                 </p>
               </div>
             </div>
@@ -358,7 +355,7 @@ export default function AccountsPage() {
         <AlertDialogContent className="rounded-[2rem]">
           <AlertDialogHeader><AlertDialogTitle>Supprimer définitivement le profil ?</AlertDialogTitle></AlertDialogHeader>
           <div className="bg-rose-50 p-4 rounded-xl border border-rose-100 mb-4 text-xs font-bold text-rose-800">
-            Attention : Cette action supprimera le document Firestore. L'accès Auth restera actif sauf si désactivé manuellement.
+            Attention : Cette action supprimera le document Firestore.
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel className="rounded-full">Annuler</AlertDialogCancel>
