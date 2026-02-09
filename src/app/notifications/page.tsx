@@ -1,3 +1,4 @@
+
 'use client';
 
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
@@ -39,7 +40,11 @@ export default function NotificationsPage() {
 
   const { data: tasks, isLoading } = useCollection<BusinessDocument>(pendingDocsQuery);
 
-  const filteredTasks = tasks?.filter(t => !t.isBillingTask) || [];
+  // Filtre strict : on exclut les tâches de facturation et les documents nommés "Facture"
+  const filteredTasks = tasks?.filter(t => 
+    !t.isBillingTask && 
+    !t.name?.toLowerCase().includes('facture')
+  ) || [];
 
   return (
     <DashboardLayout>
@@ -47,7 +52,7 @@ export default function NotificationsPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">Centre de Notifications</h1>
           <p className="text-muted-foreground mt-1">
-            Retrouvez ici toutes les validations en attente sur vos documents importés.
+            Documents importés en attente de traitement pour l'ensemble de l'entreprise.
           </p>
         </div>
 
@@ -62,24 +67,26 @@ export default function NotificationsPage() {
             filteredTasks.map((task) => {
               const config = statusConfig[task.status] || statusConfig.pending_analysis;
               return (
-                <Card key={task.id} className="hover:shadow-md transition-all border-none shadow-sm">
+                <Card key={task.id} className="hover:shadow-md transition-all border-none shadow-sm rounded-2xl overflow-hidden bg-white">
                   <CardContent className="p-6 flex items-center justify-between gap-4">
                     <div className="flex items-center gap-4 flex-1 min-w-0">
-                      <div className="p-3 bg-muted rounded-xl">
-                        <FileText className="w-6 h-6 text-muted-foreground" />
+                      <div className="p-3 bg-primary/5 rounded-xl text-primary">
+                        <FileText className="w-6 h-6" />
                       </div>
                       <div className="min-w-0">
-                        <h3 className="font-bold text-lg truncate">{task.name}</h3>
+                        <h3 className="font-bold text-lg truncate text-primary">{task.name}</h3>
                         <div className="flex items-center gap-2 mt-1">
                           <Badge className={config.color}>
                             <config.icon className="w-3 h-3 mr-1" />
                             {config.label}
                           </Badge>
-                          <span className="text-xs text-muted-foreground">Importé le {task.createdAt}</span>
+                          <span className="text-[10px] font-black uppercase text-muted-foreground opacity-50">
+                            Importé le {task.createdAt}
+                          </span>
                         </div>
                       </div>
                     </div>
-                    <Button asChild variant="outline" size="sm">
+                    <Button asChild variant="outline" size="sm" className="rounded-full font-bold">
                       <Link href={`/categories/${task.categoryId}`} className="flex items-center gap-2">
                         Traiter
                         <ArrowRight className="w-4 h-4" />
@@ -90,10 +97,10 @@ export default function NotificationsPage() {
               );
             })
           ) : (
-            <div className="text-center py-20 bg-card rounded-2xl border-2 border-dashed">
-              <CheckCircle2 className="w-16 h-16 text-emerald-500 mx-auto mb-4 opacity-50" />
-              <h2 className="text-xl font-bold">Bravo ! Tout est à jour.</h2>
-              <p className="text-muted-foreground">Vous n'avez aucune notification de document.</p>
+            <div className="text-center py-20 bg-card rounded-[3rem] border-2 border-dashed border-primary/10">
+              <CheckCircle2 className="w-16 h-16 text-emerald-500 mx-auto mb-4 opacity-20" />
+              <h2 className="text-xl font-bold text-primary">Aucun document en attente</h2>
+              <p className="text-muted-foreground">Votre centre de notifications est parfaitement propre.</p>
             </div>
           )}
         </div>

@@ -45,12 +45,19 @@ export function Header() {
     return query(
       collection(db, 'companies', companyId, 'documents'),
       where('status', 'in', ['pending_analysis', 'waiting_verification', 'waiting_validation']),
-      limit(5)
+      limit(20) // Augmenté pour trouver de vrais docs parmi les éventuels anciens docs de facturation
     );
   }, [db, companyId]);
 
-  const { data: notifications } = useCollection<BusinessDocument>(notificationsQuery);
-  const unreadCount = notifications?.length || 0;
+  const { data: rawNotifications } = useCollection<BusinessDocument>(notificationsQuery);
+  
+  // Filtre pour n'afficher que les documents d'importation réels
+  const notifications = rawNotifications?.filter(n => 
+    !n.isBillingTask && 
+    !n.name?.toLowerCase().includes('facture')
+  ) || [];
+  
+  const unreadCount = notifications.length;
 
   const handleLogout = async () => {
     if (auth) {
@@ -89,36 +96,41 @@ export function Header() {
               )}
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-80 p-0 shadow-2xl">
-            <DropdownMenuLabel className="p-4 border-b font-black text-xs uppercase tracking-widest">Notifications ({unreadCount})</DropdownMenuLabel>
-            <div className="max-h-80 overflow-y-auto">
+          <DropdownMenuContent align="end" className="w-80 p-0 shadow-2xl border-none rounded-2xl overflow-hidden">
+            <DropdownMenuLabel className="p-4 border-b bg-primary text-primary-foreground font-black text-xs uppercase tracking-widest">
+              Documents en attente ({unreadCount})
+            </DropdownMenuLabel>
+            <div className="max-h-80 overflow-y-auto bg-white">
               {!companyId ? (
-                <div className="p-8 text-center text-muted-foreground text-sm">Chargement...</div>
-              ) : notifications && notifications.length > 0 ? (
+                <div className="p-8 text-center text-muted-foreground text-sm font-medium italic">Chargement...</div>
+              ) : notifications.length > 0 ? (
                 notifications.map((notif) => {
                   const Icon = statusIcons[notif.status] || Clock;
                   return (
                     <Link href={`/categories/${notif.categoryId}`} key={notif.id}>
-                      <div className="p-4 border-b hover:bg-muted/50 transition-colors flex items-start gap-3 cursor-pointer">
+                      <div className="p-4 border-b hover:bg-primary/5 transition-colors flex items-start gap-3 cursor-pointer">
                         <div className="mt-1 p-2 bg-primary/10 rounded-full">
                           <Icon className="w-4 h-4 text-primary" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold truncate">{notif.name}</p>
-                          <p className="text-[10px] text-muted-foreground uppercase">{notif.status.replace('_', ' ')}</p>
+                          <p className="text-sm font-bold truncate text-primary">{notif.name}</p>
+                          <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">{notif.status.replace('_', ' ')}</p>
                         </div>
                       </div>
                     </Link>
                   );
                 })
               ) : (
-                <div className="p-8 text-center text-muted-foreground text-xs uppercase tracking-widest font-bold opacity-30">Aucune alerte</div>
+                <div className="p-10 text-center space-y-2">
+                  <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto opacity-20" />
+                  <p className="text-[10px] uppercase font-black tracking-widest text-muted-foreground/40">Tout est traité</p>
+                </div>
               )}
             </div>
             <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link href="/notifications" className="w-full text-center p-3 text-primary font-bold cursor-pointer text-xs uppercase">
-                Toutes les tâches
+            <DropdownMenuItem asChild className="p-0">
+              <Link href="/notifications" className="w-full text-center p-4 bg-muted/50 hover:bg-muted text-primary font-black cursor-pointer text-[10px] uppercase tracking-widest">
+                Voir toutes les notifications
               </Link>
             </DropdownMenuItem>
           </DropdownMenuContent>
