@@ -75,7 +75,7 @@ function roundToNearest10(date: Date): Date {
 
 export function SharedCalendar({ companyId, isCompact = false, defaultView = '3day' }: SharedCalendarProps) {
   const searchParams = useSearchParams();
-  const [viewMode] = React.useState<'3day' | 'month'>(isCompact ? '3day' : defaultView);
+  const [viewMode, setViewMode] = React.useState<'3day' | 'month'>(isCompact ? '3day' : defaultView);
   const [currentDate, setCurrentDate] = React.useState(new Date());
   const [isSyncing, setIsSyncing] = React.useState<'idle' | 'importing'>('idle');
   const [isEventDialogOpen, setIsEventDialogOpen] = React.useState(false);
@@ -108,10 +108,10 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
     }
   }, [searchParams]);
 
-  // Plage horaire fixée de 8h à 20h pour éviter le scroll vertical
+  // Plage horaire fixée de 8h à 20h pour éviter le scroll vertical dans le dashboard
   const startHour = 8;
   const endHour = 20;
-  const hourHeight = 42; // Hauteur optimisée pour tenir sans scroll dans 750px (13 créneaux)
+  const hourHeight = 42; // Hauteur optimisée pour tenir 12 créneaux sans scroll
 
   const eventsQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
@@ -270,6 +270,11 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
     toast({ title: "Agenda synchronisé" });
   };
 
+  const handleDayClick = (day: Date) => {
+    setCurrentDate(day);
+    setViewMode('3day');
+  };
+
   const render3DayView = () => {
     const days = [currentDate, addDays(currentDate, 1), addDays(currentDate, 2)];
     const hours = Array.from({ length: endHour - startHour + 1 }, (_, i) => startHour + i);
@@ -283,9 +288,12 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
                <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setCurrentDate(addDays(currentDate, -1))}><ChevronLeft className="w-5 h-5" /></Button>
                <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setCurrentDate(addDays(currentDate, 1))}><ChevronRight className="w-5 h-5" /></Button>
              </div>
-             <Badge className="bg-primary/5 text-primary border-primary/20 h-9 px-4 font-black uppercase text-[11px] tracking-widest gap-2">
-                <Users className="w-4 h-4" /> 8h - 20h
-             </Badge>
+             <div className="flex items-center gap-2">
+               <Badge className="bg-primary/5 text-primary border-primary/20 h-9 px-4 font-black uppercase text-[11px] tracking-widest gap-2">
+                  <Users className="w-4 h-4" /> 8h - 20h
+               </Badge>
+               <Button variant="ghost" size="sm" className="h-9 font-black uppercase text-[10px] tracking-widest" onClick={() => setViewMode('month')}>Vue Mois</Button>
+             </div>
            </div>
            <div className="flex gap-3">
               <Button variant="outline" size="sm" className="h-10 text-[11px] font-black uppercase px-4 gap-2 rounded-xl" onClick={handleImportFromGoogle} disabled={isSyncing !== 'idle'}>
@@ -373,7 +381,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
 
   const renderMonthView = () => {
     const monthStart = startOfMonth(currentDate);
-    const days = eachDayOfInterval({ start: startOfWeek(monthStart, { locale: fr }), end: endOfWeek(endOfMonth(currentDate), { locale: fr }) });
+    const days = eachDayOfInterval({ start: startOfWeek(monthStart, { locale: fr, weekStartsOn: 1 }), end: endOfWeek(endOfMonth(currentDate), { locale: fr, weekStartsOn: 1 }) });
 
     return (
       <div className="bg-card flex flex-col h-full p-8">
@@ -385,7 +393,10 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
               <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setCurrentDate(addDays(endOfMonth(currentDate), 1))}><ChevronRight className="w-5 h-5" /></Button>
             </div>
           </div>
-          <Button size="lg" className="rounded-full font-bold bg-primary h-12 px-8 shadow-xl" onClick={() => openAddEvent()}><Plus className="w-5 h-5 mr-2" /> Nouveau RDV</Button>
+          <div className="flex gap-3">
+             <Button variant="ghost" size="sm" className="h-10 font-black uppercase text-[10px] tracking-widest" onClick={() => setViewMode('3day')}>Vue 3 Jours</Button>
+             <Button size="lg" className="rounded-full font-bold bg-primary h-12 px-8 shadow-xl" onClick={() => openAddEvent()}><Plus className="w-5 h-5 mr-2" /> Nouveau RDV</Button>
+          </div>
         </div>
         <div className="grid grid-cols-7 border-b bg-muted/20">
           {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map(d => <div key={d} className="py-3 text-center text-[10px] font-black uppercase tracking-widest text-primary/30">{d}</div>)}
@@ -396,8 +407,16 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
             const isCurrentMonth = isSameDay(startOfMonth(day), monthStart);
             return (
               <div key={idx} className={cn("border-r border-b p-2 flex flex-col gap-1 min-h-[100px]", !isCurrentMonth && "bg-muted/10 opacity-30", isToday(day) && "bg-primary/[0.04]")}>
-                <span className={cn("text-xs font-black w-6 h-6 flex items-center justify-center rounded-lg", isToday(day) ? "bg-primary text-white" : "text-muted-foreground")}>{format(day, "d")}</span>
-                {dayEvents.slice(0, 3).map(e => <div key={e.id} onClick={() => openEditEvent(e)} className={cn("text-[9px] font-bold p-1 rounded border-l-2 truncate cursor-pointer", e.isBillingEvent ? "bg-amber-50 border-amber-500" : "bg-muted border-primary")}>{e.titre}</div>)}
+                <button 
+                  onClick={() => handleDayClick(day)}
+                  className={cn(
+                    "text-xs font-black w-7 h-7 flex items-center justify-center rounded-lg transition-colors hover:bg-primary/20", 
+                    isToday(day) ? "bg-primary text-white" : "text-muted-foreground"
+                  )}
+                >
+                  {format(day, "d")}
+                </button>
+                {dayEvents.slice(0, 3).map(e => <div key={e.id} onClick={() => openEditEvent(e)} className={cn("text-[9px] font-bold p-1 rounded border-l-2 truncate cursor-pointer transition-transform hover:scale-[1.02]", e.isBillingEvent ? "bg-amber-50 border-amber-500" : "bg-muted border-primary")}>{e.titre}</div>)}
               </div>
             );
           })}

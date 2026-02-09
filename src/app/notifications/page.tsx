@@ -33,7 +33,6 @@ export default function NotificationsPage() {
   const pendingDocsQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
     // On utilise une clause 'in' car Firestore n'autorise pas plusieurs '!='
-    // On exclut les tâches de facturation en filtrant isBillingTask !== true côté client
     return query(
       collection(db, 'companies', companyId, 'documents'),
       where('status', 'in', ['pending_analysis', 'waiting_verification', 'waiting_validation'])
@@ -42,8 +41,8 @@ export default function NotificationsPage() {
 
   const { data: tasks, isLoading } = useCollection<BusinessDocument>(pendingDocsQuery);
 
-  // Filtrage côté client pour éviter l'erreur Firestore multi-index
-  const filteredTasks = tasks?.filter(t => t.isBillingTask !== true) || [];
+  // Filtrage côté client pour exclure les anciennes tâches de facturation
+  const filteredTasks = tasks?.filter(t => !t.isBillingTask) || [];
 
   return (
     <DashboardLayout>

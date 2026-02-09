@@ -44,17 +44,19 @@ export async function syncBillingTasks(db: Firestore, adminUid: string, allUsers
       const monthId = format(checkDate, 'yyyy-MM');
       const slug = (client.loginId_lower || client.loginId || client.uid).toLowerCase();
       
-      // Identifiant unique stable pour l'événement
+      // Identifiant unique stable pour l'événement (Version V1)
       const currentEventId = `event_v1_${slug}_${monthId}`;
       const eventRef = doc(db, 'companies', adminCompanyId, 'events', currentEventId);
 
       if (isActive) {
-        // On place le RDV au jour 8 du mois concerné (ou aujourd'hui pour le mois en cours pour test)
-        const eventDate = new Date(checkDate.getFullYear(), checkDate.getMonth(), 8);
-        if (isSameDay(checkDate, now)) {
-           // Si c'est le mois en cours, on s'assure qu'il apparaît dans la semaine
-           eventDate.setDate(now.getDate());
+        // On place le RDV au jour 8 du mois concerné
+        let eventDate = new Date(checkDate.getFullYear(), checkDate.getMonth(), 8);
+        
+        // Si c'est le mois en cours, on s'assure qu'il apparaît dans la semaine pour le test
+        if (isSameDay(checkDate, now) || (checkDate.getMonth() === now.getMonth() && checkDate.getFullYear() === now.getFullYear())) {
+           eventDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         }
+        
         eventDate.setHours(9 + hourOffset, 0, 0, 0);
 
         // Événement Agenda : Titre condensé, instruction en note

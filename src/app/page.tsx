@@ -162,7 +162,7 @@ export default function Home() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-lg font-bold leading-tight line-clamp-1 group-hover:text-primary transition-colors">
-                            {task.description || task.titre}
+                            {task.titre}
                           </p>
                           <div className="flex items-center justify-between mt-2">
                             <p className="text-[11px] font-black uppercase text-muted-foreground opacity-60 tracking-wider">
