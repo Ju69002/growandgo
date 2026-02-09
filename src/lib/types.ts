@@ -21,7 +21,7 @@ export interface Company {
 export interface User {
   uid: string;
   companyId: string;
-  enterpriseId?: string; // Ajouté pour la sécurité et compatibilité rules
+  enterpriseId?: string; 
   companyName: string; 
   role: UserRole;
   adminMode: boolean;
@@ -87,4 +87,5 @@ export interface CalendarEvent {
   type: 'meeting' | 'task' | 'event';
   derniere_maj: string;
   isBillingEvent?: boolean;
+  googleEventId?: string;
 }
