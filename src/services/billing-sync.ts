@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Firestore, doc } from 'firebase/firestore';
@@ -7,72 +8,81 @@ import { format, addMonths, isBefore } from 'date-fns';
 
 /**
  * Service pour synchroniser les rendez-vous de facturation (Version V1).
- * Génère uniquement des RDV récurrents mensuels sur 12 mois dans l'agenda.
+ * Génère des RDV récurrents mensuels sur 12 mois dans l'agenda.
+ * Ajout de try/catch pour stabiliser le démarrage de l'app.
  */
 export async function syncBillingTasks(db: Firestore, adminUid: string, allUsers: User[]) {
-  const adminCompanyId = "growandgo";
-  const now = new Date();
+  try {
+    const adminCompanyId = "growandgo";
+    const now = new Date();
 
-  // Filtrer pour n'avoir qu'un seul profil par utilisateur
-  const uniqueUsersMap = new Map<string, User>();
-  allUsers.forEach(u => {
-    const id = (u.loginId_lower || u.loginId || u.uid).toLowerCase();
-    if (!id || u.role === 'super_admin') return;
-    
-    if (!uniqueUsersMap.has(id) || u.isProfile) {
-      uniqueUsersMap.set(id, u);
-    }
-  });
-
-  const uniqueClients = Array.from(uniqueUsersMap.values());
-
-  // Plage de facturation : mois dernier jusqu'à 12 mois dans le futur
-  const rangeStart = addMonths(now, -1);
-  const rangeEnd = addMonths(now, 12);
-
-  uniqueClients.forEach((client, index) => {
-    const isActive = client.subscriptionStatus !== 'inactive';
-    let checkDate = rangeStart;
-    
-    // Décalage pour répartir les RDV dans la journée (9h à 17h)
-    const hourOffset = index % 8; 
-
-    while (isBefore(checkDate, rangeEnd)) {
-      const monthId = format(checkDate, 'yyyy-MM');
-      const slug = (client.loginId_lower || client.loginId || client.uid).toLowerCase();
+    // Filtrer pour n'avoir qu'un seul profil par utilisateur
+    const uniqueUsersMap = new Map<string, User>();
+    allUsers.forEach(u => {
+      const id = (u.loginId_lower || u.loginId || u.uid || '').toLowerCase();
+      if (!id || u.role === 'super_admin') return;
       
-      const currentEventId = `event_v1_${slug}_${monthId}`;
-      const eventRef = doc(db, 'companies', adminCompanyId, 'events', currentEventId);
+      if (!uniqueUsersMap.has(id) || u.isProfile) {
+        uniqueUsersMap.set(id, u);
+      }
+    });
 
-      if (isActive) {
-        // Pour le mois en cours, on force à aujourd'hui pour voir la tâche dans le dashboard
-        let eventDate;
-        if (checkDate.getMonth() === now.getMonth() && checkDate.getFullYear() === now.getFullYear()) {
-           eventDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        } else {
-           eventDate = new Date(checkDate.getFullYear(), checkDate.getMonth(), 8);
+    const uniqueClients = Array.from(uniqueUsersMap.values());
+
+    // Plage de facturation : mois dernier jusqu'à 12 mois dans le futur
+    const rangeStart = addMonths(now, -1);
+    const rangeEnd = addMonths(now, 12);
+
+    uniqueClients.forEach((client, index) => {
+      const isActive = client.subscriptionStatus !== 'inactive';
+      let checkDate = rangeStart;
+      
+      // Décalage pour répartir les RDV dans la journée (9h à 17h)
+      const hourOffset = index % 8; 
+
+      while (isBefore(checkDate, rangeEnd)) {
+        const monthId = format(checkDate, 'yyyy-MM');
+        const slug = (client.loginId_lower || client.loginId || client.uid || '').toLowerCase();
+        if (!slug) {
+          checkDate = addMonths(checkDate, 1);
+          continue;
         }
         
-        eventDate.setHours(9 + hourOffset, 0, 0, 0);
+        const currentEventId = `event_v1_${slug}_${monthId}`;
+        const eventRef = doc(db, 'companies', adminCompanyId, 'events', currentEventId);
 
-        setDocumentNonBlocking(eventRef, {
-          id: currentEventId,
-          id_externe: currentEventId,
-          companyId: adminCompanyId,
-          userId: adminUid,
-          titre: `Facture - ${client.name || client.loginId}`,
-          description: `Générer la facture pour le client ${client.name || client.loginId}.`,
-          debut: eventDate.toISOString(),
-          fin: new Date(eventDate.getTime() + 60 * 60000).toISOString(),
-          attendees: [client.email || ''],
-          source: 'local',
-          type: 'event',
-          derniere_maj: now.toISOString(),
-          isBillingEvent: true
-        }, { merge: true });
+        if (isActive) {
+          // Pour le mois en cours, on force à aujourd'hui pour voir la tâche dans le dashboard
+          let eventDate;
+          if (checkDate.getMonth() === now.getMonth() && checkDate.getFullYear() === now.getFullYear()) {
+             eventDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          } else {
+             eventDate = new Date(checkDate.getFullYear(), checkDate.getMonth(), 8);
+          }
+          
+          eventDate.setHours(9 + hourOffset, 0, 0, 0);
+
+          setDocumentNonBlocking(eventRef, {
+            id: currentEventId,
+            id_externe: currentEventId,
+            companyId: adminCompanyId,
+            userId: adminUid, // L'admin possède l'événement de facturation
+            titre: `Facture - ${client.name || client.loginId}`,
+            description: `Générer la facture pour le client ${client.name || client.loginId}.`,
+            debut: eventDate.toISOString(),
+            fin: new Date(eventDate.getTime() + 60 * 60000).toISOString(),
+            attendees: [client.email || ''],
+            source: 'local',
+            type: 'event',
+            derniere_maj: now.toISOString(),
+            isBillingEvent: true
+          }, { merge: true });
+        }
+        
+        checkDate = addMonths(checkDate, 1);
       }
-      
-      checkDate = addMonths(checkDate, 1);
-    }
-  });
+    });
+  } catch (error) {
+    console.error("Billing Sync Error:", error);
+  }
 }

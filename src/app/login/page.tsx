@@ -6,13 +6,12 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useAuth, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, collection, query, where, getDocs, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { doc, setDoc, collection, query, where, writeBatch } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Lock, UserCircle, Users, Key, CheckCircle2, User, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Lock, UserCircle, Users, Key, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { User as UserProfile, UserRole } from '@/lib/types';
@@ -58,7 +57,7 @@ export default function LoginPage() {
       const lowerId = loginId.trim().toLowerCase();
       const email = `${lowerId}@espace.internal`;
       
-      // 1. Création du compte Auth Firebase (Email/Password)
+      // 1. Création du compte Auth Firebase (Email/Password) - Pas d'anonyme
       const userCredential = await createUserWithEmailAndPassword(auth, email, password.trim());
       const uid = userCredential.user.uid;
 
@@ -76,7 +75,7 @@ export default function LoginPage() {
         finalCompanyId = "growandgo";
       }
 
-      // 2. Création du profil Firestore avec setDoc merge pour sécurité
+      // 2. Création du profil Firestore avec merge: true pour protéger les données
       await setDoc(doc(db, 'users', uid), {
         uid: uid,
         isProfile: true,
@@ -88,7 +87,7 @@ export default function LoginPage() {
         name: name.trim() || loginId.trim(),
         loginId: loginId.trim(),
         loginId_lower: lowerId,
-        password: password.trim(), // Stocké pour rappel (MVP uniquement)
+        password: password.trim(), 
         email: email,
         subscriptionStatus: 'active',
         createdAt: new Date().toISOString()

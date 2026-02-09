@@ -27,13 +27,13 @@ export async function fetchGoogleEvents(token: string, timeMin: string, timeMax:
 
 /**
  * Mappe un événement Google vers le format local.
- * Correction Ligne 46 : Sécurisation du chaînage des adresses mail.
+ * Correction Ligne 46 : Sécurisation du chaînage des adresses mail pour éviter les crashs.
  */
 export function mapGoogleEvent(event: any, companyId: string, userId: string): Partial<CalendarEvent> {
   const start = event.start?.dateTime || event.start?.date || new Date().toISOString();
   const end = event.end?.dateTime || event.end?.date || new Date().toISOString();
   
-  // Correction sécurisée ligne 46 : Utilisation de a.emailAddress?.address pour éviter le crash
+  // Correction sécurisée : Utilisation de a.emailAddress?.address avec repli sur a.email
   const attendees = event.attendees?.map((a: any) => {
     return a.email || a.emailAddress?.address || '';
   }).filter(Boolean) || [];
@@ -58,10 +58,13 @@ export function mapGoogleEvent(event: any, companyId: string, userId: string): P
  */
 export async function syncEventToFirestore(db: Firestore, eventData: Partial<CalendarEvent>) {
   if (!eventData.id_externe || !eventData.companyId) return;
-  const eventRef = doc(db, 'companies', eventData.companyId, 'events', eventData.id_externe);
-  
-  // Utilisation de setDoc avec merge: true au lieu de setDoc simple
-  await setDoc(eventRef, eventData, { merge: true });
+  try {
+    const eventRef = doc(db, 'companies', eventData.companyId, 'events', eventData.id_externe);
+    // Utilisation impérative de merge: true pour ne pas écraser les champs locaux
+    await setDoc(eventRef, eventData, { merge: true });
+  } catch (error) {
+    console.error("Erreur lors de la sauvegarde de l'événement:", error);
+  }
 }
 
 /**
