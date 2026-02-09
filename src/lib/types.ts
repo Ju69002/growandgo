@@ -21,6 +21,7 @@ export interface Company {
 export interface User {
   uid: string;
   companyId: string;
+  enterpriseId?: string; // Ajouté pour la sécurité et compatibilité rules
   companyName: string; 
   role: UserRole;
   adminMode: boolean;
@@ -32,6 +33,7 @@ export interface User {
   email: string;
   subscriptionStatus?: SubscriptionStatus;
   createdAt?: string;
+  googleEmail?: string;
 }
 
 export interface Category {

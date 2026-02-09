@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useAuth, useFirestore } from '@/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, writeBatch } from 'firebase/firestore';
+import { doc, setDoc, getDoc, writeBatch } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Lock, UserCircle, Key, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import Image from 'next/image';
@@ -54,27 +54,27 @@ export default function LoginPage() {
 
       let finalRole = selectedRole;
       let finalCompanyName = companyName.trim();
-      if (finalRole === 'particulier') finalCompanyName = "Mon Espace Personnel";
-
       let finalCompanyId = normalizeId(finalCompanyName);
-      if (finalRole === 'particulier') finalCompanyId = `private-${lowerId}`;
 
-      // Force admin role for jsecchi
+      // Cas spécial Admin
       if (lowerId === 'jsecchi') {
-        finalRole = 'super_admin';
-        finalCompanyName = "GrowAndGo";
-        finalCompanyId = "growandgo";
+        finalRole = 'admin';
+        finalCompanyName = "GrowAndGo Admin";
+        finalCompanyId = "admin_global";
+      } else if (finalRole === 'particulier') {
+        finalCompanyName = "Mon Espace Personnel";
+        finalCompanyId = `private-${lowerId}`;
       }
 
-      // Important: merge: true to protect existing data
-      await setDoc(doc(db, 'users', uid), {
+      const userData = {
         uid: uid,
         isProfile: true,
         companyId: finalCompanyId,
+        enterpriseId: finalCompanyId, // Doublon de sécurité pour les nouvelles règles
         companyName: finalCompanyName,
         role: finalRole,
-        adminMode: finalRole !== 'employee',
-        isCategoryModifier: finalRole !== 'employee',
+        adminMode: finalRole === 'admin' || finalRole === 'super_admin',
+        isCategoryModifier: finalRole === 'admin' || finalRole === 'super_admin',
         name: name.trim() || loginId.trim(),
         loginId: loginId.trim(),
         loginId_lower: lowerId,
@@ -82,7 +82,9 @@ export default function LoginPage() {
         email: email,
         subscriptionStatus: 'active',
         createdAt: new Date().toISOString()
-      }, { merge: true });
+      };
+
+      await setDoc(doc(db, 'users', uid), userData, { merge: true });
 
       if (finalRole !== 'employee') {
         const batch = writeBatch(db);
@@ -90,22 +92,17 @@ export default function LoginPage() {
           { id: 'finance', label: 'Finances & comptabilité', icon: 'finance', subCategories: ["Factures Ventes", "Factures Achats", "Relevés Bancaires", "TVA & Impôts"] },
           { id: 'juridique', label: 'Juridique & Administratif', icon: 'juridique', subCategories: ["Statuts & KBis", "Assurances", "Contrats de bail", "PV Assemblée"] },
           { id: 'commercial', label: 'Commercial & Clients', icon: 'travail', subCategories: ["Devis", "Contrats Clients", "Fiches Prospects", "Appels d'offres"] },
-          { id: 'fournisseurs', label: 'Fournisseurs & Achats', icon: 'fournisseurs', subCategories: ["Contrats Fournisseurs", "Bons de commande", "Bons de livraison"] },
-          { id: 'rh', label: 'Ressources Humaines (RH)', icon: 'rh', subCategories: ["Contrats de travail", "Bulletins de paie", "Mutuelle & Prévoyance", "Congés"] },
-          { id: 'marketing', label: 'Communication & Marketing', icon: 'marketing', subCategories: ["Identité visuelle", "Campagnes Pub", "Réseaux Sociaux", "Presse"] }
+          { id: 'rh', label: 'Ressources Humaines (RH)', icon: 'rh', subCategories: ["Contrats de travail", "Bulletins de paie", "Mutuelle & Prévoyance", "Congés"] }
         ];
 
         for (const cat of defaultCategories) {
           const catRef = doc(db, 'companies', finalCompanyId, 'categories', cat.id);
           batch.set(catRef, {
-            id: cat.id,
-            label: cat.label,
+            ...cat,
             badgeCount: 0,
-            visibleToEmployees: cat.id !== 'finance',
+            visibleToEmployees: true,
             type: 'standard',
             companyId: finalCompanyId,
-            icon: cat.icon,
-            subCategories: cat.subCategories || []
           }, { merge: true });
         }
         await batch.commit();
@@ -113,9 +110,9 @@ export default function LoginPage() {
 
       setSignUpSuccess(true);
       setIsSignUp(false);
-      toast({ title: "Compte créé avec succès !" });
+      toast({ title: "Compte créé !" });
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Erreur d'inscription", description: error.message });
+      toast({ variant: "destructive", title: "Erreur", description: error.message });
     } finally {
       setIsLoading(false);
     }
@@ -130,8 +127,25 @@ export default function LoginPage() {
       const lowerId = loginId.trim().toLowerCase();
       const email = `${lowerId}@espace.internal`;
       
-      // Attempt login
-      await signInWithEmailAndPassword(auth, email, password.trim());
+      const userCredential = await signInWithEmailAndPassword(auth, email, password.trim());
+      const uid = userCredential.user.uid;
+
+      // Forçage immédiat du rôle pour JSecchi
+      if (lowerId === 'jsecchi') {
+        await setDoc(doc(db, 'users', uid), {
+          uid: uid,
+          loginId: 'JSecchi',
+          loginId_lower: 'jsecchi',
+          role: 'admin',
+          companyId: 'admin_global',
+          enterpriseId: 'admin_global',
+          companyName: 'GrowAndGo Admin',
+          adminMode: true,
+          isCategoryModifier: true,
+          isProfile: true,
+          subscriptionStatus: 'active'
+        }, { merge: true });
+      }
       
       toast({ title: "Connexion réussie" });
       router.push('/');
@@ -153,7 +167,7 @@ export default function LoginPage() {
             <div>
               <CardTitle className="text-3xl font-black text-[#1E4D3B] uppercase tracking-tighter">GROW&GO</CardTitle>
               <CardDescription className="text-[#1E4D3B]/60 font-medium">
-                {signUpSuccess ? "Inscription réussie !" : isSignUp ? "Créer un nouvel identifiant" : "Connectez-vous à votre espace"}
+                {signUpSuccess ? "Inscription réussie !" : isSignUp ? "Créer un identifiant" : "Connectez-vous à votre espace"}
               </CardDescription>
             </div>
           </CardHeader>
@@ -161,29 +175,27 @@ export default function LoginPage() {
             {signUpSuccess && (
               <div className="mb-6 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3">
                 <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                <p className="text-xs font-bold text-emerald-800 uppercase">Votre espace est prêt. Connectez-vous.</p>
+                <p className="text-xs font-bold text-emerald-800 uppercase">Compte prêt. Connectez-vous.</p>
               </div>
             )}
             <form onSubmit={isSignUp ? handleSignUp : handleLogin} className="space-y-4">
               {isSignUp && (
                 <>
-                  <div className="grid grid-cols-1 gap-4">
-                    <Input placeholder="Prénom Nom" value={name} onChange={(e) => setName(e.target.value)} className="h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
-                    <div className="space-y-1">
-                      <Select value={selectedRole} onValueChange={(v) => setSelectedRole(v as UserRole)}>
-                        <SelectTrigger className="h-12 bg-[#F9F9F7] border-none rounded-xl font-bold text-muted-foreground">
-                          <SelectValue placeholder="Votre Rôle" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="admin">Patron</SelectItem>
-                          <SelectItem value="particulier">Particulier</SelectItem>
-                          <SelectItem value="employee">Employé</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                  <Input placeholder="Nom complet" value={name} onChange={(e) => setName(e.target.value)} className="h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
+                  <div className="space-y-1">
+                    <Select value={selectedRole} onValueChange={(v) => setSelectedRole(v as UserRole)}>
+                      <SelectTrigger className="h-12 bg-[#F9F9F7] border-none rounded-xl font-bold">
+                        <SelectValue placeholder="Votre Rôle" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="admin">Patron</SelectItem>
+                        <SelectItem value="particulier">Particulier</SelectItem>
+                        <SelectItem value="employee">Employé</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   {selectedRole !== 'particulier' && (
-                    <Input placeholder="Nom de votre Entreprise" value={companyName} onChange={(e) => setCompanyName(e.target.value)} className="h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
+                    <Input placeholder="Nom Entreprise" value={companyName} onChange={(e) => setCompanyName(e.target.value)} className="h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
                   )}
                 </>
               )}
@@ -210,9 +222,9 @@ export default function LoginPage() {
                 </button>
               </div>
               <Button type="submit" className="w-full h-14 bg-[#1E4D3B] hover:bg-[#1E4D3B]/90 rounded-2xl font-bold text-lg shadow-xl" disabled={isLoading}>
-                {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (isSignUp ? "Créer mon identifiant" : "Se connecter")}
+                {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (isSignUp ? "Créer mon compte" : "Se connecter")}
               </Button>
-              <button type="button" className="w-full text-xs font-black uppercase tracking-widest text-[#1E4D3B]/60 py-2" onClick={() => { setSignUpSuccess(false); setIsSignUp(!isSignUp); }}>
+              <button type="button" className="w-full text-xs font-black uppercase tracking-widest text-[#1E4D3B]/60 py-2" onClick={() => setIsSignUp(!isSignUp)}>
                 {isSignUp ? "Déjà un compte ? Connexion" : "Pas encore de compte ? Créer un identifiant"}
               </button>
             </form>
