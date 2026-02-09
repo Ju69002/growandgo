@@ -12,13 +12,15 @@ import {
   Edit2,
   Lock,
   Eye,
-  EyeOff
+  EyeOff,
+  AlertTriangle
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { 
   useFirestore, 
   useUser, 
@@ -26,7 +28,7 @@ import {
   useMemoFirebase,
   updateDocumentNonBlocking
 } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { doc, collection, query, where, getDocs } from 'firebase/firestore';
 import { User } from '@/lib/types';
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
@@ -42,6 +44,7 @@ export default function SettingsPage() {
   const [userPassword, setUserPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [duplicateNames, setDuplicateNames] = useState<string[]>([]);
 
   const userRef = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -58,22 +61,50 @@ export default function SettingsPage() {
     }
   }, [profile]);
 
+  // Vérification de doublons de noms dans toute la base
+  const checkDuplicateNames = async (name: string) => {
+    if (!db || !name.trim() || name === profile?.name) {
+      setDuplicateNames([]);
+      return;
+    }
+
+    try {
+      const q = query(collection(db, 'users'), where('name', '==', name.trim()));
+      const querySnapshot = await getDocs(q);
+      const others = querySnapshot.docs
+        .map(d => d.data() as User)
+        .filter(u => u.uid !== user?.uid);
+      
+      setDuplicateNames(others.map(u => u.loginId));
+    } catch (e) {
+      console.error("Erreur check doublons:", e);
+    }
+  };
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (userName) checkDuplicateNames(userName);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [userName]);
+
   const handleSave = () => {
     if (!db || !user) return;
     setIsSaving(true);
 
     const userDocRef = doc(db, 'users', user.uid);
+    // Utilisation de merge: true via updateDocumentNonBlocking
     updateDocumentNonBlocking(userDocRef, { 
-      name: userName,
-      email: userEmail,
-      password: userPassword
+      name: userName.trim(),
+      email: userEmail.trim(),
+      password: userPassword.trim()
     });
 
     setTimeout(() => {
       setIsSaving(false);
       toast({ 
         title: "Profil mis à jour", 
-        description: "Vos modifications ont été enregistrées avec succès." 
+        description: `Les modifications pour ${userName} ont été enregistrées en base de données.` 
       });
     }, 500);
   };
@@ -100,9 +131,20 @@ export default function SettingsPage() {
           </div>
           <div>
             <h1 className="text-4xl font-black tracking-tighter text-primary uppercase">Mon Profil</h1>
-            <p className="text-muted-foreground font-medium">Gérez votre identité, vos identifiants et vos accès.</p>
+            <p className="text-muted-foreground font-medium">Gérez votre identité, vos identifiants et vos accès en temps réel.</p>
           </div>
         </div>
+
+        {duplicateNames.length > 0 && (
+          <Alert variant="destructive" className="bg-rose-50 border-rose-200 rounded-2xl">
+            <AlertTriangle className="h-5 w-5" />
+            <AlertTitle className="font-black uppercase text-xs">Attention : Doublon détecté</AlertTitle>
+            <AlertDescription className="text-sm font-medium">
+              Un autre compte utilise déjà le nom "<strong>{userName}</strong>" (Identifiant : {duplicateNames.join(', ')}). 
+              Veuillez utiliser un nom unique pour éviter toute confusion.
+            </AlertDescription>
+          </Alert>
+        )}
 
         <div className="grid gap-6">
           <Card className="border-none shadow-xl rounded-[2rem] overflow-hidden bg-white">
@@ -139,14 +181,17 @@ export default function SettingsPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="uname" className="text-[10px] font-black uppercase text-muted-foreground ml-1 flex items-center gap-2">
-                    <Edit2 className="w-3 h-3" /> Nom et Prénom
+                    <Edit2 className="w-3 h-3" /> Nom Complet (Prénom & Nom)
                   </Label>
                   <Input 
                     id="uname"
                     value={userName}
                     onChange={(e) => setUserName(e.target.value)}
-                    className="rounded-xl border-primary/10 h-12 font-bold focus:ring-primary"
-                    placeholder="Prénom Nom"
+                    className={cn(
+                      "rounded-xl h-12 font-bold focus:ring-primary",
+                      duplicateNames.length > 0 ? "border-rose-500 bg-rose-50" : "border-primary/10"
+                    )}
+                    placeholder="Ex: Julien Secchi"
                   />
                 </div>
 
@@ -205,7 +250,7 @@ export default function SettingsPage() {
                   className="rounded-full px-12 h-14 font-bold bg-primary hover:bg-primary/90 shadow-xl gap-3 text-lg"
                 >
                   {isSaving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
-                  Enregistrer les modifications
+                  Enregistrer en base de données
                 </Button>
               </div>
             </CardContent>

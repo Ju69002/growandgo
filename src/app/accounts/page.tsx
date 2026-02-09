@@ -37,7 +37,8 @@ import {
   Ban,
   CheckCircle2,
   Calendar,
-  Search
+  Search,
+  AlertTriangle
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useMemo, useEffect } from 'react';
@@ -111,6 +112,14 @@ export default function AccountsPage() {
   const uniqueUsers = useMemo(() => {
     if (!allProfiles) return [];
     
+    // On détecte les doublons de noms affichés
+    const nameCounts = new Map<string, number>();
+    allProfiles.forEach(u => {
+      if (u.name) {
+        nameCounts.set(u.name, (nameCounts.get(u.name) || 0) + 1);
+      }
+    });
+
     const userGroups = new Map<string, User[]>();
     allProfiles.forEach(u => {
       const id = (u.loginId_lower || u.loginId?.toLowerCase() || '').trim();
@@ -125,7 +134,11 @@ export default function AccountsPage() {
       
       const bestName = docs.find(d => d.name && d.name.toLowerCase() !== id.toLowerCase())?.name || baseDoc.name || baseDoc.loginId;
       
-      let finalUser = { ...baseDoc, name: bestName };
+      let finalUser = { 
+        ...baseDoc, 
+        name: bestName,
+        isDuplicateName: bestName ? (nameCounts.get(bestName) || 0) > 1 : false 
+      };
       
       if (finalUser.companyId === 'admin_global') {
         finalUser.companyName = "GrowAndGo Admin";
@@ -191,7 +204,7 @@ export default function AccountsPage() {
   const handleUpdateName = () => {
     if (!db || !editingNameUser || !newName.trim()) return;
     updateAllUserDocs(editingNameUser.loginId, { name: newName.trim() });
-    toast({ title: "Nom mis à jour" });
+    toast({ title: "Nom mis à jour", description: `Le nom "${newName}" a été enregistré en base.` });
     setEditingNameUser(null);
   };
 
@@ -246,7 +259,7 @@ export default function AccountsPage() {
               <UserCog className="w-8 h-8" />
               Répertoire
             </h1>
-            <p className="text-muted-foreground font-medium text-sm">Contrôle global des utilisateurs et des permissions.</p>
+            <p className="text-muted-foreground font-medium text-sm">Contrôle global des utilisateurs et détection de doublons.</p>
           </div>
           <div className="flex items-center gap-3">
             <div className="relative">
@@ -280,12 +293,22 @@ export default function AccountsPage() {
                   <TableRow key={u.uid} className="hover:bg-primary/5 transition-colors group">
                     <TableCell className="pl-8 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-black text-xs">
-                          {u.name?.charAt(0) || u.loginId?.charAt(0)}
+                        <div className="relative">
+                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-black text-xs">
+                            {u.name?.charAt(0) || u.loginId?.charAt(0)}
+                          </div>
+                          {u.isDuplicateName && (
+                            <div className="absolute -top-1 -right-1 bg-rose-500 text-white rounded-full p-0.5" title="Nom en doublon">
+                              <AlertTriangle className="w-3 h-3" />
+                            </div>
+                          )}
                         </div>
                         <div className="flex flex-col">
                           <div className="flex items-center gap-1.5">
-                            <span className="font-bold text-sm text-primary whitespace-nowrap">{u.name || u.loginId}</span>
+                            <span className={cn(
+                              "font-bold text-sm text-primary whitespace-nowrap",
+                              u.isDuplicateName && "text-rose-600 underline decoration-dotted"
+                            )}>{u.name || u.loginId}</span>
                             <Button 
                               variant="ghost" 
                               size="icon" 
