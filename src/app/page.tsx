@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useRef, useMemo } from 'react';
@@ -196,7 +197,8 @@ export default function Home() {
               </Link>
             </Button>
           </div>
-          <div className="h-[750px] border-none shadow-2xl rounded-[3rem] overflow-hidden bg-white border border-primary/5">
+          {/* Augmentation de la hauteur pour éviter le scroll avec hourHeight à 70px */}
+          <div className="h-[950px] border-none shadow-2xl rounded-[3rem] overflow-hidden bg-white border border-primary/5">
             {companyId ? (
               <SharedCalendar companyId={companyId} isCompact={false} defaultView="3day" hideViewSwitcher={true} />
             ) : (
@@ -207,7 +209,8 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="pt-10 border-t border-primary/10">
+        {/* Espace augmenté avant les dossiers */}
+        <section className="pt-24 border-t border-primary/10">
           <h2 className="text-2xl font-black uppercase tracking-tighter mb-8 flex items-center gap-3">
             <FileText className="w-7 h-7 text-primary" />
             {isParticulier ? "Mes Dossiers Personnels" : "Dossiers de l'espace de travail"}

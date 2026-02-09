@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -108,7 +109,8 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
 
   const startHour = 8;
   const endHour = 20;
-  const hourHeight = 52; 
+  // hourHeight augmenté à 70 pour occuper l'espace et éviter le scroll
+  const hourHeight = 70; 
 
   const eventsQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
@@ -313,7 +315,8 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
         </div>
 
         <div className="relative flex-1 overflow-hidden">
-          <div className="absolute inset-0 overflow-y-auto pt-6 pb-6">
+          {/* overflow-y-auto supprimé pour privilégier l'affichage complet sans scroll */}
+          <div className="absolute inset-0 pt-6 pb-6 overflow-hidden">
             <div className="flex relative" style={{ height: `${totalHeight}px` }}>
               <div className="w-16 flex-shrink-0 flex flex-col relative bg-muted/5 border-r">
                 {hoursLabels.map((h, i) => (
