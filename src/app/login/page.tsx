@@ -56,7 +56,6 @@ export default function LoginPage() {
       const finalCompanyName = companyName.trim();
       const finalCompanyId = normalizeId(finalCompanyName);
 
-      // Création forcée avec UID comme ID de document
       const userData = {
         uid: uid,
         isProfile: true, 
@@ -108,7 +107,6 @@ export default function LoginPage() {
     try {
       const lowerId = loginId.trim().toLowerCase();
       
-      // On cherche d'abord s'il existe une trace dans Firestore pour récupérer l'email technique
       const usersRef = collection(db, 'users');
       const q = query(usersRef, where('loginId_lower', '==', lowerId), limit(1));
       const querySnapshot = await getDocs(q);
@@ -121,7 +119,6 @@ export default function LoginPage() {
         if (legacyData.email) targetEmail = legacyData.email;
       }
 
-      // Authentification Firebase Auth
       await signInWithEmailAndPassword(auth, targetEmail, password.trim());
 
       const userCredential = auth.currentUser;
@@ -130,16 +127,14 @@ export default function LoginPage() {
       const uid = userCredential.uid;
       const userDocRef = doc(db, 'users', uid);
       
-      // On force la création/mise à jour du document UNIQUE avec UID comme ID
       await setDoc(userDocRef, {
         ...(legacyData || {}),
         uid: uid,
-        isProfile: true, // Marqueur critique pour la visibilité
+        isProfile: true, 
         loginId: loginId.trim(),
         loginId_lower: lowerId,
         email: targetEmail,
         password: password.trim(),
-        // On s'assure que les champs de base sont là si c'est un nouveau document
         role: legacyData?.role || 'employee',
         name: legacyData?.name || loginId.trim(),
         companyId: legacyData?.companyId || 'pending',
@@ -218,11 +213,7 @@ export default function LoginPage() {
               {showDevMode && (
                 <div className="mt-4 grid gap-2 animate-in slide-in-from-top-2">
                   {[
-                    { id: 'JSecchi', role: 'Admin', pass: 'Meqoqo1998' },
-                    { id: 'ADupont', role: 'Employé', pass: 'Meqoqo1998' },
-                    { id: 'PBlanc', role: 'Patron', pass: 'Meqoqo1998' },
-                    { id: 'LVecchio', role: 'Employé', pass: 'Meqoqo1998' },
-                    { id: 'BDupres', role: 'Employé', pass: 'Meqoqo1998' }
+                    { id: 'JSecchi', role: 'Admin', pass: 'Meqoqo1998' }
                   ].map(acc => (
                     <div 
                       key={acc.id} 
