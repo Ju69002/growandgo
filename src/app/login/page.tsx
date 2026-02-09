@@ -73,7 +73,7 @@ export default function LoginPage() {
         createdAt: new Date().toISOString()
       };
 
-      // Utilisation systématique de l'UID comme ID de document
+      // Règle d'or : Utilisation de l'UID comme ID de document Firestore
       await setDoc(doc(db, 'users', uid), userData, { merge: true });
 
       const companyRef = doc(db, 'companies', finalCompanyId);
@@ -92,7 +92,7 @@ export default function LoginPage() {
 
       setSignUpSuccess(true);
       setIsSignUp(false);
-      toast({ title: "Compte créé !" });
+      toast({ title: "Compte créé !", description: "Vous pouvez maintenant vous connecter." });
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erreur", description: error.message });
     } finally {
@@ -128,7 +128,7 @@ export default function LoginPage() {
       const uid = userCredential.uid;
       const userDocRef = doc(db, 'users', uid);
       
-      // Réparation/Mise à jour du profil réel au login
+      // Réparation et synchronisation du profil réel au login (ID = UID)
       await setDoc(userDocRef, {
         ...(legacyData || {}),
         uid: uid,
@@ -202,7 +202,7 @@ export default function LoginPage() {
               <Button type="submit" className="w-full h-14 bg-primary hover:bg-primary/90 rounded-2xl font-bold text-lg shadow-xl" disabled={isLoading}>
                 {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (isSignUp ? "Créer mon compte" : "Se connecter")}
               </Button>
-              <button type="button" className="w-full text-xs font-black uppercase tracking-widest text-primary/60 py-2" onClick={() => setIsSignUp(!isSignUp)}>
+              <button type="button" className="w-full text-xs font-black uppercase tracking-widest text-primary/60 py-2" onClick={() => { setIsSignUp(!isSignUp); setSignUpSuccess(false); }}>
                 {isSignUp ? "Déjà un compte ? Connexion" : "Pas encore de compte ? Créer un identifiant"}
               </button>
             </form>

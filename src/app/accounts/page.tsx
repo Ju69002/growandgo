@@ -103,25 +103,13 @@ export default function AccountsPage() {
 
   const { data: allProfiles, isLoading: isUsersLoading } = useCollection<User>(profilesQuery);
 
-  // Diagnostic pour aider au nettoyage manuel des doublons
-  useEffect(() => {
-    if (allProfiles && isGlobalAdmin) {
-      console.log("--- DIAGNOSTIC COMPTES RÉELS (isProfile: true) ---");
-      allProfiles.forEach(u => {
-        if (u.id !== u.uid) {
-          console.warn(`[DOUBLON/FANTÔME] User: ${u.loginId}, DocID: ${u.id}, UID: ${u.uid}. Ce document utilise un ID obsolète. Prévoyez de le supprimer.`);
-        }
-      });
-    }
-  }, [allProfiles, isGlobalAdmin]);
-
   const uniqueUsers = useMemo(() => {
     if (!allProfiles) return [];
     
     const companyCounts = new Map<string, number>();
     const companyPatrons = new Map<string, string>();
 
-    // Comptage par entreprise
+    // Comptage par entreprise (insensible à la casse)
     allProfiles.forEach(u => {
       const cId = u.companyId?.toLowerCase().trim();
       if (cId) {
@@ -179,7 +167,7 @@ export default function AccountsPage() {
   const handleDeleteUser = () => {
     if (!db || !deletingUser) return;
     deleteDocumentNonBlocking(doc(db, 'users', deletingUser.id));
-    toast({ title: "Compte supprimé de la base" });
+    toast({ title: "Compte supprimé" });
     setDeletingUser(null);
   };
 
@@ -199,7 +187,7 @@ export default function AccountsPage() {
     updateDocumentNonBlocking(doc(db, 'users', editingPassUser.id), { 
       password: newPassword.trim()
     });
-    toast({ title: "Mot de passe Mémo mis à jour" });
+    toast({ title: "Mot de passe mis à jour" });
     setEditingPassUser(null);
   };
 
@@ -218,7 +206,7 @@ export default function AccountsPage() {
               <UserCog className="w-8 h-8" />
               Répertoire Officiel
             </h1>
-            <p className="text-muted-foreground font-medium text-sm italic">Affichage exclusif des profils actifs (isProfile: true).</p>
+            <p className="text-muted-foreground font-medium text-sm italic">Gestion exclusive des profils réels (isProfile: true).</p>
           </div>
           <div className="relative">
             <Search className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
@@ -236,9 +224,9 @@ export default function AccountsPage() {
             <Table>
               <TableHeader className="bg-primary text-primary-foreground">
                 <TableRow className="hover:bg-primary/95 border-none">
-                  <TableHead className="pl-8 py-4 text-[10px] font-black uppercase tracking-widest text-primary-foreground/70">Utilisateur / ID</TableHead>
+                  <TableHead className="pl-8 py-4 text-[10px] font-black uppercase tracking-widest text-primary-foreground/70">Utilisateur</TableHead>
                   <TableHead className="text-[10px] font-black uppercase tracking-widest text-primary-foreground/70">Entreprise</TableHead>
-                  <TableHead className="text-[10px] font-black uppercase tracking-widest text-primary-foreground/70">Abonnement Mensuel</TableHead>
+                  <TableHead className="text-[10px] font-black uppercase tracking-widest text-primary-foreground/70">Abonnement</TableHead>
                   <TableHead className="text-[10px] font-black uppercase tracking-widest text-primary-foreground/70">Mot de passe</TableHead>
                   <TableHead className="text-[10px] font-black uppercase tracking-widest text-primary-foreground/70 text-center">Rôle</TableHead>
                   <TableHead className="text-right pr-8 text-[10px] font-black uppercase tracking-widest text-primary-foreground/70">Actions</TableHead>
@@ -265,7 +253,7 @@ export default function AccountsPage() {
                       ) : u.role === 'admin' ? (
                         <div className="flex flex-col">
                           <span className="text-xs font-black text-primary">{(u.displaySubscription.totalAmount).toFixed(2)}€ / mois</span>
-                          <span className="text-[9px] text-muted-foreground font-bold">39,99€ × {u.displaySubscription.activeUsers} collaborateurs</span>
+                          <span className="text-[9px] text-muted-foreground font-bold">39,99€ × {u.displaySubscription.activeUsers} pers.</span>
                         </div>
                       ) : (
                         <div className="flex flex-col">
@@ -279,12 +267,7 @@ export default function AccountsPage() {
                         <span className="font-mono text-[11px] bg-muted px-2 py-0.5 rounded border">
                           {showPasswords[u.id] ? (u.password || '---') : '••••••••'}
                         </span>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-6 w-6" 
-                          onClick={() => togglePassVisibility(u.id)}
-                        >
+                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => togglePassVisibility(u.id)}>
                           {showPasswords[u.id] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                         </Button>
                       </div>
@@ -299,10 +282,10 @@ export default function AccountsPage() {
                     </TableCell>
                     <TableCell className="text-right pr-8 py-4">
                       <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" title="Réinitialiser" onClick={() => handleSendResetEmail(u.email)}><Mail className="w-4 h-4" /></Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" title="Mot de passe" onClick={() => { setEditingPassUser(u); setNewPassword(u.password || ''); }}><Key className="w-4 h-4" /></Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" title="Rôle" onClick={() => { setEditingRoleUser(u); setNewRole(u.role); }}><ShieldCheck className="w-4 h-4" /></Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-600" title="Supprimer" onClick={() => setDeletingUser(u)}><Trash2 className="w-4 h-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => handleSendResetEmail(u.email)}><Mail className="w-4 h-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => { setEditingPassUser(u); setNewPassword(u.password || ''); }}><Key className="w-4 h-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => { setEditingRoleUser(u); setNewRole(u.role); }}><ShieldCheck className="w-4 h-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-600" onClick={() => setDeletingUser(u)}><Trash2 className="w-4 h-4" /></Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -315,21 +298,12 @@ export default function AccountsPage() {
 
       <Dialog open={!!editingPassUser} onOpenChange={(open) => !open && setEditingPassUser(null)}>
         <DialogContent className="rounded-[2rem]">
-          <DialogHeader><DialogTitle>Modifier le mot de passe (Mémo)</DialogTitle></DialogHeader>
-          <div className="py-4 space-y-6">
-            <div className="bg-amber-50 p-4 rounded-xl border border-amber-200 flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
-              <div className="space-y-1">
-                <p className="text-xs font-bold text-amber-800">Note de synchronisation</p>
-                <p className="text-[10px] text-amber-700 leading-relaxed">
-                  Cette modification met à jour l'affichage uniquement. Pour changer l'accès réel, envoyez un mail de réinitialisation.
-                </p>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Nouveau mot de passe</Label>
-              <Input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="rounded-xl font-bold" />
-            </div>
+          <DialogHeader><DialogTitle>Modifier le mot de passe</DialogTitle></DialogHeader>
+          <div className="py-4 space-y-4">
+            <Label>Nouveau mot de passe</Label>
+            <Input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="rounded-xl font-bold" />
+            <AlertCircle className="w-4 h-4 text-amber-500 mr-2" />
+            <p className="text-[10px] text-muted-foreground">Attention : cela met à jour l'affichage "Mémo". Pour changer l'accès réel, utilisez l'envoi de mail.</p>
           </div>
           <DialogFooter><Button onClick={handleUpdatePassword} className="rounded-full bg-primary px-8">Enregistrer</Button></DialogFooter>
         </DialogContent>
@@ -354,9 +328,6 @@ export default function AccountsPage() {
       <AlertDialog open={!!deletingUser} onOpenChange={(open) => !open && setDeletingUser(null)}>
         <AlertDialogContent className="rounded-[2rem]">
           <AlertDialogHeader><AlertDialogTitle>Supprimer définitivement le profil ?</AlertDialogTitle></AlertDialogHeader>
-          <div className="bg-rose-50 p-4 rounded-xl border border-rose-100 mb-4 text-xs font-bold text-rose-800">
-            Attention : Cette action supprimera le document Firestore.
-          </div>
           <AlertDialogFooter>
             <AlertDialogCancel className="rounded-full">Annuler</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteUser} className="bg-rose-600 rounded-full">Supprimer</AlertDialogAction>
