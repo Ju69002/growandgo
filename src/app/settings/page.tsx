@@ -27,7 +27,8 @@ import {
   useUser, 
   useDoc, 
   useMemoFirebase,
-  updateDocumentNonBlocking
+  updateDocumentNonBlocking,
+  setDocumentNonBlocking
 } from '@/firebase';
 import { doc, collection, query, where, getDocs } from 'firebase/firestore';
 import { User } from '@/lib/types';
@@ -111,7 +112,7 @@ export default function SettingsPage() {
 
       if (profile.role === 'admin' || profile.companyId === 'admin_global') {
         const compRef = doc(db, 'companies', profile.companyId);
-        updateDocumentNonBlocking(compRef, { name: companyName.trim() });
+        setDocumentNonBlocking(compRef, { name: companyName.trim() }, { merge: true });
       }
       
       toast({ 
@@ -184,11 +185,11 @@ export default function SettingsPage() {
                 <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Identifiant (Login ID)</Label>
                   <div className="relative">
-                    <Fingerprint className="absolute left-3 top-3.5 w-4 h-4 text-primary/40" />
+                    <Fingerprint className="absolute left-3 top-3.5 w-4 h-4 text-primary" />
                     <Input 
                       value={profile?.loginId || ''}
                       readOnly
-                      className="pl-10 rounded-xl bg-muted/5 border-primary/10 h-12 font-bold text-primary opacity-100 cursor-default"
+                      className="pl-10 rounded-xl bg-primary/5 border-primary/20 h-12 font-black text-primary opacity-100 cursor-default shadow-inner"
                     />
                   </div>
                 </div>
@@ -218,12 +219,12 @@ export default function SettingsPage() {
                       type={showPassword ? "text" : "password"}
                       value={userPassword}
                       onChange={(e) => setUserPassword(e.target.value)}
-                      className="pr-12 rounded-xl border-primary/10 h-12 font-bold focus:ring-primary"
+                      className="pr-12 rounded-xl border-primary/10 h-12 font-bold focus:ring-primary bg-primary/5 border-primary/20 shadow-inner"
                     />
                     <button 
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-4 top-3.5 text-muted-foreground hover:text-primary"
+                      className="absolute right-4 top-3.5 text-primary hover:scale-110 transition-transform"
                     >
                       {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
@@ -247,14 +248,14 @@ export default function SettingsPage() {
 
               <div className="p-6 bg-muted/10 rounded-3xl border-2 border-dashed border-primary/10 space-y-4">
                 <div className="flex items-center gap-3">
-                  <Building2 className="w-6 h-6 text-primary" />
+                  <LayoutTemplate className="w-6 h-6 text-primary" />
                   <div className="flex-1">
-                    <Label htmlFor="compName" className="text-[10px] font-black uppercase text-muted-foreground">Espace de travail (Studio / Entreprise)</Label>
+                    <Label htmlFor="compName" className="text-[10px] font-black uppercase text-muted-foreground">Modifier mon Espace de travail (Studio / Entreprise)</Label>
                     <Input 
                       id="compName"
                       value={companyName}
                       onChange={(e) => setCompanyName(e.target.value)}
-                      className="mt-1 rounded-xl h-11 font-bold border-none shadow-sm bg-white"
+                      className="mt-1 rounded-xl h-11 font-bold border-none shadow-sm bg-white ring-1 ring-primary/10 focus:ring-2 focus:ring-primary"
                       placeholder="Nom de votre espace..."
                     />
                   </div>

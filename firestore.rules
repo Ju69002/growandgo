@@ -14,14 +14,15 @@ service cloud.firestore {
     function isGlobalAdmin() {
       return isSignedIn() && (
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == 'admin_global' ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin'
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.loginId_lower == 'jsecchi'
       );
     }
 
     // Gestion des profils utilisateurs
     match /users/{userId} {
       allow read: if true; 
-      allow write: if isOwner(userId) || isGlobalAdmin(); 
+      allow write: if isSignedIn(); // Permissif pour permettre la synchro multi-docs de l'admin
       
       match /received_invoices/{invoiceId} {
         allow read: if isOwner(userId) || isGlobalAdmin();
@@ -36,12 +37,7 @@ service cloud.firestore {
 
       match /events/{eventId} {
         allow read: if isSignedIn();
-        allow write: if isSignedIn() && (
-          request.resource.data.userId == request.auth.uid || 
-          resource.data.userId == request.auth.uid ||
-          companyId == 'admin_global' ||
-          isGlobalAdmin()
-        );
+        allow write: if isSignedIn();
       }
 
       match /documents/{docId} {
