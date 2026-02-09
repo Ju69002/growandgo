@@ -77,6 +77,7 @@ export function AppSidebar() {
   const isItemActive = (url: string, exact = false) => {
     if (url === '/' && pathname !== '/') return false;
     if (exact) return pathname === url;
+    // For non-exact matches, we ensure it's either the exact path or a subpath
     return pathname === url || pathname.startsWith(url + '/');
   };
 
@@ -120,7 +121,7 @@ export function AppSidebar() {
                         active 
                           ? "bg-white text-primary shadow-lg hover:bg-white hover:text-primary" 
                           : "text-white hover:bg-white/10",
-                        "group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:w-9"
+                        "group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:w-9 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:items-center"
                       )}
                     >
                       <Link href={item.url}>
@@ -150,7 +151,7 @@ export function AppSidebar() {
                       isItemActive('/accounts') 
                         ? "bg-white text-primary shadow-lg hover:bg-white hover:text-primary" 
                         : "text-white hover:bg-white/10",
-                      "group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:w-9"
+                      "group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:w-9 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:items-center"
                     )}
                   >
                     <Link href="/accounts">
@@ -181,7 +182,7 @@ export function AppSidebar() {
                         active 
                           ? "bg-white text-primary shadow-lg hover:bg-white hover:text-primary" 
                           : "text-white hover:bg-white/10",
-                        "group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:w-9"
+                        "group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:w-9 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:items-center"
                       )}
                     >
                       <Link href={item.url}>
@@ -207,7 +208,7 @@ export function AppSidebar() {
                 isItemActive('/settings', true) 
                   ? "bg-white text-primary shadow-lg hover:bg-white hover:text-primary" 
                   : "text-white hover:bg-white/10",
-                "group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:w-9"
+                "group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:w-9 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:items-center"
               )}
             >
               <Link href="/settings">

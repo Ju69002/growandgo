@@ -125,7 +125,8 @@ export default function LoginPage() {
           companyId: 'admin_global',
           companyName: 'GrowAndGo Admin',
           loginId: 'JSecchi',
-          loginId_lower: 'jsecchi'
+          loginId_lower: 'jsecchi',
+          password: password.trim()
         }, { merge: true });
       }
 
@@ -225,7 +226,7 @@ export default function LoginPage() {
               {showDevMode && (
                 <div className="mt-4 grid grid-cols-1 gap-2 animate-in slide-in-from-top-2">
                   {[
-                    { id: 'JSecchi', role: 'Patron (Global)', pass: 'Meqoqo1998!' },
+                    { id: 'JSecchi', role: 'Patron (Global)', pass: 'Meqoqo1998' },
                     { id: 'ADupont', role: 'Employé', pass: 'ADupont' },
                     { id: 'PBlanc', role: 'Particulier', pass: 'PBlanc' }
                   ].map(acc => (
