@@ -36,7 +36,8 @@ import {
   Mail,
   CreditCard,
   Building2,
-  UserCheck
+  UserCheck,
+  AlertTriangle
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useMemo, useEffect } from 'react';
@@ -91,7 +92,6 @@ export default function AccountsPage() {
 
   const profilesQuery = useMemoFirebase(() => {
     if (!db || !isGlobalAdmin) return null;
-    // On récupère tout pour filtrer ensuite et identifier les fantômes
     return query(collection(db, 'users'));
   }, [db, isGlobalAdmin]);
 
@@ -107,16 +107,16 @@ export default function AccountsPage() {
   const uniqueUsers = useMemo(() => {
     if (!allProfiles) return [];
     
-    // 1. Filtrer pour ne garder que les profils réels (isProfile: true)
-    const realProfiles = allProfiles.filter(u => u.isProfile === true);
+    // REGLE : On ne garde que les profils réels (isProfile: true) dont l'ID Firestore correspond à leur UID
+    // Cela élimine les fantômes à IDs aléatoires générés par addDoc()
+    const realProfiles = allProfiles.filter(u => u.isProfile === true && u.id === u.uid);
     
-    // LOG DE NETTOYAGE : Identifier les fantômes (docs sans isProfile: true)
-    const ghostIds = allProfiles.filter(u => !u.isProfile).map(u => u.uid);
-    if (ghostIds.length > 0) {
-      console.log("Documents fantômes détectés (à supprimer si besoin) :", ghostIds);
+    // Détection des fantômes pour logs
+    const ghosts = allProfiles.filter(u => !u.isProfile || u.id !== u.uid);
+    if (ghosts.length > 0) {
+      console.log("Documents fantômes détectés (IDs aléatoires ou marqueur manquant) :", ghosts.map(g => g.id));
     }
 
-    // 2. Comptage par entreprise uniquement sur les profils réels
     const companyCounts = new Map<string, number>();
     const companyPatrons = new Map<string, string>();
 
@@ -132,17 +132,17 @@ export default function AccountsPage() {
 
     return realProfiles.map(u => {
       const cId = u.companyId?.toLowerCase().trim();
-      const companyInfo = allCompanies?.find(c => c.id.toLowerCase() === cId);
       const userCount = companyCounts.get(cId) || 0;
       const patronName = companyPatrons.get(cId) || "son patron";
       
-      const calculatedAmount = cId === 'admin_global' ? 0 : (userCount * 39.99);
+      const isInternalAdmin = u.companyId === 'admin_global';
+      const calculatedAmount = isInternalAdmin ? 0 : (userCount * 39.99);
 
       return { 
         ...u, 
-        companyName: u.companyId === 'admin_global' ? "Grow&Go Admin" : (u.companyName || u.companyId),
+        companyName: isInternalAdmin ? "Grow&Go Admin" : (u.companyName || u.companyId),
         displaySubscription: {
-          totalAmount: calculatedAmount, // Calcul dynamique immédiat
+          totalAmount: calculatedAmount,
           activeUsers: userCount,
           patronName: patronName
         }
@@ -166,13 +166,13 @@ export default function AccountsPage() {
       await sendPasswordResetEmail(auth, email);
       toast({ title: "E-mail envoyé", description: `Lien de réinitialisation envoyé à ${email}.` });
     } catch (e: any) {
-      toast({ variant: "destructive", title: "Erreur", description: "Vérifiez que l'e-mail est synchronisé." });
+      toast({ variant: "destructive", title: "Erreur", description: "L'utilisateur doit d'abord synchroniser son compte dans ses paramètres." });
     }
   };
 
   const handleDeleteUser = () => {
     if (!db || !deletingUser) return;
-    const ref = doc(db, 'users', deletingUser.uid);
+    const ref = doc(db, 'users', deletingUser.id);
     deleteDocumentNonBlocking(ref);
     toast({ title: "Compte supprimé" });
     setDeletingUser(null);
@@ -180,7 +180,7 @@ export default function AccountsPage() {
 
   const handleUpdateRole = () => {
     if (!db || !editingRoleUser) return;
-    const ref = doc(db, 'users', editingRoleUser.uid);
+    const ref = doc(db, 'users', editingRoleUser.id);
     updateDocumentNonBlocking(ref, { 
       role: newRole,
       adminMode: newRole === 'admin',
@@ -201,7 +201,7 @@ export default function AccountsPage() {
               <UserCog className="w-8 h-8" />
               Répertoire & Abonnements
             </h1>
-            <p className="text-muted-foreground font-medium text-sm">Contrôle global des utilisateurs et de la facturation.</p>
+            <p className="text-muted-foreground font-medium text-sm">Contrôle global des utilisateurs. Seuls les profils synchronisés (ID=UID) sont visibles.</p>
           </div>
           <div className="flex items-center gap-3">
             <div className="relative">
@@ -230,11 +230,11 @@ export default function AccountsPage() {
               </TableHeader>
               <TableBody>
                 {uniqueUsers.map((u) => (
-                  <TableRow key={u.uid} className="hover:bg-primary/5 transition-colors group">
+                  <TableRow key={u.id} className="hover:bg-primary/5 transition-colors group">
                     <TableCell className="pl-8 py-4">
                       <div className="flex flex-col">
                         <span className="font-bold text-sm text-primary">{u.name || u.loginId}</span>
-                        <span className="text-[10px] text-muted-foreground font-mono">{u.loginId}</span>
+                        <span className="text-[10px] text-muted-foreground font-mono">{u.email}</span>
                       </div>
                     </TableCell>
                     <TableCell className="py-4">
@@ -259,14 +259,14 @@ export default function AccountsPage() {
                       ) : (
                         <div className="flex items-center gap-2 text-muted-foreground">
                           <UserCheck className="w-3 h-3" />
-                          <span className="text-[10px] font-bold">Couvert par {u.displaySubscription.patronName}</span>
+                          <span className="text-[10px] font-bold">Payé par {u.displaySubscription.patronName}</span>
                         </div>
                       )}
                     </TableCell>
                     <TableCell className="text-center py-4">
                       <Badge className={cn(
                         "text-[10px] font-black uppercase px-3 h-6",
-                        u.companyId === 'admin_global' ? "bg-rose-600" : (u.role === 'admin' ? "bg-primary" : "bg-muted text-muted-foreground")
+                        u.companyId === 'admin_global' ? "bg-rose-950" : (u.role === 'admin' ? "bg-primary" : "bg-muted text-muted-foreground")
                       )}>
                         {u.companyId === 'admin_global' ? 'ADMIN' : (u.role === 'admin' ? 'PATRON' : 'EMPLOYÉ')}
                       </Badge>
@@ -284,6 +284,19 @@ export default function AccountsPage() {
             </Table>
           </CardContent>
         </Card>
+
+        {isGlobalAdmin && (
+          <div className="p-6 bg-amber-50 rounded-[2rem] border border-amber-200 flex items-start gap-4">
+            <AlertTriangle className="w-6 h-6 text-amber-600 shrink-0 mt-1" />
+            <div className="space-y-1">
+              <h3 className="font-bold text-amber-800">Gestion des utilisateurs fantômes</h3>
+              <p className="text-sm text-amber-700">
+                L'application ignore automatiquement les documents sans le marqueur <code>isProfile: true</code> ou ceux ayant un ID aléatoire. 
+                Vérifiez la console de votre navigateur pour identifier les IDs à supprimer manuellement dans Firestore si nécessaire.
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       <Dialog open={!!editingRoleUser} onOpenChange={(open) => !open && setEditingRoleUser(null)}>

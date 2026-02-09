@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useAuth, useFirestore } from '@/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, getDocs, collection, query, where, limit } from 'firebase/firestore';
+import { doc, setDoc, getDocs, collection, query, where, limit, getDoc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Lock, UserCircle, CheckCircle2, Eye, EyeOff, Terminal, AlertTriangle } from 'lucide-react';
 import Image from 'next/image';
@@ -34,7 +34,6 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [signUpSuccess, setSignUpSuccess] = useState(false);
   const [showDevMode, setShowDevMode] = useState(false);
-  const [syncError, setSyncError] = useState(false);
   
   const router = useRouter();
   const auth = useAuth();
@@ -57,9 +56,10 @@ export default function LoginPage() {
       const finalCompanyName = companyName.trim();
       const finalCompanyId = normalizeId(finalCompanyName);
 
+      // REGLE : setDoc avec UID pour éviter les ID aléatoires
       const userData = {
         uid: uid,
-        isProfile: true,
+        isProfile: true, // Marqueur obligatoire
         companyId: finalCompanyId,
         companyName: finalCompanyName,
         role: selectedRole,
@@ -76,7 +76,7 @@ export default function LoginPage() {
 
       await setDoc(doc(db, 'users', uid), userData, { merge: true });
 
-      // Initialiser l'entreprise avec l'abonnement par défaut
+      // Initialiser l'entreprise
       const companyRef = doc(db, 'companies', finalCompanyId);
       await setDoc(companyRef, {
         id: finalCompanyId,
@@ -105,11 +105,12 @@ export default function LoginPage() {
     e.preventDefault();
     if (!auth || !db) return;
     setIsLoading(true);
-    setSyncError(false);
 
     try {
       const lowerId = loginId.trim().toLowerCase();
       const usersRef = collection(db, 'users');
+      
+      // 1. Chercher l'e-mail lié à l'identifiant technique
       const q = query(usersRef, where('loginId_lower', '==', lowerId), limit(1));
       const querySnapshot = await getDocs(q);
       
@@ -119,10 +120,50 @@ export default function LoginPage() {
         if (userData.email) targetEmail = userData.email;
       }
 
-      await signInWithEmailAndPassword(auth, targetEmail, password.trim());
+      // 2. Authentification réelle
+      const userCredential = await signInWithEmailAndPassword(auth, targetEmail, password.trim());
+      const uid = userCredential.user.uid;
+
+      // 3. REGLE CRITIQUE : Vérification / Réparation du document utilisateur
+      const userDocRef = doc(db, 'users', uid);
+      const userDocSnap = await getDoc(userDocRef);
+
+      if (!userDocSnap.exists()) {
+        // Migration ou création forcée si le document UID n'existe pas
+        console.log("Profil manquant détecté, création en cours...");
+        const lowerId = loginId.trim().toLowerCase();
+        
+        // On récupère les données de l'ancien document s'il existait par loginId (legacy)
+        let legacyData = {};
+        if (!querySnapshot.empty) {
+          legacyData = querySnapshot.docs[0].data();
+        }
+
+        await setDoc(userDocRef, {
+          ...legacyData,
+          uid: uid,
+          isProfile: true, // Toujours présent
+          loginId: loginId.trim(),
+          loginId_lower: lowerId,
+          email: targetEmail,
+          role: legacyData['role'] || 'employee',
+          name: legacyData['name'] || loginId.trim(),
+          companyId: legacyData['companyId'] || 'pending',
+          createdAt: legacyData['createdAt'] || new Date().toISOString()
+        });
+      } else if (!userDocSnap.data().isProfile) {
+        // Réparation si le marqueur est absent
+        await updateDoc(userDocRef, { isProfile: true });
+      }
+
       router.push('/');
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Accès refusé", description: "Identifiant ou mot de passe incorrect." });
+      console.error("Login error:", error);
+      toast({ 
+        variant: "destructive", 
+        title: "Accès refusé", 
+        description: "Identifiant ou mot de passe incorrect. Si vous venez de changer votre mot de passe, utilisez le nouveau." 
+      });
     } finally {
       setIsLoading(false);
     }
@@ -162,7 +203,7 @@ export default function LoginPage() {
               )}
               <div className="relative">
                 <UserCircle className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
-                <Input placeholder="Ex : ADupont" value={loginId} onChange={(e) => setLoginId(e.target.value)} className="pl-11 h-12 bg-muted/30 border-none rounded-xl font-bold" required />
+                <Input placeholder="ADupont" value={loginId} onChange={(e) => setLoginId(e.target.value)} className="pl-11 h-12 bg-muted/30 border-none rounded-xl font-bold" required />
               </div>
               <div className="relative">
                 <Lock className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
@@ -187,8 +228,9 @@ export default function LoginPage() {
               {showDevMode && (
                 <div className="mt-4 grid gap-2 animate-in slide-in-from-top-2">
                   {[
-                    { id: 'JSecchi', role: 'Patron', pass: 'Meqoqo1998' },
-                    { id: 'ADupont', role: 'Employé', pass: 'ADupont' }
+                    { id: 'JSecchi', role: 'Admin', pass: 'Meqoqo1998' },
+                    { id: 'ADupont', role: 'Employé', pass: 'ADupont' },
+                    { id: 'PBlanc', role: 'Patron', pass: 'PBlanc' }
                   ].map(acc => (
                     <div key={acc.id} className="p-3 bg-muted/30 rounded-xl text-[10px] flex justify-between items-center cursor-pointer hover:bg-primary/10" onClick={() => { setLoginId(acc.id); setPassword(acc.pass); }}>
                       <span className="font-black text-primary uppercase">{acc.id} ({acc.role})</span>
