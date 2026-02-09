@@ -52,7 +52,7 @@ export default function Home() {
 
   const { data: profile } = useDoc<User>(userRef);
   
-  const isSuperAdmin = profile?.role === 'super_admin';
+  const isSuperAdmin = profile?.companyId === 'admin_global' || profile?.role === 'super_admin';
   const companyId = profile?.companyId || null;
 
   const allUsersQuery = useMemoFirebase(() => {

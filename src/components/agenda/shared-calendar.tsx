@@ -144,7 +144,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
           </div>
         </div>
 
-        <div className="relative flex-1 pt-6"> {/* pt-6 pour assurer que 8h00 n'est pas coupé */}
+        <div className="relative flex-1 pt-6">
           <div className="flex relative" style={{ height: `${(hoursLabels.length - 1) * hourHeight}px` }}>
             <div className="w-16 border-r relative bg-muted/[0.03]">
               {hoursLabels.map((h, i) => (

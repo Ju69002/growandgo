@@ -46,9 +46,9 @@ export default function BillingPage() {
     return doc(db, 'users', user.uid);
   }, [db, user]);
 
-  const { data: profile } = useDoc<User>(userRef);
+  const { data: profile, isLoading: isProfileLoading } = useDoc<User>(userRef);
 
-  const isSuperAdmin = profile?.role === 'super_admin';
+  const isSuperAdmin = profile?.companyId === 'admin_global' || profile?.role === 'super_admin';
 
   const allUsersQuery = useMemoFirebase(() => {
     if (!db || !isSuperAdmin) return null;
@@ -64,13 +64,22 @@ export default function BillingPage() {
     }
   }, [db, user, isSuperAdmin, allUsers]);
 
-  const getPriceData = (userData: User) => {
-    if (userData.role === 'super_admin') return { price: "0,00", label: "ADMIN" };
-    if (userData.role === 'particulier') return { price: "39,99", label: "PARTICULIER" };
-    if (userData.role === 'employee') return { price: "0,00", label: "INCLUS" };
+  const getPriceData = (userData: User | null) => {
+    if (!userData) return { price: "0,00", label: "CHARGEMENT..." };
+    
+    if (userData.companyId === 'admin_global' || userData.role === 'super_admin') {
+      return { price: "0,00", label: "ADMIN" };
+    }
+    
+    if (userData.role === 'particulier') {
+      return { price: "39,99", label: "PARTICULIER" };
+    }
+    
+    if (userData.role === 'employee') {
+      return { price: "0,00", label: "INCLUS" };
+    }
     
     // Calcul pour le Patron (admin)
-    // On compte le nombre d'employés actifs dans la même entreprise
     const companyEmployees = allUsers?.filter(u => 
       u.companyId === userData.companyId && 
       u.role === 'employee' && 
@@ -109,10 +118,18 @@ export default function BillingPage() {
       const id = (u.loginId_lower || u.loginId || '').toLowerCase();
       if (id && !map.has(id)) map.set(id, u);
     });
-    return Array.from(map.values()).sort((a, b) => (a.role === 'super_admin' ? -1 : 1));
+    return Array.from(map.values()).sort((a, b) => (a.companyId === 'admin_global' ? -1 : 1));
   }, [allUsers]);
 
-  if (!mounted) return null;
+  if (!mounted || isProfileLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Loader2 className="animate-spin text-primary opacity-20 w-10 h-10" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   const isActive = profile?.subscriptionStatus !== 'inactive' || isSuperAdmin;
 
@@ -164,7 +181,7 @@ export default function BillingPage() {
                       <TableRow key={u.uid} className="hover:bg-primary/5">
                         <TableCell className="pl-8 py-6">
                           <div className="flex flex-col">
-                            <span className="font-bold">{u.name}</span>
+                            <span className="font-bold">{u.name || u.loginId}</span>
                             <span className="font-mono text-[10px] text-muted-foreground uppercase">{u.loginId}</span>
                           </div>
                         </TableCell>
@@ -182,7 +199,7 @@ export default function BillingPage() {
                           </div>
                         </TableCell>
                         <TableCell className="text-right pr-8">
-                          {u.role !== 'super_admin' && u.role !== 'employee' && (
+                          {u.companyId !== 'admin_global' && u.role !== 'employee' && (
                             <Button variant="ghost" size="sm" className="h-8 rounded-full gap-2 font-black uppercase text-[10px]" onClick={() => handleDownloadInvoice(u)} disabled={!!isGenerating}>
                               {isGenerating === u.uid ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileDown className="w-3 h-3" />}
                               Facture
@@ -220,9 +237,9 @@ export default function BillingPage() {
                 <div className="flex items-center justify-between">
                   <div className="text-left">
                     <p className="font-bold">Plan actuel</p>
-                    <p className="text-[10px] font-black uppercase text-muted-foreground">{getPriceData(profile!).label}</p>
+                    <p className="text-[10px] font-black uppercase text-muted-foreground">{profile ? getPriceData(profile).label : '...'}</p>
                   </div>
-                  <p className="text-2xl font-black text-primary">{getPriceData(profile!).price}€<span className="text-sm font-bold text-muted-foreground">/mois</span></p>
+                  <p className="text-2xl font-black text-primary">{profile ? getPriceData(profile).price : '0,00'}€<span className="text-sm font-bold text-muted-foreground">/mois</span></p>
                 </div>
               </div>
             </CardContent>
