@@ -14,7 +14,9 @@ export async function updateSubscriptionData(db: Firestore, companyId: string, a
   if (!db || !companyId) return;
 
   try {
-    const pricePerUser = 39.99;
+    // L'administrateur global ne paie rien
+    const isGlobalAdmin = companyId === 'admin_global';
+    const pricePerUser = isGlobalAdmin ? 0 : 39.99;
     const totalMonthlyAmount = activeUsersCount * pricePerUser;
 
     const companyRef = doc(db, 'companies', companyId);
@@ -28,7 +30,8 @@ export async function updateSubscriptionData(db: Firestore, companyId: string, a
         currency: 'EUR',
         status: 'active',
         nextBillingDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 8).toISOString()
-      }
+      },
+      subscriptionStatus: 'active'
     });
 
   } catch (error) {
@@ -67,7 +70,7 @@ export async function syncBillingTasks(db: Firestore, adminUid: string, allUsers
       const fin = new Date(debut);
       fin.setHours(10, 0, 0, 0);
 
-      await addDoc(eventsRef, {
+      addDoc(eventsRef, {
         titre: `Paiement Abonnement - ${format(new Date(), 'MMMM yyyy')}`,
         debut: debut.toISOString(),
         fin: fin.toISOString(),
@@ -78,7 +81,7 @@ export async function syncBillingTasks(db: Firestore, adminUid: string, allUsers
         companyId: normalizedId,
         userId: adminUid,
         derniere_maj: new Date().toISOString(),
-        description: "Prélèvement automatique ou validation du paiement mensuel BusinessPilot."
+        description: "Prélèvement automatique ou validation du paiement mensuel."
       });
     }
   }

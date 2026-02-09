@@ -10,7 +10,7 @@ import {
   TableHeader, 
   TableRow 
 } from '@/components/ui/table';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,21 +26,16 @@ import {
 } from '@/firebase';
 import { collection, doc, query } from 'firebase/firestore';
 import { sendPasswordResetEmail } from 'firebase/auth';
-import { User, UserRole } from '@/lib/types';
+import { User, UserRole, Company } from '@/lib/types';
 import { 
   ShieldCheck, 
   Trash2, 
-  Key, 
-  ShieldAlert, 
   UserCog, 
   Loader2,
-  Edit2,
-  Building,
-  Ban,
-  CheckCircle2,
-  Calendar,
   Search,
   Mail,
+  CreditCard,
+  Building2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useMemo, useEffect } from 'react';
@@ -52,7 +47,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogDescription,
 } from "@/components/ui/alert-dialog";
 import {
   Dialog,
@@ -60,7 +54,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -69,8 +62,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { cn, normalizeId } from '@/lib/utils';
-import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
 
 export default function AccountsPage() {
   const { user: currentUser } = useUser();
@@ -80,17 +72,9 @@ export default function AccountsPage() {
   const [mounted, setMounted] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   
-  const [editingPasswordUser, setEditingPasswordUser] = useState<User | null>(null);
-  const [editingCompanyUser, setEditingCompanyUser] = useState<User | null>(null);
   const [editingRoleUser, setEditingRoleUser] = useState<User | null>(null);
-  const [editingNameUser, setEditingNameUser] = useState<User | null>(null);
   const [deletingUser, setDeletingUser] = useState<User | null>(null);
-  
-  const [newPassword, setNewPassword] = useState('');
-  const [newCompanyName, setNewCompanyName] = useState('');
-  const [newName, setNewName] = useState('');
   const [newRole, setNewRole] = useState<UserRole>('employee');
-  const [roleCompanyInput, setRoleCompanyInput] = useState('');
 
   useEffect(() => {
     setMounted(true);
@@ -102,7 +86,6 @@ export default function AccountsPage() {
   }, [db, currentUser]);
 
   const { data: myProfile, isLoading: isProfileLoading } = useDoc<User>(userProfileRef);
-  
   const isGlobalAdmin = myProfile?.companyId === 'admin_global' || myProfile?.role === 'super_admin';
 
   const profilesQuery = useMemoFirebase(() => {
@@ -111,6 +94,14 @@ export default function AccountsPage() {
   }, [db, isGlobalAdmin]);
 
   const { data: allProfiles, isLoading: isUsersLoading } = useCollection<User>(profilesQuery);
+
+  // Récupération des données d'entreprises pour afficher les abonnements
+  const companiesQuery = useMemoFirebase(() => {
+    if (!db || !isGlobalAdmin) return null;
+    return query(collection(db, 'companies'));
+  }, [db, isGlobalAdmin]);
+
+  const { data: allCompanies } = useCollection<Company>(companiesQuery);
 
   const uniqueUsers = useMemo(() => {
     if (!allProfiles) return [];
@@ -128,10 +119,13 @@ export default function AccountsPage() {
       const baseDoc = profileDoc || docs[0];
       const bestName = docs.find(d => d.name && d.name.toLowerCase() !== id.toLowerCase())?.name || baseDoc.name || baseDoc.loginId;
       
+      const companyInfo = allCompanies?.find(c => c.id === baseDoc.companyId);
+      
       return { 
         ...baseDoc, 
         name: bestName,
-        companyName: baseDoc.companyId === 'admin_global' ? "GrowAndGo Admin" : (baseDoc.companyName || baseDoc.companyId)
+        companyName: baseDoc.companyId === 'admin_global' ? "Grow&Go Admin" : (baseDoc.companyName || baseDoc.companyId),
+        subscription: companyInfo?.subscription
       };
     })
     .filter(u => {
@@ -144,25 +138,15 @@ export default function AccountsPage() {
       );
     })
     .sort((a, b) => (a.companyId === 'admin_global' ? -1 : 1));
-  }, [allProfiles, searchQuery]);
-
-  const updateAllUserDocs = async (loginId: string, updates: Partial<User>) => {
-    if (!db || !allProfiles) return;
-    const lowerId = loginId.toLowerCase();
-    const related = allProfiles.filter(u => (u.loginId_lower === lowerId) || (u.loginId?.toLowerCase() === lowerId));
-    related.forEach(uDoc => {
-      const ref = doc(db, 'users', uDoc.uid);
-      updateDocumentNonBlocking(ref, { ...updates });
-    });
-  };
+  }, [allProfiles, allCompanies, searchQuery]);
 
   const handleSendResetEmail = async (email: string) => {
     if (!auth || !email) return;
     try {
       await sendPasswordResetEmail(auth, email);
-      toast({ title: "E-mail envoyé", description: `Un lien de réinitialisation a été envoyé à ${email}.` });
+      toast({ title: "E-mail envoyé", description: `Lien de réinitialisation envoyé à ${email}.` });
     } catch (e: any) {
-      toast({ variant: "destructive", title: "Erreur", description: "Impossible d'envoyer l'e-mail." });
+      toast({ variant: "destructive", title: "Erreur", description: "Vérifiez que l'e-mail est synchronisé." });
     }
   };
 
@@ -180,12 +164,19 @@ export default function AccountsPage() {
   };
 
   const handleUpdateRole = () => {
-    if (!db || !editingRoleUser) return;
-    updateAllUserDocs(editingRoleUser.loginId, { 
-      role: newRole,
-      adminMode: newRole === 'admin',
-      isCategoryModifier: newRole === 'admin'
+    if (!db || !editingRoleUser || !allProfiles) return;
+    const lowerId = editingRoleUser.loginId.toLowerCase();
+    const related = allProfiles.filter(u => (u.loginId_lower === lowerId) || (u.loginId?.toLowerCase() === lowerId));
+    
+    related.forEach(uDoc => {
+      const ref = doc(db, 'users', uDoc.uid);
+      updateDocumentNonBlocking(ref, { 
+        role: newRole,
+        adminMode: newRole === 'admin',
+        isCategoryModifier: newRole === 'admin'
+      });
     });
+    
     toast({ title: "Rôle mis à jour" });
     setEditingRoleUser(null);
   };
@@ -199,9 +190,9 @@ export default function AccountsPage() {
           <div className="space-y-1">
             <h1 className="text-3xl font-black tracking-tighter text-primary uppercase flex items-center gap-3">
               <UserCog className="w-8 h-8" />
-              Répertoire
+              Répertoire & Abonnements
             </h1>
-            <p className="text-muted-foreground font-medium text-sm">Contrôle global des utilisateurs.</p>
+            <p className="text-muted-foreground font-medium text-sm">Contrôle global des utilisateurs et de la facturation.</p>
           </div>
           <div className="flex items-center gap-3">
             <div className="relative">
@@ -223,6 +214,7 @@ export default function AccountsPage() {
                 <TableRow className="hover:bg-primary/95 border-none">
                   <TableHead className="pl-8 py-4 text-[10px] font-black uppercase tracking-widest text-primary-foreground/70">Utilisateur</TableHead>
                   <TableHead className="text-[10px] font-black uppercase tracking-widest text-primary-foreground/70">Entreprise</TableHead>
+                  <TableHead className="text-[10px] font-black uppercase tracking-widest text-primary-foreground/70">Abonnement</TableHead>
                   <TableHead className="text-[10px] font-black uppercase tracking-widest text-primary-foreground/70 text-center">Rôle</TableHead>
                   <TableHead className="text-right pr-8 text-[10px] font-black uppercase tracking-widest text-primary-foreground/70">Actions</TableHead>
                 </TableRow>
@@ -237,7 +229,25 @@ export default function AccountsPage() {
                       </div>
                     </TableCell>
                     <TableCell className="py-4">
-                      <span className="text-xs font-semibold">{u.companyName}</span>
+                      <div className="flex items-center gap-2">
+                        <Building2 className="w-3 h-3 text-primary/40" />
+                        <span className="text-xs font-semibold">{u.companyName}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="py-4">
+                      {u.companyId === 'admin_global' ? (
+                        <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 font-bold text-[9px]">OFFERT (ADMIN)</Badge>
+                      ) : (
+                        <div className="flex flex-col">
+                          <span className="text-xs font-black text-primary flex items-center gap-1">
+                            <CreditCard className="w-3 h-3" />
+                            {u.subscription?.totalMonthlyAmount.toFixed(2).replace('.', ',')}€
+                          </span>
+                          <span className="text-[9px] text-muted-foreground font-bold">
+                            {u.subscription?.activeUsersCount || 1} utilisateurs
+                          </span>
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell className="text-center py-4">
                       <Badge className={cn(

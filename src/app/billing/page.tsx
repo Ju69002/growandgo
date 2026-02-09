@@ -2,8 +2,8 @@
 'use client';
 
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
-import { CreditCard, ShieldCheck, Ban, CheckCircle2, Users, FileDown, Loader2, Euro, Info } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { CreditCard, Ban, CheckCircle2, Users, FileDown, Loader2, Info, Euro } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { 
   useUser, 
@@ -15,15 +15,7 @@ import {
 import { doc, collection, query, where } from 'firebase/firestore';
 import { User, Company } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from '@/components/ui/table';
-import { useMemo, useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { generateInvoicePDF } from '@/lib/invoice-utils';
 import { useToast } from '@/hooks/use-toast';
@@ -55,7 +47,6 @@ export default function BillingPage() {
 
   const { data: company, isLoading: isCompanyLoading } = useDoc<Company>(companyRef);
 
-  // Requête pour compter les utilisateurs de l'entreprise en temps réel
   const teamQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
     return query(
@@ -67,7 +58,6 @@ export default function BillingPage() {
 
   const { data: teamMembers } = useCollection<User>(teamQuery);
 
-  // Effet pour mettre à jour les données de l'abonnement en base
   useEffect(() => {
     if (db && companyId && teamMembers && profile?.role === 'admin') {
       updateSubscriptionData(db, companyId, teamMembers.length);
@@ -98,11 +88,14 @@ export default function BillingPage() {
     );
   }
 
-  const isPatron = profile?.role === 'admin';
+  const isGlobalAdmin = profile?.companyId === 'admin_global';
+  const isPatron = profile?.role === 'admin' || isGlobalAdmin;
   const isActive = company?.subscriptionStatus !== 'inactive';
-  const pricePerUser = 39.99;
+  
+  // L'administrateur global ne paie rien
+  const pricePerUser = isGlobalAdmin ? 0 : 39.99;
   const userCount = teamMembers?.length || 1;
-  const totalAmount = userCount * pricePerUser;
+  const totalAmount = isGlobalAdmin ? 0 : (userCount * pricePerUser);
 
   return (
     <DashboardLayout>
@@ -114,7 +107,11 @@ export default function BillingPage() {
             </div>
             <div>
               <h1 className="text-4xl font-black tracking-tighter text-primary uppercase">Abonnement</h1>
-              <p className="text-muted-foreground font-medium">Tarification unique de 39,99€ par collaborateur.</p>
+              {isGlobalAdmin ? (
+                <p className="text-emerald-600 font-bold uppercase tracking-widest text-xs">Accès administrateur gratuit</p>
+              ) : (
+                <p className="text-muted-foreground font-medium">Tarification unique de 39,99€ par collaborateur.</p>
+              )}
             </div>
           </div>
         </div>
@@ -150,7 +147,7 @@ export default function BillingPage() {
                 </div>
               </div>
 
-              {isPatron && (
+              {isPatron && !isGlobalAdmin && (
                 <div className="pt-8 border-t flex justify-end">
                   <Button 
                     onClick={handleDownloadInvoice} 
@@ -182,7 +179,7 @@ export default function BillingPage() {
               <div className="p-4 bg-primary/5 rounded-2xl flex items-start gap-3 text-left">
                 <Info className="w-4 h-4 text-primary mt-0.5 shrink-0" />
                 <p className="text-[10px] leading-relaxed font-bold text-primary/70">
-                  Le Patron est l'unique responsable du paiement. Tout nouvel employé ajouté sera facturé au prorata sur la prochaine période.
+                  {isGlobalAdmin ? "Votre compte administrateur bénéficie d'une gratuité totale illimitée." : "Le Patron est responsable du paiement. Tout nouvel employé ajouté sera facturé au prorata."}
                 </p>
               </div>
             </CardContent>
