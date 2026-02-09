@@ -120,9 +120,12 @@ export default function BillingPage() {
     const map = new Map();
     allUsers.forEach(u => {
       const id = (u.loginId_lower || u.loginId || '').toLowerCase();
-      if (id && !map.has(id)) map.set(id, u);
+      // Filtrage du compte administrateur global pour ne pas l'afficher dans la liste
+      if (id && !map.has(id) && u.companyId !== 'admin_global' && u.role !== 'super_admin') {
+        map.set(id, u);
+      }
     });
-    return Array.from(map.values()).sort((a, b) => (a.companyId === 'admin_global' ? -1 : 1));
+    return Array.from(map.values()).sort((a, b) => (a.loginId || '').localeCompare(b.loginId || ''));
   }, [allUsers]);
 
   if (!mounted || isProfileLoading) {
@@ -147,7 +150,7 @@ export default function BillingPage() {
             </div>
             <div>
               <h1 className="text-4xl font-black tracking-tighter text-primary uppercase">Abonnement</h1>
-              <p className="text-muted-foreground font-medium">Gestion des tarifs et récapitulatif des comptes.</p>
+              <p className="text-muted-foreground font-medium">Gestion des tarifs et récapitulatif des comptes clients.</p>
             </div>
           </div>
         </div>
@@ -156,12 +159,15 @@ export default function BillingPage() {
           <Card className="border-none shadow-xl rounded-[2.5rem] overflow-hidden bg-white">
             <CardHeader className="bg-primary text-primary-foreground p-8">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-2xl font-black uppercase tracking-tighter flex items-center gap-3">
-                  <Users className="w-7 h-7" />
-                  Récapitulatif des Tarifs
-                </CardTitle>
+                <div className="flex flex-col gap-1">
+                  <CardTitle className="text-2xl font-black uppercase tracking-tighter flex items-center gap-3">
+                    <Users className="w-7 h-7" />
+                    Récapitulatif des Tarifs
+                  </CardTitle>
+                  <CardDescription className="text-primary-foreground/70 font-medium">Liste des comptes clients facturables.</CardDescription>
+                </div>
                 <Badge className="bg-white text-primary font-black uppercase px-4 h-8 border-none shadow-lg">
-                  {uniqueProfiles.length} COMPTES
+                  {uniqueProfiles.length} CLIENTS
                 </Badge>
               </div>
             </CardHeader>
@@ -179,40 +185,46 @@ export default function BillingPage() {
                 <TableBody>
                   {isLoadingUsers ? (
                     <TableRow><TableCell colSpan={5} className="py-20 text-center"><Loader2 className="animate-spin mx-auto" /></TableCell></TableRow>
-                  ) : uniqueProfiles.map((u) => {
-                    const priceData = getPriceData(u);
-                    return (
-                      <TableRow key={u.uid} className="hover:bg-primary/5">
-                        <TableCell className="pl-8 py-6">
-                          <div className="flex flex-col">
-                            <span className="font-bold">{u.name || u.loginId}</span>
-                            <span className="font-mono text-[10px] text-muted-foreground uppercase">{u.loginId}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className="font-black uppercase text-[10px] bg-muted text-muted-foreground">
-                            {priceData.label}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground text-sm">
-                          {u.createdAt ? new Date(u.createdAt).toLocaleDateString('fr-FR') : '08/02/2026'}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1.5 font-black text-primary">
-                            {priceData.price}€
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right pr-8">
-                          {u.companyId !== 'admin_global' && u.role !== 'employee' && (
-                            <Button variant="ghost" size="sm" className="h-8 rounded-full gap-2 font-black uppercase text-[10px]" onClick={() => handleDownloadInvoice(u)} disabled={!!isGenerating}>
-                              {isGenerating === u.uid ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileDown className="w-3 h-3" />}
-                              Facture
-                            </Button>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
+                  ) : uniqueProfiles.length > 0 ? (
+                    uniqueProfiles.map((u) => {
+                      const priceData = getPriceData(u);
+                      return (
+                        <TableRow key={u.uid} className="hover:bg-primary/5 transition-colors">
+                          <TableCell className="pl-8 py-6">
+                            <div className="flex flex-col">
+                              <span className="font-bold text-primary">{u.name || u.loginId}</span>
+                              <span className="font-mono text-[10px] text-muted-foreground uppercase">{u.loginId}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className="font-black uppercase text-[10px] bg-muted text-muted-foreground">
+                              {priceData.label}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground text-sm">
+                            {u.createdAt ? new Date(u.createdAt).toLocaleDateString('fr-FR') : '08/02/2026'}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1.5 font-black text-primary">
+                              {priceData.price}€
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right pr-8">
+                            {u.role !== 'employee' && (
+                              <Button variant="ghost" size="sm" className="h-8 rounded-full gap-2 font-black uppercase text-[10px]" onClick={() => handleDownloadInvoice(u)} disabled={!!isGenerating}>
+                                {isGenerating === u.uid ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileDown className="w-3 h-3" />}
+                                Facture
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={5} className="py-20 text-center text-muted-foreground italic">Aucun compte client à afficher.</TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
