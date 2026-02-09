@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useAuth, useFirestore } from '@/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, getDoc, writeBatch } from 'firebase/firestore';
+import { doc, setDoc, getDocs, collection, query, where, limit, writeBatch } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Lock, UserCircle, Key, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import Image from 'next/image';
@@ -56,7 +56,6 @@ export default function LoginPage() {
       let finalCompanyName = companyName.trim();
       let finalCompanyId = normalizeId(finalCompanyName);
 
-      // Cas spécial Admin
       if (lowerId === 'jsecchi') {
         finalRole = 'admin';
         finalCompanyName = "GrowAndGo Admin";
@@ -70,7 +69,7 @@ export default function LoginPage() {
         uid: uid,
         isProfile: true,
         companyId: finalCompanyId,
-        enterpriseId: finalCompanyId, // Doublon de sécurité pour les nouvelles règles
+        enterpriseId: finalCompanyId,
         companyName: finalCompanyName,
         role: finalRole,
         adminMode: finalRole === 'admin' || finalRole === 'super_admin',
@@ -125,26 +124,42 @@ export default function LoginPage() {
 
     try {
       const lowerId = loginId.trim().toLowerCase();
-      const email = `${lowerId}@espace.internal`;
       
-      const userCredential = await signInWithEmailAndPassword(auth, email, password.trim());
-      const uid = userCredential.user.uid;
+      // Recherche de l'email associé à l'identifiant dans Firestore
+      const usersRef = collection(db, 'users');
+      const q = query(usersRef, where('loginId_lower', '==', lowerId), limit(1));
+      const querySnapshot = await getDocs(q);
+      
+      let targetEmail = `${lowerId}@espace.internal`; // Fallback déterministe
+      
+      if (!querySnapshot.empty) {
+        const userData = querySnapshot.docs[0].data();
+        if (userData.email) targetEmail = userData.email;
+      } else if (lowerId === 'jsecchi') {
+        // Forçage de création pour l'admin si inexistant
+        targetEmail = 'jsecchi@espace.internal';
+      }
 
-      // Forçage immédiat du rôle pour JSecchi
+      await signInWithEmailAndPassword(auth, targetEmail, password.trim());
+      
+      // Si c'est JSecchi, on s'assure que son rôle est bien admin dans Firestore
       if (lowerId === 'jsecchi') {
-        await setDoc(doc(db, 'users', uid), {
-          uid: uid,
-          loginId: 'JSecchi',
-          loginId_lower: 'jsecchi',
-          role: 'admin',
-          companyId: 'admin_global',
-          enterpriseId: 'admin_global',
-          companyName: 'GrowAndGo Admin',
-          adminMode: true,
-          isCategoryModifier: true,
-          isProfile: true,
-          subscriptionStatus: 'active'
-        }, { merge: true });
+        const uid = auth.currentUser?.uid;
+        if (uid) {
+          await setDoc(doc(db, 'users', uid), {
+            uid: uid,
+            loginId: 'JSecchi',
+            loginId_lower: 'jsecchi',
+            role: 'admin',
+            companyId: 'admin_global',
+            enterpriseId: 'admin_global',
+            companyName: 'GrowAndGo Admin',
+            adminMode: true,
+            isCategoryModifier: true,
+            isProfile: true,
+            subscriptionStatus: 'active'
+          }, { merge: true });
+        }
       }
       
       toast({ title: "Connexion réussie" });
@@ -167,7 +182,7 @@ export default function LoginPage() {
             <div>
               <CardTitle className="text-3xl font-black text-[#1E4D3B] uppercase tracking-tighter">GROW&GO</CardTitle>
               <CardDescription className="text-[#1E4D3B]/60 font-medium">
-                {signUpSuccess ? "Inscription réussie !" : isSignUp ? "Créer un identifiant" : "Connectez-vous à votre espace"}
+                {signUpSuccess ? "Inscription réussie !" : isSignUp ? "Créer un identifiant" : "Connectez-vous avec votre identifiant"}
               </CardDescription>
             </div>
           </CardHeader>
@@ -201,7 +216,7 @@ export default function LoginPage() {
               )}
               <div className="relative">
                 <UserCircle className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
-                <Input placeholder="Identifiant" value={loginId} onChange={(e) => setLoginId(e.target.value)} className="pl-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
+                <Input placeholder="Identifiant (ex: JSecchi)" value={loginId} onChange={(e) => setLoginId(e.target.value)} className="pl-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
               </div>
               <div className="relative">
                 <Lock className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />

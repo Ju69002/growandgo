@@ -13,8 +13,8 @@ service cloud.firestore {
 
     // Gestion des profils utilisateurs
     match /users/{userId} {
-      // Lecture autorisée pour les connectés, écriture réservée au propriétaire
-      allow read: if isSignedIn();
+      // Autoriser la lecture pour permettre la recherche par identifiant lors du login
+      allow read: if true; 
       allow write: if isOwner(userId); 
       
       match /received_invoices/{invoiceId} {

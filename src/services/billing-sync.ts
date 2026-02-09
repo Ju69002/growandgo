@@ -54,7 +54,7 @@ export async function syncBillingTasks(db: Firestore, adminUid: string, allUsers
           
           eventDate.setHours(9 + hourOffset, 0, 0, 0);
 
-          // Use merge: true to avoid deleting custom data
+          // Utilisation impérative de merge: true pour ne jamais supprimer de données
           setDocumentNonBlocking(eventRef, {
             id: currentEventId,
             id_externe: currentEventId,
