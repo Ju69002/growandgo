@@ -95,7 +95,7 @@ export default function AccountsPage() {
   const { data: myProfile, isLoading: isProfileLoading } = useDoc<User>(userProfileRef);
   const isGlobalAdmin = myProfile?.companyId === 'admin_global' || myProfile?.role === 'super_admin';
 
-  // On ne récupère que les profils officiels
+  // RÉGLAGE CRITIQUE : Seuls les profils officiels sont récupérés
   const profilesQuery = useMemoFirebase(() => {
     if (!db || !isGlobalAdmin) return null;
     return query(collection(db, 'users'), where('isProfile', '==', true));
@@ -103,12 +103,13 @@ export default function AccountsPage() {
 
   const { data: allProfiles, isLoading: isUsersLoading } = useCollection<User>(profilesQuery);
 
+  // Diagnostic pour aider au nettoyage manuel des doublons (ID aléatoires vs UID)
   useEffect(() => {
     if (allProfiles && isGlobalAdmin) {
       console.log("--- DIAGNOSTIC COMPTES RÉELS (isProfile: true) ---");
       allProfiles.forEach(u => {
         if (u.id !== u.uid) {
-          console.warn(`[ID ALÉATOIRE] User: ${u.loginId}, DocID: ${u.id}, UID: ${u.uid}. Prévoyez de supprimer ce document après migration.`);
+          console.warn(`[DOUBLON DÉTECTÉ] User: ${u.loginId}, DocID: ${u.id}, UID: ${u.uid}. Ce document utilise un ID aléatoire au lieu de l'UID. Prévoyez de le supprimer.`);
         }
       });
     }
@@ -117,10 +118,11 @@ export default function AccountsPage() {
   const uniqueUsers = useMemo(() => {
     if (!allProfiles) return [];
     
+    // On compte les membres par entreprise (insensible à la casse)
     const companyCounts = new Map<string, number>();
     const companyPatrons = new Map<string, string>();
 
-    // Premier passage : On compte et on identifie les patrons
+    // Premier passage : On identifie les patrons et compte les têtes
     allProfiles.forEach(u => {
       const cId = u.companyId?.toLowerCase().trim();
       if (cId) {
@@ -131,7 +133,7 @@ export default function AccountsPage() {
       }
     });
 
-    // Second passage : On prépare l'affichage
+    // Second passage : On enrichit les données pour l'affichage
     return allProfiles.map(u => {
       const cId = u.companyId?.toLowerCase().trim();
       const userCount = companyCounts.get(cId) || 0;
@@ -171,13 +173,9 @@ export default function AccountsPage() {
     if (!auth || !email) return;
     try {
       await sendPasswordResetEmail(auth, email);
-      toast({ title: "E-mail envoyé", description: `Lien de réinitialisation envoyé à ${email}.` });
+      toast({ title: "E-mail envoyé", description: `Lien envoyé à ${email}.` });
     } catch (e: any) {
-      toast({ 
-        variant: "destructive", 
-        title: "Erreur d'envoi", 
-        description: "L'adresse e-mail n'est pas encore enregistrée dans Firebase Auth. L'utilisateur doit d'abord se connecter une fois ou l'admin doit synchroniser son e-mail." 
-      });
+      toast({ variant: "destructive", title: "Erreur", description: "L'utilisateur doit d'abord synchroniser son e-mail via son profil." });
     }
   };
 
@@ -269,7 +267,7 @@ export default function AccountsPage() {
                         <Badge variant="secondary" className="bg-rose-950 text-white font-bold text-[9px] border-none">OFFERT (ADMIN)</Badge>
                       ) : u.role === 'admin' ? (
                         <div className="flex flex-col">
-                          <span className="text-xs font-black text-primary">{u.displaySubscription.totalAmount.toFixed(2)}€ / mois</span>
+                          <span className="text-xs font-black text-primary">{(u.displaySubscription.totalAmount).toFixed(2)}€ / mois</span>
                           <span className="text-[9px] text-muted-foreground font-bold">39,99€ × {u.displaySubscription.activeUsers} collaborateurs</span>
                         </div>
                       ) : (
@@ -327,7 +325,7 @@ export default function AccountsPage() {
               <div className="space-y-1">
                 <p className="text-xs font-bold text-amber-800">Note de synchronisation</p>
                 <p className="text-[10px] text-amber-700 leading-relaxed">
-                  Cette modification met à jour l'affichage et le mode développement. Pour changer l'accès de sécurité réel, envoyez un lien de réinitialisation via l'icône e-mail.
+                  Cette modification met à jour l'affichage dans le mode développement. Pour changer l'accès réel, envoyez un mail de réinitialisation.
                 </p>
               </div>
             </div>
@@ -359,9 +357,8 @@ export default function AccountsPage() {
       <AlertDialog open={!!deletingUser} onOpenChange={(open) => !open && setDeletingUser(null)}>
         <AlertDialogContent className="rounded-[2rem]">
           <AlertDialogHeader><AlertDialogTitle>Supprimer définitivement le profil ?</AlertDialogTitle></AlertDialogHeader>
-          <div className="bg-rose-50 p-4 rounded-xl border border-rose-100 mb-4">
-            <p className="text-xs font-bold text-rose-800">Attention</p>
-            <p className="text-[10px] text-rose-700">Cette action supprimera le document Firestore. L'accès Firebase Auth restera actif sauf si vous le désactivez manuellement.</p>
+          <div className="bg-rose-50 p-4 rounded-xl border border-rose-100 mb-4 text-xs font-bold text-rose-800">
+            Attention : Cette action supprimera le document Firestore. L'accès Auth restera actif sauf si désactivé manuellement.
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel className="rounded-full">Annuler</AlertDialogCancel>

@@ -56,6 +56,7 @@ export default function LoginPage() {
       const finalCompanyName = companyName.trim();
       const finalCompanyId = normalizeId(finalCompanyName);
 
+      // Création forcée avec UID comme ID de document
       const userData = {
         uid: uid,
         isProfile: true, 
@@ -106,64 +107,44 @@ export default function LoginPage() {
 
     try {
       const lowerId = loginId.trim().toLowerCase();
-      const usersRef = collection(db, 'users');
       
+      // On cherche d'abord s'il existe une trace dans Firestore pour récupérer l'email technique
+      const usersRef = collection(db, 'users');
       const q = query(usersRef, where('loginId_lower', '==', lowerId), limit(1));
       const querySnapshot = await getDocs(q);
       
       let targetEmail = `${lowerId}@espace.internal`;
-      let firestorePassword = '';
+      let legacyData: any = null;
 
       if (!querySnapshot.empty) {
-        const userData = querySnapshot.docs[0].data();
-        if (userData.email) targetEmail = userData.email;
-        firestorePassword = userData.password || '';
+        legacyData = querySnapshot.docs[0].data();
+        if (legacyData.email) targetEmail = legacyData.email;
       }
 
-      try {
-        await signInWithEmailAndPassword(auth, targetEmail, password.trim());
-      } catch (authError: any) {
-        // Diagnostic intelligent
-        if (authError.code === 'auth/invalid-credential' || authError.code === 'auth/wrong-password') {
-          if (firestorePassword && password.trim() === firestorePassword) {
-            throw new Error("Désynchronisation : Le mot de passe correspond au répertoire mais pas au compte réel. Utilisez votre ancien mot de passe ou demandez un lien de réinitialisation.");
-          }
-        }
-        throw authError;
-      }
+      // Authentification Firebase Auth
+      await signInWithEmailAndPassword(auth, targetEmail, password.trim());
 
       const userCredential = auth.currentUser;
       if (!userCredential) throw new Error("Erreur d'authentification");
       
       const uid = userCredential.uid;
       const userDocRef = doc(db, 'users', uid);
-      const userDocSnap = await getDoc(userDocRef);
-
-      if (!userDocSnap.exists()) {
-        let legacyData = {};
-        if (!querySnapshot.empty) {
-          legacyData = querySnapshot.docs[0].data();
-        }
-
-        await setDoc(userDocRef, {
-          ...legacyData,
-          uid: uid,
-          isProfile: true,
-          loginId: loginId.trim(),
-          loginId_lower: lowerId,
-          email: targetEmail,
-          role: legacyData['role'] || 'employee',
-          name: legacyData['name'] || loginId.trim(),
-          companyId: legacyData['companyId'] || 'pending',
-          password: password.trim(),
-          createdAt: legacyData['createdAt'] || new Date().toISOString()
-        }, { merge: true });
-      } else {
-        await updateDoc(userDocRef, { 
-          isProfile: true,
-          password: password.trim()
-        });
-      }
+      
+      // On force la création/mise à jour du document UNIQUE avec UID comme ID
+      await setDoc(userDocRef, {
+        ...(legacyData || {}),
+        uid: uid,
+        isProfile: true, // Marqueur critique pour la visibilité
+        loginId: loginId.trim(),
+        loginId_lower: lowerId,
+        email: targetEmail,
+        password: password.trim(),
+        // On s'assure que les champs de base sont là si c'est un nouveau document
+        role: legacyData?.role || 'employee',
+        name: legacyData?.name || loginId.trim(),
+        companyId: legacyData?.companyId || 'pending',
+        createdAt: legacyData?.createdAt || new Date().toISOString()
+      }, { merge: true });
 
       router.push('/');
     } catch (error: any) {
@@ -171,7 +152,7 @@ export default function LoginPage() {
       toast({ 
         variant: "destructive", 
         title: "Accès refusé", 
-        description: error.message || "Identifiant ou mot de passe incorrect."
+        description: "Identifiant ou mot de passe incorrect."
       });
     } finally {
       setIsLoading(false);
