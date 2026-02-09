@@ -41,7 +41,8 @@ import {
   Calendar,
   Search,
   AlertTriangle,
-  Mail
+  Mail,
+  Info
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useMemo, useEffect } from 'react';
@@ -182,7 +183,16 @@ export default function AccountsPage() {
       await sendPasswordResetEmail(auth, email);
       toast({ title: "E-mail envoyé", description: `Un lien de réinitialisation a été envoyé à ${email}.` });
     } catch (e: any) {
-      toast({ variant: "destructive", title: "Erreur", description: "Impossible d'envoyer l'e-mail. Vérifiez que l'adresse est valide." });
+      console.error("Firebase Reset Error:", e.code);
+      if (e.code === 'auth/user-not-found') {
+        toast({ 
+          variant: "destructive", 
+          title: "Utilisateur inconnu", 
+          description: "Cette adresse n'est pas encore synchronisée avec Firebase Auth. Demandez au client de l'enregistrer dans ses Paramètres." 
+        });
+      } else {
+        toast({ variant: "destructive", title: "Erreur", description: "Impossible d'envoyer l'e-mail. Vérifiez l'adresse." });
+      }
     }
   };
 
@@ -543,3 +553,4 @@ export default function AccountsPage() {
     </DashboardLayout>
   );
 }
+

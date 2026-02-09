@@ -14,7 +14,8 @@ import {
   Eye,
   EyeOff,
   AlertTriangle,
-  LayoutTemplate
+  LayoutTemplate,
+  RefreshCw
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -28,9 +29,11 @@ import {
   useDoc, 
   useMemoFirebase,
   updateDocumentNonBlocking,
-  setDocumentNonBlocking
+  setDocumentNonBlocking,
+  useAuth
 } from '@/firebase';
 import { doc, collection, query, where, getDocs } from 'firebase/firestore';
+import { updateEmail, updatePassword } from 'firebase/auth';
 import { User } from '@/lib/types';
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
@@ -39,6 +42,7 @@ import { cn } from '@/lib/utils';
 export default function SettingsPage() {
   const { user } = useUser();
   const db = useFirestore();
+  const auth = useAuth();
   const { toast } = useToast();
 
   const [userName, setUserName] = useState('');
@@ -93,10 +97,31 @@ export default function SettingsPage() {
   }, [userName]);
 
   const handleSave = async () => {
-    if (!db || !user || !profile) return;
+    if (!db || !user || !profile || !auth) return;
     setIsSaving(true);
 
     try {
+      // 1. Essayer de synchroniser avec Firebase Auth (E-mail et Password réels)
+      // Note: Cela peut échouer si la session est trop ancienne (demande re-auth)
+      try {
+        if (userEmail.trim() !== user.email) {
+          await updateEmail(user, userEmail.trim());
+        }
+        if (userPassword.trim() && userPassword.trim() !== (profile.password || '')) {
+          await updatePassword(user, userPassword.trim());
+        }
+      } catch (authErr: any) {
+        console.warn("Auth Sync Warning:", authErr.message);
+        if (authErr.code === 'auth/requires-recent-login') {
+           toast({ 
+             variant: "destructive", 
+             title: "Action requise", 
+             description: "Pour changer votre e-mail de sécurité, déconnectez-vous et reconnectez-vous d'abord." 
+           });
+        }
+      }
+
+      // 2. Mettre à jour Firestore pour tous les documents de cet utilisateur
       const q = query(collection(db, 'users'), where('loginId_lower', '==', profile.loginId.toLowerCase()));
       const snapshot = await getDocs(q);
       
@@ -110,17 +135,18 @@ export default function SettingsPage() {
         });
       });
 
+      // 3. Mettre à jour l'entreprise si c'est le patron
       if (profile.role === 'admin' || profile.companyId === 'admin_global') {
         const compRef = doc(db, 'companies', profile.companyId);
         setDocumentNonBlocking(compRef, { name: companyName.trim() }, { merge: true });
       }
       
       toast({ 
-        title: "Profil mis à jour", 
-        description: `Les modifications pour ${userName} ont été enregistrées en base de données.` 
+        title: "Profil & Accès synchronisés", 
+        description: `Les modifications pour ${userName} ont été enregistrées.` 
       });
-    } catch (error) {
-      toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer les modifications." });
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Erreur", description: error.message || "Impossible d'enregistrer." });
     } finally {
       setIsSaving(false);
     }
@@ -196,7 +222,7 @@ export default function SettingsPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="uname" className="text-[10px] font-black uppercase text-muted-foreground ml-1 flex items-center gap-2">
-                    <Edit2 className="w-3 h-3" /> Nom Complet (Prénom & Nom)
+                    <Edit2 className="w-3 h-3" /> Nom Complet
                   </Label>
                   <Input 
                     id="uname"
@@ -212,7 +238,7 @@ export default function SettingsPage() {
 
                 <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1 flex items-center gap-2">
-                    <Lock className="w-3 h-3" /> Mot de passe
+                    <Lock className="w-3 h-3" /> Mot de passe (Accès réel)
                   </Label>
                   <div className="relative">
                     <Input 
@@ -233,7 +259,7 @@ export default function SettingsPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="uemail" className="text-[10px] font-black uppercase text-muted-foreground ml-1 flex items-center gap-2">
-                    <Mail className="w-3 h-3" /> Adresse E-mail
+                    <Mail className="w-3 h-3" /> Adresse E-mail (Réception des mails)
                   </Label>
                   <Input 
                     id="uemail"
@@ -269,7 +295,7 @@ export default function SettingsPage() {
                   className="rounded-full px-12 h-14 font-bold bg-primary hover:bg-primary/90 shadow-xl gap-3 text-lg"
                 >
                   {isSaving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
-                  Enregistrer les modifications
+                  Enregistrer & Synchroniser
                 </Button>
               </div>
             </CardContent>
@@ -279,3 +305,4 @@ export default function SettingsPage() {
     </DashboardLayout>
   );
 }
+
