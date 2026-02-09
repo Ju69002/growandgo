@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { 
   useFirestore, 
   useUser, 
@@ -69,7 +70,7 @@ export default function CompanyPage() {
     }, 500);
   };
 
-  const isPatron = profile?.role === 'admin' || profile?.role === 'super_admin' || profile?.role === 'particulier';
+  const isPatron = profile?.role === 'admin' || profile?.role === 'super_admin';
 
   if (!isPatron && !isLoading) {
     return (

@@ -116,7 +116,6 @@ export function CategoryTiles({ profile }: CategoryTilesProps) {
     try {
       for (const cat of defaultCategories) {
         const catRef = doc(db, 'companies', companyId, 'categories', cat.id);
-        // Toutes les catégories sont explicitement visibles par défaut lors de l'initialisation
         setDocumentNonBlocking(catRef, {
           id: cat.id,
           label: cat.label,
@@ -146,7 +145,7 @@ export function CategoryTiles({ profile }: CategoryTilesProps) {
     );
   }
 
-  const isAdminOrSuper = profile.role === 'admin' || profile.companyId === 'admin_global' || profile.role === 'super_admin' || profile.role === 'particulier';
+  const isAdminOrSuper = profile.role === 'admin' || profile.companyId === 'admin_global' || profile.role === 'super_admin';
 
   const displayableCategories = (categories || []).filter(cat => {
     if (cat.id === 'agenda') return false; 

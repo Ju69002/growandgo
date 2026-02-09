@@ -19,8 +19,6 @@ import {
   Users,
   Settings,
   CreditCard,
-  Building2,
-  Briefcase,
   KeyRound,
   UserCheck,
 } from 'lucide-react';
@@ -31,7 +29,7 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { User, Company } from '@/lib/types';
-import { cn, normalizeId } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 
 export function AppSidebar() {
   const { user } = useUser();
@@ -55,18 +53,13 @@ export function AppSidebar() {
   const { data: company } = useDoc<Company>(companyRef);
 
   const isSuperAdmin = profile?.role === 'super_admin' || profile?.companyId === 'admin_global';
-  const isParticulier = profile?.role === 'particulier';
+  const isPatron = profile?.role === 'admin';
   
-  let displayName = company?.name || profile?.companyName || profile?.companyId || "GROW&GO";
-  if (isParticulier) displayName = "Mon Espace Privé";
+  const displayName = company?.name || profile?.companyName || "GROW&GO";
 
   const mainItems = [
     { title: 'Tableau de bord', icon: LayoutDashboard, url: '/' },
-    ...(!isSuperAdmin ? [{ 
-      title: isParticulier ? 'Mes Accès' : 'Équipe', 
-      icon: Users, 
-      url: '/team' 
-    }] : []),
+    { title: 'Équipe', icon: Users, url: '/team' },
   ];
 
   const configItems = [
@@ -74,31 +67,26 @@ export function AppSidebar() {
     { title: 'Sécurité & Sync', icon: KeyRound, url: '/settings/security' },
   ];
 
-  const isItemActive = (url: string, exact = false) => {
-    if (url === '/' && pathname !== '/') return false;
-    if (exact) return pathname === url;
-    // For non-exact matches, we ensure it's either the exact path or a subpath
-    return pathname === url || pathname.startsWith(url + '/');
-  };
+  const isItemActive = (url: string) => pathname === url || (url !== '/' && pathname.startsWith(url));
 
   return (
     <Sidebar collapsible="icon" className="border-r-0 z-50">
-      <SidebarHeader className="h-20 flex items-center justify-center group-data-[collapsible=icon]:p-2 p-4 bg-sidebar">
+      <SidebarHeader className="h-20 flex items-center justify-center p-4 bg-sidebar">
         <div className="flex items-center gap-3 font-bold text-sidebar-foreground w-full">
-          <div className="relative w-10 h-10 group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:h-8 overflow-hidden rounded-lg border border-white/20 shadow-xl bg-white shrink-0 mx-auto transition-all">
+          <div className="relative w-10 h-10 overflow-hidden rounded-lg border bg-white shadow-xl flex items-center justify-center mx-auto shrink-0">
             <Image 
               src={logo?.imageUrl || "https://picsum.photos/seed/growgo/100/100"} 
               alt="Logo" 
               fill
-              className="object-cover p-0.5"
+              className="object-cover p-1"
             />
           </div>
-          <div className="flex flex-col group-data-[collapsible=icon]:hidden max-w-[160px] flex-1">
+          <div className="flex flex-col group-data-[collapsible=icon]:hidden flex-1 min-w-0">
             <span className="text-sm font-black uppercase leading-tight tracking-tighter text-white truncate">
               {displayName}
             </span>
-            <span className="text-[9px] uppercase tracking-widest opacity-50 font-black text-white truncate">
-              {isSuperAdmin ? "Administration" : isParticulier ? "Confidentiel" : "Espace de travail"}
+            <span className="text-[9px] uppercase tracking-widest opacity-50 font-black text-white">
+              {isSuperAdmin ? "Administration" : isPatron ? "Patron" : "Employé"}
             </span>
           </div>
         </div>
@@ -108,55 +96,38 @@ export function AppSidebar() {
           <SidebarGroupLabel className="text-white/50 font-bold uppercase text-[10px] tracking-widest px-4 mb-2 group-data-[collapsible=icon]:hidden">Principal</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainItems.map((item) => {
-                const active = isItemActive(item.url);
-                return (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton 
-                      asChild 
-                      tooltip={item.title} 
-                      isActive={active}
-                      className={cn(
-                        "transition-all duration-200 h-11 rounded-xl font-bold px-4",
-                        active 
-                          ? "bg-white text-primary shadow-lg hover:bg-white hover:text-primary" 
-                          : "text-white hover:bg-white/10",
-                        "group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:w-9 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:items-center"
-                      )}
-                    >
-                      <Link href={item.url}>
-                        <item.icon className={cn("w-5 h-5 shrink-0", active ? "text-primary" : "text-white")} />
-                        <span className={cn("group-data-[collapsible=icon]:hidden", active ? "text-primary" : "text-white")}>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
+              {mainItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton 
+                    asChild 
+                    tooltip={item.title} 
+                    isActive={isItemActive(item.url)}
+                    className={cn(
+                      "transition-all duration-200 h-11 rounded-xl font-bold px-4",
+                      isItemActive(item.url) ? "bg-white text-primary" : "text-white hover:bg-white/10"
+                    )}
+                  >
+                    <Link href={item.url}>
+                      <item.icon className="w-5 h-5 shrink-0" />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 
         {isSuperAdmin && (
           <SidebarGroup>
-            <SidebarGroupLabel className="text-white/50 font-bold uppercase text-[10px] tracking-widest px-4 mb-2 group-data-[collapsible=icon]:hidden">Administration</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-white/50 font-bold uppercase text-[10px] tracking-widest px-4 mb-2 group-data-[collapsible=icon]:hidden">Admin</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 <SidebarMenuItem>
-                  <SidebarMenuButton 
-                    asChild 
-                    tooltip="Gestion des Comptes" 
-                    isActive={isItemActive('/accounts')}
-                    className={cn(
-                      "transition-all duration-200 h-11 rounded-xl font-bold px-4",
-                      isItemActive('/accounts') 
-                        ? "bg-white text-primary shadow-lg hover:bg-white hover:text-primary" 
-                        : "text-white hover:bg-white/10",
-                      "group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:w-9 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:items-center"
-                    )}
-                  >
+                  <SidebarMenuButton asChild isActive={isItemActive('/accounts')} className={cn("h-11 rounded-xl font-bold px-4", isItemActive('/accounts') ? "bg-white text-primary" : "text-white")}>
                     <Link href="/accounts">
-                      <UserCheck className={cn("w-5 h-5 shrink-0", isItemActive('/accounts') ? "text-primary" : "text-white")} />
-                      <span className={cn("group-data-[collapsible=icon]:hidden", isItemActive('/accounts') ? "text-primary" : "text-white")}>Répertoire</span>
+                      <UserCheck className="w-5 h-5" />
+                      <span>Répertoire</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -169,51 +140,27 @@ export function AppSidebar() {
           <SidebarGroupLabel className="text-white/50 font-bold uppercase text-[10px] tracking-widest px-4 mb-2 group-data-[collapsible=icon]:hidden">Configuration</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {configItems.map((item) => {
-                const active = isItemActive(item.url);
-                return (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton 
-                      asChild 
-                      tooltip={item.title} 
-                      isActive={active}
-                      className={cn(
-                        "transition-all duration-200 h-11 rounded-xl font-bold px-4",
-                        active 
-                          ? "bg-white text-primary shadow-lg hover:bg-white hover:text-primary" 
-                          : "text-white hover:bg-white/10",
-                        "group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:w-9 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:items-center"
-                      )}
-                    >
-                      <Link href={item.url}>
-                        <item.icon className={cn("w-5 h-5 shrink-0", active ? "text-primary" : "text-white")} />
-                        <span className={cn("group-data-[collapsible=icon]:hidden", active ? "text-primary" : "text-white")}>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
+              {configItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild tooltip={item.title} isActive={isItemActive(item.url)} className={cn("h-11 rounded-xl font-bold px-4", isItemActive(item.url) ? "bg-white text-primary" : "text-white")}>
+                    <Link href={item.url}>
+                      <item.icon className="w-5 h-5" />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="p-4 bg-sidebar border-t border-sidebar-border/30">
+      <SidebarFooter className="p-4 bg-sidebar border-t border-white/5">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton 
-              asChild 
-              isActive={isItemActive('/settings', true)}
-              className={cn(
-                "transition-all duration-200 h-11 rounded-xl font-bold px-4",
-                isItemActive('/settings', true) 
-                  ? "bg-white text-primary shadow-lg hover:bg-white hover:text-primary" 
-                  : "text-white hover:bg-white/10",
-                "group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:w-9 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:items-center"
-              )}
-            >
+            <SidebarMenuButton asChild isActive={pathname === '/settings'} className={cn("h-11 rounded-xl font-bold px-4", pathname === '/settings' ? "bg-white text-primary" : "text-white")}>
               <Link href="/settings">
-                <Settings className={cn("w-5 h-5 shrink-0", isItemActive('/settings', true) ? "text-primary" : "text-white")} />
-                <span className={cn("group-data-[collapsible=icon]:hidden", isItemActive('/settings', true) ? "text-primary" : "text-white")}>Paramètres</span>
+                <Settings className="w-5 h-5" />
+                <span>Paramètres</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

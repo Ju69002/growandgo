@@ -1,5 +1,5 @@
 
-export type UserRole = 'super_admin' | 'admin' | 'employee' | 'particulier';
+export type UserRole = 'super_admin' | 'admin' | 'employee';
 export type DocumentStatus = 'pending_analysis' | 'waiting_verification' | 'waiting_validation' | 'archived';
 export type CategoryType = 'standard' | 'custom';
 export type SubscriptionStatus = 'active' | 'inactive';
@@ -7,11 +7,19 @@ export type SubscriptionStatus = 'active' | 'inactive';
 export interface Company {
   id: string;
   name: string;
-  subscriptionStatus: 'active' | 'trial';
+  subscriptionStatus: 'active' | 'trial' | 'inactive';
   primaryColor?: string;
   backgroundColor?: string;
   foregroundColor?: string;
-  modulesConfig: {
+  subscription?: {
+    pricePerUser: number;
+    activeUsersCount: number;
+    totalMonthlyAmount: number;
+    currency: string;
+    status: 'active' | 'overdue';
+    nextBillingDate?: string;
+  };
+  modulesConfig?: {
     showRh: boolean;
     showFinance: boolean;
     customLabels: Record<string, string>;
@@ -34,6 +42,7 @@ export interface User {
   subscriptionStatus?: SubscriptionStatus;
   createdAt?: string;
   googleEmail?: string;
+  isProfile?: boolean;
 }
 
 export interface Category {

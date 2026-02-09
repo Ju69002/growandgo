@@ -2,7 +2,7 @@
 'use client';
 
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
-import { CreditCard, ShieldCheck, Ban, CheckCircle2, Users, Calendar, Euro, FileDown, Loader2 } from 'lucide-react';
+import { CreditCard, ShieldCheck, Ban, CheckCircle2, Users, FileDown, Loader2, Euro, Info } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -12,8 +12,8 @@ import {
   useMemoFirebase, 
   useCollection 
 } from '@/firebase';
-import { doc, collection, query } from 'firebase/firestore';
-import { User } from '@/lib/types';
+import { doc, collection, query, where } from 'firebase/firestore';
+import { User, Company } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { 
   Table, 
@@ -23,11 +23,11 @@ import {
   TableHeader, 
   TableRow 
 } from '@/components/ui/table';
-import { useMemo, useState, useEffect, useRef } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { generateInvoicePDF } from '@/lib/invoice-utils';
 import { useToast } from '@/hooks/use-toast';
-import { syncBillingTasks } from '@/services/billing-sync';
+import { updateSubscriptionData } from '@/services/billing-sync';
 
 export default function BillingPage() {
   const { user } = useUser();
@@ -35,7 +35,6 @@ export default function BillingPage() {
   const { toast } = useToast();
   const [mounted, setMounted] = useState(false);
   const [isGenerating, setIsGenerating] = useState<string | null>(null);
-  const syncLock = useRef(false);
 
   useEffect(() => {
     setMounted(true);
@@ -47,61 +46,40 @@ export default function BillingPage() {
   }, [db, user]);
 
   const { data: profile, isLoading: isProfileLoading } = useDoc<User>(userRef);
+  const companyId = profile?.companyId;
 
-  const isSuperAdmin = profile?.companyId === 'admin_global' || profile?.role === 'super_admin';
+  const companyRef = useMemoFirebase(() => {
+    if (!db || !companyId) return null;
+    return doc(db, 'companies', companyId);
+  }, [db, companyId]);
 
-  const allUsersQuery = useMemoFirebase(() => {
-    if (!db || !isSuperAdmin) return null;
-    return query(collection(db, 'users'));
-  }, [db, isSuperAdmin]);
+  const { data: company, isLoading: isCompanyLoading } = useDoc<Company>(companyRef);
 
-  const { data: allUsers, isLoading: isLoadingUsers } = useCollection<User>(allUsersQuery);
+  // Requête pour compter les utilisateurs de l'entreprise en temps réel
+  const teamQuery = useMemoFirebase(() => {
+    if (!db || !companyId) return null;
+    return query(
+      collection(db, 'users'),
+      where('companyId', '==', companyId),
+      where('isProfile', '==', true)
+    );
+  }, [db, companyId]);
 
+  const { data: teamMembers } = useCollection<User>(teamQuery);
+
+  // Effet pour mettre à jour les données de l'abonnement en base
   useEffect(() => {
-    if (db && user && isSuperAdmin && allUsers && !syncLock.current) {
-      syncLock.current = true;
-      syncBillingTasks(db, user.uid, allUsers.filter(u => u.isProfile || u.role !== 'super_admin'));
+    if (db && companyId && teamMembers && profile?.role === 'admin') {
+      updateSubscriptionData(db, companyId, teamMembers.length);
     }
-  }, [db, user, isSuperAdmin, allUsers]);
+  }, [db, companyId, teamMembers, profile]);
 
-  const getPriceData = (userData: User | null) => {
-    if (!userData || !userData.role) return { price: "0,00", label: "CHARGEMENT..." };
-    
-    if (userData.companyId === 'admin_global' || userData.role === 'super_admin') {
-      return { price: "0,00", label: "ADMIN" };
-    }
-    
-    if (userData.role === 'particulier') {
-      return { price: "39,99", label: "PARTICULIER" };
-    }
-    
-    if (userData.role === 'employee') {
-      return { price: "0,00", label: "INCLUS" };
-    }
-    
-    const companyEmployees = allUsers?.filter(u => 
-      u.companyId === userData.companyId && 
-      u.role === 'employee' && 
-      u.subscriptionStatus !== 'inactive'
-    ) || [];
-    
-    const n = companyEmployees.length;
-    if (n <= 5) return { price: "199,99", label: "FORFAIT 0-5 EMP." };
-    if (n <= 10) return { price: "399,99", label: "FORFAIT 6-10 EMP." };
-    
-    const extra = (n - 10) * 39.99;
-    const total = 399.99 + extra;
-    return { 
-      price: total.toFixed(2).replace('.', ','), 
-      label: `FORFAIT ${n} EMP.` 
-    };
-  };
-
-  const handleDownloadInvoice = (userData: User) => {
-    setIsGenerating(userData.uid);
+  const handleDownloadInvoice = () => {
+    if (!profile || !company) return;
+    setIsGenerating(profile.uid);
     try {
-      const { price } = getPriceData(userData);
-      generateInvoicePDF(userData, price);
+      const amountStr = (company.subscription?.totalMonthlyAmount || 0).toFixed(2).replace('.', ',');
+      generateInvoicePDF(profile, amountStr);
       toast({ title: "Facture générée" });
     } catch (error) {
       toast({ variant: "destructive", title: "Erreur lors de la génération PDF" });
@@ -110,20 +88,7 @@ export default function BillingPage() {
     }
   };
 
-  const uniqueProfiles = useMemo(() => {
-    if (!allUsers) return [];
-    const map = new Map();
-    allUsers.forEach(u => {
-      const id = (u.loginId_lower || u.loginId || '').toLowerCase();
-      // On masque l'admin global de la liste de facturation
-      if (id && !map.has(id) && u.companyId !== 'admin_global' && u.role !== 'super_admin') {
-        map.set(id, u);
-      }
-    });
-    return Array.from(map.values()).sort((a, b) => (a.loginId || '').localeCompare(b.loginId || ''));
-  }, [allUsers]);
-
-  if (!mounted || isProfileLoading) {
+  if (!mounted || isProfileLoading || isCompanyLoading) {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center min-h-[60vh]">
@@ -133,11 +98,15 @@ export default function BillingPage() {
     );
   }
 
-  const isActive = profile?.subscriptionStatus !== 'inactive' || isSuperAdmin;
+  const isPatron = profile?.role === 'admin';
+  const isActive = company?.subscriptionStatus !== 'inactive';
+  const pricePerUser = 39.99;
+  const userCount = teamMembers?.length || 1;
+  const totalAmount = userCount * pricePerUser;
 
   return (
     <DashboardLayout>
-      <div className="max-w-6xl mx-auto py-12 px-6 space-y-10">
+      <div className="max-w-5xl mx-auto py-12 px-6 space-y-10">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-primary/10 rounded-2xl text-primary">
@@ -145,117 +114,80 @@ export default function BillingPage() {
             </div>
             <div>
               <h1 className="text-4xl font-black tracking-tighter text-primary uppercase">Abonnement</h1>
-              <p className="text-muted-foreground font-medium">Gestion des tarifs et récapitulatif des comptes clients.</p>
+              <p className="text-muted-foreground font-medium">Tarification unique de 39,99€ par collaborateur.</p>
             </div>
           </div>
         </div>
 
-        {isSuperAdmin ? (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Card className="md:col-span-2 border-none shadow-xl rounded-[2.5rem] overflow-hidden bg-white">
+            <CardHeader className="bg-primary text-primary-foreground p-8">
+              <CardTitle className="text-xl font-black uppercase tracking-tighter flex items-center gap-3">
+                <Users className="w-6 h-6" />
+                Détail de la Facturation
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-8 space-y-6">
+              <div className="flex items-center justify-between p-6 bg-muted/30 rounded-2xl border-2 border-dashed">
+                <div>
+                  <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Utilisateurs actifs</p>
+                  <p className="text-3xl font-black text-primary">{userCount} collaborateurs</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Prix par tête</p>
+                  <p className="text-xl font-bold">{pricePerUser.toFixed(2)}€ / mois</p>
+                </div>
+              </div>
+
+              <div className="pt-4 flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-bold">Total mensuel</h3>
+                  <p className="text-sm text-muted-foreground">Calculé automatiquement selon l'équipe.</p>
+                </div>
+                <div className="text-4xl font-black text-primary">
+                  {totalAmount.toFixed(2).replace('.', ',')}€
+                  <span className="text-sm font-bold text-muted-foreground ml-1">TTC</span>
+                </div>
+              </div>
+
+              {isPatron && (
+                <div className="pt-8 border-t flex justify-end">
+                  <Button 
+                    onClick={handleDownloadInvoice} 
+                    disabled={!!isGenerating}
+                    className="rounded-full h-12 px-8 font-bold bg-primary shadow-lg gap-2"
+                  >
+                    {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
+                    Télécharger la dernière facture
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           <Card className="border-none shadow-xl rounded-[2.5rem] overflow-hidden bg-white">
-            <CardHeader className="bg-primary text-primary-foreground p-8">
-              <div className="flex items-center justify-between">
-                <div className="flex flex-col gap-1">
-                  <CardTitle className="text-2xl font-black uppercase tracking-tighter flex items-center gap-3">
-                    <Users className="w-7 h-7" />
-                    Récapitulatif des Tarifs
-                  </CardTitle>
-                  <CardDescription className="text-primary-foreground/70 font-medium">Liste des comptes clients facturables.</CardDescription>
-                </div>
-                <Badge className="bg-white text-primary font-black uppercase px-4 h-8 border-none shadow-lg">
-                  {uniqueProfiles.length} CLIENTS
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader className="bg-muted/50">
-                  <TableRow>
-                    <TableHead className="pl-8 py-4">Utilisateur</TableHead>
-                    <TableHead>Type de Plan</TableHead>
-                    <TableHead>Date création</TableHead>
-                    <TableHead>Prix mensuel</TableHead>
-                    <TableHead className="text-right pr-8">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {isLoadingUsers ? (
-                    <TableRow><TableCell colSpan={5} className="py-20 text-center"><Loader2 className="animate-spin mx-auto" /></TableCell></TableRow>
-                  ) : uniqueProfiles.length > 0 ? (
-                    uniqueProfiles.map((u) => {
-                      const priceData = getPriceData(u);
-                      return (
-                        <TableRow key={u.uid} className="hover:bg-primary/5 transition-colors">
-                          <TableCell className="pl-8 py-6">
-                            <div className="flex flex-col">
-                              <span className="font-bold text-primary">{u.name || u.loginId}</span>
-                              <span className="font-mono text-[10px] text-muted-foreground uppercase">{u.loginId}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge className="font-black uppercase text-[10px] bg-muted text-muted-foreground">
-                              {priceData.label}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-muted-foreground text-sm">
-                            {u.createdAt ? new Date(u.createdAt).toLocaleDateString('fr-FR') : '08/02/2026'}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-1.5 font-black text-primary">
-                              {priceData.price}€
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right pr-8">
-                            {u.role !== 'employee' && (
-                              <Button variant="ghost" size="sm" className="h-8 rounded-full gap-2 font-black uppercase text-[10px]" onClick={() => handleDownloadInvoice(u)} disabled={!!isGenerating}>
-                                {isGenerating === u.uid ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileDown className="w-3 h-3" />}
-                                Facture
-                              </Button>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={5} className="py-20 text-center text-muted-foreground italic">Aucun compte client à afficher.</TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        ) : (
-          <Card className="border-none shadow-xl rounded-[2.5rem] overflow-hidden bg-white max-w-4xl mx-auto">
-            <CardHeader className="bg-primary text-primary-foreground p-8">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-2xl font-black uppercase tracking-tighter flex items-center gap-3">
-                  <ShieldCheck className="w-7 h-7" />
-                  Statut de l'Accès
+            <CardHeader className={cn("p-8 text-white", isActive ? "bg-emerald-600" : "bg-rose-600")}>
+              <div className="flex flex-col items-center gap-2">
+                {isActive ? <CheckCircle2 className="w-10 h-10" /> : <Ban className="w-10 h-10" />}
+                <CardTitle className="text-lg font-black uppercase tracking-widest">
+                  {isActive ? "Compte Actif" : "Accès Suspendu"}
                 </CardTitle>
-                <Badge className={cn("font-black uppercase text-xs h-8 px-4", isActive ? "bg-emerald-500" : "bg-rose-500")}>
-                  {isActive ? "ACTIF" : "SUSPENDU"}
-                </Badge>
               </div>
             </CardHeader>
-            <CardContent className="p-10 space-y-8 text-center">
-              <div className="p-8 rounded-[2rem] bg-muted/30 border-2 border-dashed">
-                <div className={cn("w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4", isActive ? "bg-emerald-100 text-emerald-600" : "bg-rose-100 text-rose-600")}>
-                  {isActive ? <CheckCircle2 className="w-10 h-10" /> : <Ban className="w-10 h-10" />}
-                </div>
-                <h3 className="text-2xl font-bold">{isActive ? "Espace opérationnel" : "Accès restreint"}</h3>
+            <CardContent className="p-8 space-y-6 text-center">
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-muted-foreground">Prochaine échéance</p>
+                <p className="text-xl font-black text-primary">08 Mars 2026</p>
               </div>
-              <div className="max-w-md mx-auto p-6 rounded-2xl border bg-card">
-                <div className="flex items-center justify-between">
-                  <div className="text-left">
-                    <p className="font-bold">Plan actuel</p>
-                    <p className="text-[10px] font-black uppercase text-muted-foreground">{profile ? getPriceData(profile).label : '...'}</p>
-                  </div>
-                  <p className="text-2xl font-black text-primary">{profile ? getPriceData(profile).price : '0,00'}€<span className="text-sm font-bold text-muted-foreground">/mois</span></p>
-                </div>
+              <div className="p-4 bg-primary/5 rounded-2xl flex items-start gap-3 text-left">
+                <Info className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                <p className="text-[10px] leading-relaxed font-bold text-primary/70">
+                  Le Patron est l'unique responsable du paiement. Tout nouvel employé ajouté sera facturé au prorata sur la prochaine période.
+                </p>
               </div>
             </CardContent>
           </Card>
-        )}
+        </div>
       </div>
     </DashboardLayout>
   );

@@ -54,28 +54,17 @@ export default function LoginPage() {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password.trim());
       const uid = userCredential.user.uid;
 
-      let finalRole = selectedRole;
-      let finalCompanyName = companyName.trim();
-      let finalCompanyId = normalizeId(finalCompanyName);
-
-      if (lowerId === 'jsecchi') {
-        finalRole = 'admin';
-        finalCompanyName = "GrowAndGo Admin";
-        finalCompanyId = "admin_global";
-      } else if (finalRole === 'particulier') {
-        finalCompanyName = "Mon Espace Personnel";
-        finalCompanyId = `private-${lowerId}`;
-      }
+      const finalCompanyName = companyName.trim();
+      const finalCompanyId = normalizeId(finalCompanyName);
 
       const userData = {
         uid: uid,
         isProfile: true,
         companyId: finalCompanyId,
-        enterpriseId: finalCompanyId,
         companyName: finalCompanyName,
-        role: finalRole,
-        adminMode: finalRole === 'admin',
-        isCategoryModifier: finalRole === 'admin',
+        role: selectedRole,
+        adminMode: selectedRole === 'admin',
+        isCategoryModifier: selectedRole === 'admin',
         name: name.trim() || loginId.trim(),
         loginId: loginId.trim(),
         loginId_lower: lowerId,
@@ -86,6 +75,21 @@ export default function LoginPage() {
       };
 
       await setDoc(doc(db, 'users', uid), userData, { merge: true });
+
+      // Initialiser l'entreprise avec l'abonnement par défaut
+      const companyRef = doc(db, 'companies', finalCompanyId);
+      await setDoc(companyRef, {
+        id: finalCompanyId,
+        name: finalCompanyName,
+        subscriptionStatus: 'active',
+        subscription: {
+          pricePerUser: 39.99,
+          activeUsersCount: 1,
+          totalMonthlyAmount: 39.99,
+          currency: 'EUR',
+          status: 'active'
+        }
+      }, { merge: true });
 
       setSignUpSuccess(true);
       setIsSignUp(false);
@@ -105,37 +109,18 @@ export default function LoginPage() {
 
     try {
       const lowerId = loginId.trim().toLowerCase();
-      
       const usersRef = collection(db, 'users');
       const q = query(usersRef, where('loginId_lower', '==', lowerId), limit(1));
       const querySnapshot = await getDocs(q);
       
       let targetEmail = `${lowerId}@espace.internal`;
-      let dbPassword = '';
-      
       if (!querySnapshot.empty) {
         const userData = querySnapshot.docs[0].data();
         if (userData.email) targetEmail = userData.email;
-        dbPassword = userData.password || '';
       }
 
-      try {
-        await signInWithEmailAndPassword(auth, targetEmail, password.trim());
-        toast({ title: "Connexion réussie" });
-        router.push('/');
-      } catch (authError: any) {
-        if (dbPassword && dbPassword === password.trim()) {
-          setSyncError(true);
-          toast({ 
-            variant: "destructive", 
-            title: "Désynchronisation détectée", 
-            description: "Le mot de passe en base a été changé par l'admin mais pas votre accès réel." 
-          });
-        } else {
-          throw authError;
-        }
-      }
-
+      await signInWithEmailAndPassword(auth, targetEmail, password.trim());
+      router.push('/');
     } catch (error: any) {
       toast({ variant: "destructive", title: "Accès refusé", description: "Identifiant ou mot de passe incorrect." });
     } finally {
@@ -152,111 +137,62 @@ export default function LoginPage() {
               <Image src={logo?.imageUrl || "https://picsum.photos/seed/growgo/100/100"} alt="Logo" fill className="object-cover p-2" />
             </div>
             <div>
-              <CardTitle className="text-3xl font-black text-[#1E4D3B] uppercase tracking-tighter">GROW&GO</CardTitle>
-              <CardDescription className="text-[#1E4D3B]/60 font-medium">
+              <CardTitle className="text-3xl font-black text-primary uppercase tracking-tighter">GROW&GO</CardTitle>
+              <CardDescription className="text-primary/60 font-medium">
                 {signUpSuccess ? "Inscription réussie !" : isSignUp ? "Créer un identifiant" : "Connectez-vous à votre espace"}
               </CardDescription>
             </div>
           </CardHeader>
           <CardContent>
-            {signUpSuccess && (
-              <div className="mb-6 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3">
-                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                <p className="text-xs font-bold text-emerald-800 uppercase">Compte prêt. Connectez-vous.</p>
-              </div>
-            )}
-            
-            {syncError && (
-              <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-3">
-                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-                <div className="space-y-1">
-                  <p className="text-xs font-black text-amber-900 uppercase">Alerte de Synchronisation</p>
-                  <p className="text-[10px] font-bold text-amber-800 leading-tight">
-                    Votre administrateur a modifié votre mot de passe dans le répertoire (Firestore), mais vos accès réels (Firebase Auth) n'ont pas été synchronisés. Utilisez votre ancien mot de passe ou demandez une réinitialisation par e-mail.
-                  </p>
-                </div>
-              </div>
-            )}
-
             <form onSubmit={isSignUp ? handleSignUp : handleLogin} className="space-y-4">
               {isSignUp && (
                 <>
-                  <Input placeholder="Nom complet" value={name} onChange={(e) => setName(e.target.value)} className="h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
-                  <div className="space-y-1">
-                    <Select value={selectedRole} onValueChange={(v) => setSelectedRole(v as UserRole)}>
-                      <SelectTrigger className="h-12 bg-[#F9F9F7] border-none rounded-xl font-bold">
-                        <SelectValue placeholder="Votre Rôle" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="admin">Patron</SelectItem>
-                        <SelectItem value="particulier">Particulier</SelectItem>
-                        <SelectItem value="employee">Employé</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {selectedRole !== 'particulier' && (
-                    <Input placeholder="Nom Entreprise" value={companyName} onChange={(e) => setCompanyName(e.target.value)} className="h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
-                  )}
+                  <Input placeholder="Nom complet" value={name} onChange={(e) => setName(e.target.value)} className="h-12 bg-muted/30 border-none rounded-xl font-bold" required />
+                  <Select value={selectedRole} onValueChange={(v) => setSelectedRole(v as UserRole)}>
+                    <SelectTrigger className="h-12 bg-muted/30 border-none rounded-xl font-bold">
+                      <SelectValue placeholder="Votre Rôle" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin">Patron</SelectItem>
+                      <SelectItem value="employee">Employé</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input placeholder="Nom Entreprise" value={companyName} onChange={(e) => setCompanyName(e.target.value)} className="h-12 bg-muted/30 border-none rounded-xl font-bold" required />
                 </>
               )}
               <div className="relative">
                 <UserCircle className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
-                <Input placeholder="Ex d'identifiant : ADupont" value={loginId} onChange={(e) => setLoginId(e.target.value)} className="pl-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
+                <Input placeholder="Ex : ADupont" value={loginId} onChange={(e) => setLoginId(e.target.value)} className="pl-11 h-12 bg-muted/30 border-none rounded-xl font-bold" required />
               </div>
               <div className="relative">
                 <Lock className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
-                <Input 
-                  type={showPassword ? "text" : "password"} 
-                  placeholder="Mot de passe" 
-                  value={password} 
-                  onChange={(e) => setPassword(e.target.value)} 
-                  className="pl-11 pr-12 h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" 
-                  required 
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-3.5 text-muted-foreground hover:text-primary transition-colors focus:outline-none"
-                >
+                <Input type={showPassword ? "text" : "password"} placeholder="Mot de passe" value={password} onChange={(e) => setPassword(e.target.value)} className="pl-11 pr-12 h-12 bg-muted/30 border-none rounded-xl font-bold" required />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-3.5 text-muted-foreground hover:text-primary transition-colors">
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
-              <Button type="submit" className="w-full h-14 bg-[#1E4D3B] hover:bg-[#1E4D3B]/90 rounded-2xl font-bold text-lg shadow-xl transition-all active:scale-95" disabled={isLoading}>
+              <Button type="submit" className="w-full h-14 bg-primary hover:bg-primary/90 rounded-2xl font-bold text-lg shadow-xl" disabled={isLoading}>
                 {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (isSignUp ? "Créer mon compte" : "Se connecter")}
               </Button>
-              <button type="button" className="w-full text-xs font-black uppercase tracking-widest text-[#1E4D3B]/60 py-2 hover:text-[#1E4D3B]" onClick={() => setIsSignUp(!isSignUp)}>
+              <button type="button" className="w-full text-xs font-black uppercase tracking-widest text-primary/60 py-2" onClick={() => setIsSignUp(!isSignUp)}>
                 {isSignUp ? "Déjà un compte ? Connexion" : "Pas encore de compte ? Créer un identifiant"}
               </button>
             </form>
 
             <div className="mt-6 pt-6 border-t border-dashed">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="w-full text-[10px] font-black uppercase tracking-widest opacity-40 hover:opacity-100 gap-2"
-                onClick={() => setShowDevMode(!showDevMode)}
-              >
+              <Button variant="ghost" size="sm" className="w-full text-[10px] font-black uppercase opacity-40 gap-2" onClick={() => setShowDevMode(!showDevMode)}>
                 <Terminal className="w-3 h-3" />
-                {showDevMode ? "Cacher" : "Afficher"} Mode Développement
+                Mode Développement
               </Button>
-              
               {showDevMode && (
-                <div className="mt-4 grid grid-cols-1 gap-2 animate-in slide-in-from-top-2">
+                <div className="mt-4 grid gap-2 animate-in slide-in-from-top-2">
                   {[
-                    { id: 'JSecchi', role: 'Patron (Global)', pass: 'Meqoqo1998' },
-                    { id: 'ADupont', role: 'Employé', pass: 'ADupont' },
-                    { id: 'PBlanc', role: 'Particulier', pass: 'PBlanc' }
+                    { id: 'JSecchi', role: 'Patron', pass: 'Meqoqo1998' },
+                    { id: 'ADupont', role: 'Employé', pass: 'ADupont' }
                   ].map(acc => (
-                    <div 
-                      key={acc.id} 
-                      className="p-3 bg-[#F9F9F7] rounded-xl border border-primary/5 text-[10px] flex justify-between items-center cursor-pointer hover:bg-primary/5 transition-colors"
-                      onClick={() => { setLoginId(acc.id); setPassword(acc.pass); }}
-                    >
-                      <div className="flex flex-col">
-                        <span className="font-black text-primary uppercase">{acc.id}</span>
-                        <span className="opacity-50 text-[8px] font-bold">{acc.role}</span>
-                      </div>
-                      <span className="font-mono bg-white px-2 py-0.5 rounded border text-primary/70">{acc.pass}</span>
+                    <div key={acc.id} className="p-3 bg-muted/30 rounded-xl text-[10px] flex justify-between items-center cursor-pointer hover:bg-primary/10" onClick={() => { setLoginId(acc.id); setPassword(acc.pass); }}>
+                      <span className="font-black text-primary uppercase">{acc.id} ({acc.role})</span>
+                      <span className="font-mono bg-white px-2 py-0.5 rounded border">{acc.pass}</span>
                     </div>
                   ))}
                 </div>

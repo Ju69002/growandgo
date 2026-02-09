@@ -4,22 +4,33 @@
     "Company": {
       "title": "Company",
       "type": "object",
-      "description": "Represents a company (client) in the BusinessPilot SaaS application.",
+      "description": "Représente une entreprise cliente dans BusinessPilot.",
       "properties": {
         "id": { "type": "string" },
         "name": { "type": "string" },
-        "subscriptionStatus": { "type": "string" }
+        "subscriptionStatus": { "type": "string" },
+        "subscription": {
+          "type": "object",
+          "properties": {
+            "pricePerUser": { "type": "number" },
+            "activeUsersCount": { "type": "number" },
+            "totalMonthlyAmount": { "type": "number" },
+            "currency": { "type": "string" },
+            "status": { "type": "string", "enum": ["active", "overdue"] },
+            "nextBillingDate": { "type": "string", "format": "date-time" }
+          }
+        }
       },
       "required": ["id", "name", "subscriptionStatus"]
     },
     "User": {
       "title": "User",
       "type": "object",
-      "description": "Represents a user linked to Firebase Authentication.",
+      "description": "Utilisateur lié à une entreprise.",
       "properties": {
         "uid": { "type": "string" },
         "companyId": { "type": "string" },
-        "role": { "type": "string" },
+        "role": { "type": "string", "enum": ["super_admin", "admin", "employee"] },
         "name": { "type": "string" }
       },
       "required": ["uid", "companyId", "role"]
@@ -27,13 +38,13 @@
     "Invoice": {
       "title": "Invoice",
       "type": "object",
-      "description": "Represents a monthly invoice generated for an Espace user.",
+      "description": "Facture mensuelle générée pour le Patron.",
       "properties": {
         "userId": { "type": "string" },
         "companyId": { "type": "string" },
         "amount": { "type": "number" },
         "date": { "type": "string", "format": "date-time" },
-        "monthId": { "type": "string", "description": "Format YYYY-M" },
+        "monthId": { "type": "string" },
         "label": { "type": "string" },
         "status": { "type": "string" }
       },
@@ -41,24 +52,16 @@
     }
   },
   "auth": {
-    "providers": ["password", "anonymous"]
+    "providers": ["password"]
   },
   "firestore": {
     "/companies/{companyId}": {
       "schema": { "$ref": "#/backend/entities/Company" },
-      "description": "Company profiles."
+      "description": "Profils d'entreprises et abonnements."
     },
     "/users/{userId}": {
       "schema": { "$ref": "#/backend/entities/User" },
-      "description": "User accounts."
-    },
-    "/users/{userId}/invoices/{invoiceId}": {
-      "schema": { "$ref": "#/backend/entities/Invoice" },
-      "description": "Monthly invoices for a user."
-    },
-    "/users/{adminId}/received_invoices/{invoiceId}": {
-      "schema": { "$ref": "#/backend/entities/Invoice" },
-      "description": "Copies of all generated invoices received by the Admin."
+      "description": "Comptes utilisateurs."
     }
   }
 }

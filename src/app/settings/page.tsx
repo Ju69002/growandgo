@@ -101,8 +101,7 @@ export default function SettingsPage() {
     setIsSaving(true);
 
     try {
-      // 1. Essayer de synchroniser avec Firebase Auth (E-mail et Password réels)
-      // Note: Cela peut échouer si la session est trop ancienne (demande re-auth)
+      // 1. Essayer de synchroniser avec Firebase Auth
       try {
         if (userEmail.trim() !== user.email) {
           await updateEmail(user, userEmail.trim());
@@ -199,10 +198,9 @@ export default function SettingsPage() {
                   "font-black uppercase text-[10px] h-6 px-3",
                   profile?.companyId === 'admin_global' ? "bg-rose-950 text-white" : 
                   profile?.role === 'admin' ? "bg-white text-primary" : 
-                  profile?.role === 'particulier' ? "bg-amber-500 text-white" :
                   "bg-muted text-muted-foreground"
                 )}>
-                  {profile?.companyId === 'admin_global' ? 'ADMIN GLOBAL' : profile?.role === 'admin' ? 'PATRON' : profile?.role === 'particulier' ? 'PARTICULIER' : 'EMPLOYÉ'}
+                  {profile?.companyId === 'admin_global' ? 'ADMIN GLOBAL' : profile?.role === 'admin' ? 'PATRON' : 'EMPLOYÉ'}
                 </Badge>
               </div>
             </CardHeader>
@@ -305,4 +303,3 @@ export default function SettingsPage() {
     </DashboardLayout>
   );
 }
-
