@@ -54,6 +54,7 @@ interface SharedCalendarProps {
   companyId: string;
   isCompact?: boolean;
   defaultView?: '3day' | 'month';
+  hideViewSwitcher?: boolean;
 }
 
 function roundToNearest10(date: Date): Date {
@@ -73,7 +74,7 @@ function roundToNearest10(date: Date): Date {
   return roundedDate;
 }
 
-export function SharedCalendar({ companyId, isCompact = false, defaultView = '3day' }: SharedCalendarProps) {
+export function SharedCalendar({ companyId, isCompact = false, defaultView = '3day', hideViewSwitcher = false }: SharedCalendarProps) {
   const searchParams = useSearchParams();
   const [viewMode, setViewMode] = React.useState<'3day' | 'month'>(isCompact ? '3day' : defaultView);
   const [currentDate, setCurrentDate] = React.useState(new Date());
@@ -108,10 +109,9 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
     }
   }, [searchParams]);
 
-  // Plage horaire fixée de 8h à 20h pour éviter le scroll vertical dans le dashboard
   const startHour = 8;
   const endHour = 20;
-  const hourHeight = 42; // Hauteur optimisée pour tenir 12 créneaux sans scroll
+  const hourHeight = 48; // Calibré pour 8h-20h sans scroll dans le dashboard
 
   const eventsQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
@@ -290,9 +290,11 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
              </div>
              <div className="flex items-center gap-2">
                <Badge className="bg-primary/5 text-primary border-primary/20 h-9 px-4 font-black uppercase text-[11px] tracking-widest gap-2">
-                  <Users className="w-4 h-4" /> 8h - 20h
+                  <Users className="w-4 h-4" /> {startHour}h - {endHour}h
                </Badge>
-               <Button variant="ghost" size="sm" className="h-9 font-black uppercase text-[10px] tracking-widest" onClick={() => setViewMode('month')}>Vue Mois</Button>
+               {!hideViewSwitcher && (
+                 <Button variant="ghost" size="sm" className="h-9 font-black uppercase text-[10px] tracking-widest" onClick={() => setViewMode('month')}>Vue Mois</Button>
+               )}
              </div>
            </div>
            <div className="flex gap-3">

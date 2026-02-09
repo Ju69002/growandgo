@@ -73,7 +73,6 @@ export default function Home() {
     }
   }, [db, user, isSuperAdmin, allUsers]);
 
-  // Récupération des événements pour en déduire les tâches de la semaine
   const eventsQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
     const normalizedId = companyId.toLowerCase();
@@ -82,7 +81,6 @@ export default function Home() {
 
   const { data: allEvents, isLoading: isEventsLoading } = useCollection<CalendarEvent>(eventsQuery);
 
-  // Déduction des tâches à faire à partir de l'agenda (Lundi au Dimanche)
   const weeklyTasks = useMemo(() => {
     if (!allEvents) return [];
     const now = new Date();
@@ -132,7 +130,6 @@ export default function Home() {
           </div>
         </header>
 
-        {/* 1. Tâches de la semaine - DÉDUITES DE L'AGENDA (EN HAUT) */}
         <section className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-black uppercase tracking-tighter flex items-center gap-2">
@@ -188,7 +185,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* 2. Agenda - PLEINE LARGEUR SANS SCROLL (SOUS LES TÂCHES) */}
         <section className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-black uppercase tracking-tighter flex items-center gap-2">
@@ -203,7 +199,7 @@ export default function Home() {
           </div>
           <div className="h-[750px] border-none shadow-2xl rounded-[3rem] overflow-hidden bg-white border border-primary/5">
             {companyId ? (
-              <SharedCalendar companyId={companyId} isCompact={false} defaultView="3day" />
+              <SharedCalendar companyId={companyId} isCompact={false} defaultView="3day" hideViewSwitcher={true} />
             ) : (
               <div className="h-full flex items-center justify-center text-muted-foreground bg-muted/5">
                  <Loader2 className="w-8 h-8 animate-spin text-primary/20" />
@@ -212,7 +208,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* 3. Dossiers */}
         <section className="pt-10 border-t border-primary/10">
           <h2 className="text-2xl font-black uppercase tracking-tighter mb-8 flex items-center gap-3">
             <FileText className="w-7 h-7 text-primary" />

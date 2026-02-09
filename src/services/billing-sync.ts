@@ -37,7 +37,7 @@ export async function syncBillingTasks(db: Firestore, adminUid: string, allUsers
     const isActive = client.subscriptionStatus !== 'inactive';
     let checkDate = rangeStart;
     
-    // Décalage pour répartir les RDV dans la journée
+    // Décalage pour répartir les RDV dans la journée (9h à 17h)
     const hourOffset = index % 8; 
 
     while (isBefore(checkDate, rangeEnd)) {
