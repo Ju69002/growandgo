@@ -1,7 +1,7 @@
 
 'use client';
 
-import { Search, Bell, UserCircle, LogOut, Clock, AlertCircle, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { Search, Bell, UserCircle, LogOut, Clock, AlertCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { SidebarTrigger } from '@/components/ui/sidebar';
@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useFirestore, useUser, useDoc, useMemoFirebase, useCollection, useAuth } from '@/firebase';
 import { doc, collection, query, where, limit } from 'firebase/firestore';
-import { User, BusinessDocument, DocumentStatus } from '@/lib/types';
+import { User, BusinessDocument } from '@/lib/types';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -44,7 +44,6 @@ export function Header() {
 
   const { data: rawNotifications } = useCollection<BusinessDocument>(notificationsQuery);
   
-  // Filtre strict : on retire les tâches de facturation des notifications
   const notifications = rawNotifications?.filter(n => !n.isBillingTask) || [];
   const unreadCount = notifications.length;
 
@@ -98,16 +97,19 @@ export function Header() {
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="rounded-full h-9 w-9"><UserCircle className="h-6 w-6" /></Button>
+            <Button variant="ghost" size="icon" className="rounded-full h-9 w-9">
+              <UserCircle className="h-6 w-6" />
+            </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56 shadow-2xl border-none rounded-2xl p-2">
-            <DropdownMenuLabel className="px-4 py-3"><span className="font-bold">{profile?.name || 'Mon Compte'}</span></DropdownMenuLabel>
+            <DropdownMenuLabel className="px-4 py-3">
+              <span className="font-bold">{profile?.name || profile?.loginId || 'Mon Compte'}</span>
+            </DropdownMenuLabel>
             <DropdownMenuSeparator className="bg-muted/50" />
-            <DropdownMenuItem 
-              onClick={() => router.push('/settings')}
-              className="rounded-xl cursor-pointer"
-            >
-              Paramètres
+            <DropdownMenuItem asChild className="rounded-xl cursor-pointer">
+              <Link href="/settings" className="w-full h-full flex items-center">
+                Paramètres
+              </Link>
             </DropdownMenuItem>
             <DropdownMenuItem className="text-destructive font-bold cursor-pointer" onClick={handleLogout}>
               <LogOut className="w-4 h-4 mr-2" />

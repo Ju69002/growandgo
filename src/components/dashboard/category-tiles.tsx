@@ -4,7 +4,7 @@
 import * as React from 'react';
 import { CategoryTile } from './category-tile';
 import { 
-  CreditCard, 
+   CreditCard, 
   FileText, 
   Users, 
   Calendar, 
@@ -19,7 +19,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
-import { collection, query, where, doc } from 'firebase/firestore';
+import { collection, query, doc } from 'firebase/firestore';
 import { Category, User } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -146,7 +146,7 @@ export function CategoryTiles({ profile }: CategoryTilesProps) {
     );
   }
 
-  const isAdminOrSuper = profile.role === 'admin' || profile.role === 'super_admin' || profile.role === 'particulier';
+  const isAdminOrSuper = profile.role === 'admin' || profile.companyId === 'admin_global' || profile.role === 'super_admin' || profile.role === 'particulier';
 
   const displayableCategories = (categories || []).filter(cat => {
     if (cat.id === 'agenda') return false; 
