@@ -57,7 +57,6 @@ export function AppSidebar() {
   const isSuperAdmin = profile?.role === 'super_admin' || profile?.companyId === 'admin_global';
   const isParticulier = profile?.role === 'particulier';
   
-  // Nom d'affichage priorisant le Nom de l'Entreprise
   let displayName = company?.name || profile?.companyName || profile?.companyId || "GROW&GO";
   if (isParticulier) displayName = "Mon Espace Privé";
 
@@ -82,9 +81,9 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon" className="border-r-0 z-50">
-      <SidebarHeader className="h-20 flex items-center px-4 bg-sidebar">
-        <div className="flex items-center gap-3 font-bold text-sidebar-foreground">
-          <div className="relative w-12 h-12 overflow-hidden rounded-lg border border-white/20 shadow-xl bg-white">
+      <SidebarHeader className="h-20 flex items-center justify-center group-data-[collapsible=icon]:p-2 p-4 bg-sidebar">
+        <div className="flex items-center gap-3 font-bold text-sidebar-foreground w-full">
+          <div className="relative w-10 h-10 group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:h-8 overflow-hidden rounded-lg border border-white/20 shadow-xl bg-white shrink-0 mx-auto">
             <Image 
               src={logo?.imageUrl || "https://picsum.photos/seed/growgo/100/100"} 
               alt="Logo" 
@@ -92,7 +91,7 @@ export function AppSidebar() {
               className="object-cover p-0.5"
             />
           </div>
-          <div className="flex flex-col group-data-[collapsible=icon]:hidden max-w-[160px]">
+          <div className="flex flex-col group-data-[collapsible=icon]:hidden max-w-[160px] flex-1">
             <span className="text-sm font-black uppercase leading-tight tracking-tighter text-white truncate">
               {displayName}
             </span>
@@ -104,7 +103,7 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent className="bg-sidebar">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-white/50 font-bold uppercase text-[10px] tracking-widest px-4 mb-2">Principal</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-white/50 font-bold uppercase text-[10px] tracking-widest px-4 mb-2 group-data-[collapsible=icon]:hidden">Principal</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {mainItems.map((item) => {
@@ -116,15 +115,17 @@ export function AppSidebar() {
                       tooltip={item.title} 
                       isActive={active}
                       className={cn(
-                        "transition-all duration-200 px-4 h-11 rounded-xl mx-2 w-[calc(100%-1rem)] font-bold",
+                        "transition-all duration-200 h-11 rounded-xl font-bold",
+                        "group-data-[collapsible=icon]:!mx-auto group-data-[collapsible=icon]:!w-8",
+                        "mx-2 w-[calc(100%-1rem)] px-4",
                         active 
                           ? "bg-white text-primary shadow-lg hover:bg-white hover:text-primary" 
                           : "text-white hover:bg-white/10"
                       )}
                     >
                       <Link href={item.url}>
-                        <item.icon className={cn("w-5 h-5", active ? "text-primary" : "text-white")} />
-                        <span className={cn(active ? "text-primary" : "text-white")}>{item.title}</span>
+                        <item.icon className={cn("w-5 h-5 shrink-0", active ? "text-primary" : "text-white")} />
+                        <span className={cn("group-data-[collapsible=icon]:hidden", active ? "text-primary" : "text-white")}>{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -136,7 +137,7 @@ export function AppSidebar() {
 
         {isSuperAdmin && (
           <SidebarGroup>
-            <SidebarGroupLabel className="text-white/50 font-bold uppercase text-[10px] tracking-widest px-4 mb-2">Administration</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-white/50 font-bold uppercase text-[10px] tracking-widest px-4 mb-2 group-data-[collapsible=icon]:hidden">Administration</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 <SidebarMenuItem>
@@ -145,15 +146,17 @@ export function AppSidebar() {
                     tooltip="Gestion des Comptes" 
                     isActive={isItemActive('/accounts')}
                     className={cn(
-                      "transition-all duration-200 px-4 h-11 rounded-xl mx-2 w-[calc(100%-1rem)] font-bold",
+                      "transition-all duration-200 h-11 rounded-xl font-bold",
+                      "group-data-[collapsible=icon]:!mx-auto group-data-[collapsible=icon]:!w-8",
+                      "mx-2 w-[calc(100%-1rem)] px-4",
                       isItemActive('/accounts') 
                         ? "bg-white text-primary shadow-lg hover:bg-white hover:text-primary" 
                         : "text-white hover:bg-white/10"
                     )}
                   >
                     <Link href="/accounts">
-                      <UserCheck className={cn("w-5 h-5", isItemActive('/accounts') ? "text-primary" : "text-white")} />
-                      <span className={cn(isItemActive('/accounts') ? "text-primary" : "text-white")}>Répertoire</span>
+                      <UserCheck className={cn("w-5 h-5 shrink-0", isItemActive('/accounts') ? "text-primary" : "text-white")} />
+                      <span className={cn("group-data-[collapsible=icon]:hidden", isItemActive('/accounts') ? "text-primary" : "text-white")}>Répertoire</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -163,7 +166,7 @@ export function AppSidebar() {
         )}
 
         <SidebarGroup>
-          <SidebarGroupLabel className="text-white/50 font-bold uppercase text-[10px] tracking-widest px-4 mb-2">Configuration</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-white/50 font-bold uppercase text-[10px] tracking-widest px-4 mb-2 group-data-[collapsible=icon]:hidden">Configuration</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {configItems.map((item) => {
@@ -175,15 +178,17 @@ export function AppSidebar() {
                       tooltip={item.title} 
                       isActive={active}
                       className={cn(
-                        "transition-all duration-200 px-4 h-11 rounded-xl mx-2 w-[calc(100%-1rem)] font-bold",
+                        "transition-all duration-200 h-11 rounded-xl font-bold",
+                        "group-data-[collapsible=icon]:!mx-auto group-data-[collapsible=icon]:!w-8",
+                        "mx-2 w-[calc(100%-1rem)] px-4",
                         active 
                           ? "bg-white text-primary shadow-lg hover:bg-white hover:text-primary" 
                           : "text-white hover:bg-white/10"
                       )}
                     >
                       <Link href={item.url}>
-                        <item.icon className={cn("w-5 h-5", active ? "text-primary" : "text-white")} />
-                        <span className={cn(active ? "text-primary" : "text-white")}>{item.title}</span>
+                        <item.icon className={cn("w-5 h-5 shrink-0", active ? "text-primary" : "text-white")} />
+                        <span className={cn("group-data-[collapsible=icon]:hidden", active ? "text-primary" : "text-white")}>{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -200,15 +205,17 @@ export function AppSidebar() {
               asChild 
               isActive={isItemActive('/settings')}
               className={cn(
-                "transition-all duration-200 px-4 h-11 rounded-xl mx-2 w-[calc(100%-1rem)] font-bold",
+                "transition-all duration-200 h-11 rounded-xl font-bold",
+                "group-data-[collapsible=icon]:!mx-auto group-data-[collapsible=icon]:!w-8",
+                "mx-2 w-[calc(100%-1rem)] px-4",
                 isItemActive('/settings') 
                   ? "bg-white text-primary shadow-lg hover:bg-white hover:text-primary" 
                   : "text-white hover:bg-white/10"
               )}
             >
               <Link href="/settings">
-                <Settings className={cn("w-5 h-5", isItemActive('/settings') ? "text-primary" : "text-white")} />
-                <span className={cn(isItemActive('/settings') ? "text-primary" : "text-white")}>Paramètres</span>
+                <Settings className={cn("w-5 h-5 shrink-0", isItemActive('/settings') ? "text-primary" : "text-white")} />
+                <span className={cn("group-data-[collapsible=icon]:hidden", isItemActive('/settings') ? "text-primary" : "text-white")}>Paramètres</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

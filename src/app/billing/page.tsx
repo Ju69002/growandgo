@@ -65,7 +65,7 @@ export default function BillingPage() {
   }, [db, user, isSuperAdmin, allUsers]);
 
   const getPriceData = (userData: User | null) => {
-    if (!userData) return { price: "0,00", label: "CHARGEMENT..." };
+    if (!userData || !userData.role) return { price: "0,00", label: "CHARGEMENT..." };
     
     if (userData.companyId === 'admin_global' || userData.role === 'super_admin') {
       return { price: "0,00", label: "ADMIN" };
@@ -115,6 +115,7 @@ export default function BillingPage() {
     const map = new Map();
     allUsers.forEach(u => {
       const id = (u.loginId_lower || u.loginId || '').toLowerCase();
+      // On masque l'admin global de la liste de facturation
       if (id && !map.has(id) && u.companyId !== 'admin_global' && u.role !== 'super_admin') {
         map.set(id, u);
       }

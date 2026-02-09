@@ -22,7 +22,7 @@ service cloud.firestore {
     // Gestion des profils utilisateurs
     match /users/{userId} {
       allow read: if true; 
-      allow write: if isSignedIn(); // Permissif pour permettre la synchro multi-docs de l'admin
+      allow write: if isSignedIn() || isGlobalAdmin(); 
       
       match /received_invoices/{invoiceId} {
         allow read: if isOwner(userId) || isGlobalAdmin();
@@ -33,25 +33,25 @@ service cloud.firestore {
     // Gestion des entreprises et de leurs sous-collections
     match /companies/{companyId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow write: if isSignedIn() || isGlobalAdmin();
 
       match /events/{eventId} {
         allow read: if isSignedIn();
-        allow write: if isSignedIn();
+        allow write: if isSignedIn() || isGlobalAdmin();
       }
 
       match /documents/{docId} {
         allow read: if isSignedIn();
-        allow write: if isSignedIn();
+        allow write: if isSignedIn() || isGlobalAdmin();
       }
 
       match /categories/{catId} {
         allow read: if isSignedIn();
-        allow write: if isSignedIn();
+        allow write: if isSignedIn() || isGlobalAdmin();
       }
 
       match /{allSubcollections=**} {
-        allow read, write: if isSignedIn();
+        allow read, write: if isSignedIn() || isGlobalAdmin();
       }
     }
 
