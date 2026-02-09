@@ -49,11 +49,11 @@ export async function syncBillingTasks(db: Firestore, adminUid: string, allUsers
       const eventRef = doc(db, 'companies', adminCompanyId, 'events', currentEventId);
 
       if (isActive) {
-        // On place le RDV au jour 8 du mois concerné
+        // On place le RDV au jour 8 du mois concerné pour les archives
         let eventDate = new Date(checkDate.getFullYear(), checkDate.getMonth(), 8);
         
-        // Si c'est le mois en cours, on s'assure qu'il apparaît dans la semaine pour le test
-        if (isSameDay(checkDate, now) || (checkDate.getMonth() === now.getMonth() && checkDate.getFullYear() === now.getFullYear())) {
+        // Si c'est le mois en cours, on s'assure qu'il apparaît dans la semaine pour le test (le 9 fév par exemple)
+        if (checkDate.getMonth() === now.getMonth() && checkDate.getFullYear() === now.getFullYear()) {
            eventDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         }
         

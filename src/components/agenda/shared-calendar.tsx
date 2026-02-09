@@ -10,8 +10,7 @@ import {
   Plus, 
   Trash2,
   DownloadCloud,
-  CalendarDays,
-  Users
+  CalendarDays
 } from 'lucide-react';
 import { 
   useFirestore, 
@@ -47,7 +46,6 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { signInWithGoogleCalendar } from '@/firebase/non-blocking-login';
 import { getSyncTimeRange, fetchGoogleEvents, mapGoogleEvent, syncEventToFirestore } from '@/services/calendar-sync';
-import { Badge } from '@/components/ui/badge';
 import { useSearchParams } from 'next/navigation';
 
 interface SharedCalendarProps {
@@ -111,7 +109,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
 
   const startHour = 8;
   const endHour = 20;
-  const hourHeight = 48; // Calibré pour 8h-20h sans scroll dans le dashboard
+  const hourHeight = 42; // Calibré pour 8h-20h (12 créneaux) dans 750px sans scroll
 
   const eventsQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
@@ -278,7 +276,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
   const render3DayView = () => {
     const days = [currentDate, addDays(currentDate, 1), addDays(currentDate, 2)];
     const hours = Array.from({ length: endHour - startHour + 1 }, (_, i) => startHour + i);
-    const totalHeight = hours.length * hourHeight;
+    const totalHeight = (hours.length - 1) * hourHeight;
 
     return (
       <div className={cn("flex flex-col h-full bg-card overflow-hidden animate-in fade-in duration-300", !isCompact && "p-6")}>
@@ -288,14 +286,9 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
                <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setCurrentDate(addDays(currentDate, -1))}><ChevronLeft className="w-5 h-5" /></Button>
                <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setCurrentDate(addDays(currentDate, 1))}><ChevronRight className="w-5 h-5" /></Button>
              </div>
-             <div className="flex items-center gap-2">
-               <Badge className="bg-primary/5 text-primary border-primary/20 h-9 px-4 font-black uppercase text-[11px] tracking-widest gap-2">
-                  <Users className="w-4 h-4" /> {startHour}h - {endHour}h
-               </Badge>
-               {!hideViewSwitcher && (
-                 <Button variant="ghost" size="sm" className="h-9 font-black uppercase text-[10px] tracking-widest" onClick={() => setViewMode('month')}>Vue Mois</Button>
-               )}
-             </div>
+             {!hideViewSwitcher && (
+               <Button variant="ghost" size="sm" className="h-9 font-black uppercase text-[10px] tracking-widest" onClick={() => setViewMode('month')}>Vue Mois</Button>
+             )}
            </div>
            <div className="flex gap-3">
               <Button variant="outline" size="sm" className="h-10 text-[11px] font-black uppercase px-4 gap-2 rounded-xl" onClick={handleImportFromGoogle} disabled={isSyncing !== 'idle'}>
@@ -308,7 +301,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
            </div>
         </div>
 
-        <div className="flex mb-2 flex-shrink-0">
+        <div className="flex mb-4 flex-shrink-0">
           <div className="w-16" />
           <div className="flex-1 grid grid-cols-3 gap-6">
             {days.map((day, idx) => (
@@ -322,10 +315,10 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
 
         <div className="relative flex-1 overflow-hidden">
           <div className="flex relative" style={{ height: `${totalHeight}px` }}>
-            <div className="w-16 flex-shrink-0 flex flex-col border-r bg-muted/5">
-              {hours.map((h) => (
-                <div key={h} className="relative flex items-center justify-center border-b border-primary/5 last:border-0" style={{ height: `${hourHeight}px` }}>
-                  <span className="font-black text-primary/30 text-[10px]">{h}:00</span>
+            <div className="w-16 flex-shrink-0 flex flex-col relative bg-muted/5 border-r">
+              {hours.map((h, i) => (
+                <div key={h} className="absolute left-0 right-0 flex items-center justify-center" style={{ top: `${i * hourHeight}px`, height: '0px' }}>
+                  <span className="font-black text-primary/30 text-[10px] bg-background px-1 rounded z-10">{h}:00</span>
                 </div>
               ))}
             </div>
@@ -335,13 +328,13 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
                 const dayEvents = getEventsForDay(day);
                 return (
                   <div key={idx} className={cn("relative h-full border-r border-primary/5 last:border-r-0", isToday(day) && "bg-primary/[0.03]")}>
-                    {hours.map((h) => <div key={h} className="border-b border-primary/5 last:border-0 w-full" style={{ height: `${hourHeight}px` }} />)}
+                    {hours.slice(0, -1).map((h) => <div key={h} className="border-b border-primary/5 last:border-0 w-full" style={{ height: `${hourHeight}px` }} />)}
                     {dayEvents.map(event => {
                       const start = parseISO(event.debut);
                       const end = parseISO(event.fin);
                       const eventStartHour = start.getHours();
                       const duration = differenceInMinutes(end, start);
-                      if (eventStartHour < startHour || eventStartHour > endHour) return null;
+                      if (eventStartHour < startHour || eventStartHour >= endHour) return null;
 
                       const isCurrentDragged = draggedEventId === event.id;
                       const topPos = (eventStartHour - startHour) * hourHeight + (start.getMinutes() / 60 * hourHeight);

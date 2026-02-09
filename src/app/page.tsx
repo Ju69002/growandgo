@@ -9,14 +9,14 @@ import { User, CalendarEvent } from '@/lib/types';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { CategoryTiles } from '@/components/dashboard/category-tiles';
 import { 
-  FileText, 
   ChevronRight, 
   CheckCircle2,
   Maximize2,
   Zap,
   ListTodo,
   Calendar as CalendarIcon,
-  Loader2
+  Loader2,
+  FileText
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -159,7 +159,7 @@ export default function Home() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-lg font-bold leading-tight line-clamp-1 group-hover:text-primary transition-colors">
-                            {task.titre}
+                            {task.titre.replace('Facture - ', 'Générer facture pour ')}
                           </p>
                           <div className="flex items-center justify-between mt-2">
                             <p className="text-[11px] font-black uppercase text-muted-foreground opacity-60 tracking-wider">
