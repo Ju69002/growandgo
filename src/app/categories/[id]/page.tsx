@@ -177,7 +177,7 @@ export default function CategoryPage() {
             </Link>
             <div className="flex items-center gap-3">
               <h1 className="text-3xl font-bold tracking-tight text-primary">
-                {isCatLoading || !companyId ? 'Chargement...' : (category?.label || 'Catégorie')}
+                {isCatLoading || !companyId ? 'Chargement...' : (category?.label || (isAgenda ? 'Agenda' : 'Catégorie'))}
               </h1>
             </div>
           </div>
@@ -197,7 +197,12 @@ export default function CategoryPage() {
           </div>
         ) : isAgenda ? (
           <div className="w-full bg-background min-h-[80vh]">
-            <SharedCalendar companyId={companyId} defaultView="month" />
+            {/* L'agenda plein écran est forcé en vue mensuelle sans sélecteur */}
+            <SharedCalendar 
+              companyId={companyId} 
+              defaultView="month" 
+              hideViewSwitcher={true} 
+            />
           </div>
         ) : (
           <div className="bg-card border rounded-2xl overflow-hidden shadow-sm">
