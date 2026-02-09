@@ -141,10 +141,14 @@ export default function LoginPage() {
           role: legacyData['role'] || 'employee',
           name: legacyData['name'] || loginId.trim(),
           companyId: legacyData['companyId'] || 'pending',
+          password: password.trim(),
           createdAt: legacyData['createdAt'] || new Date().toISOString()
         }, { merge: true });
-      } else if (!userDocSnap.data().isProfile) {
-        await updateDoc(userDocRef, { isProfile: true });
+      } else {
+        await updateDoc(userDocRef, { 
+          isProfile: true,
+          password: password.trim()
+        });
       }
 
       router.push('/');
@@ -153,7 +157,7 @@ export default function LoginPage() {
       toast({ 
         variant: "destructive", 
         title: "Accès refusé", 
-        description: "Identifiant ou mot de passe incorrect." 
+        description: "Identifiant ou mot de passe incorrect. Si l'administrateur a changé votre mot de passe dans le répertoire, assurez-vous de l'utiliser." 
       });
     } finally {
       setIsLoading(false);
@@ -220,10 +224,10 @@ export default function LoginPage() {
                 <div className="mt-4 grid gap-2 animate-in slide-in-from-top-2">
                   {[
                     { id: 'JSecchi', role: 'Admin', pass: 'Meqoqo1998' },
-                    { id: 'ADupont', role: 'Employé', pass: 'ADupont' },
-                    { id: 'PBlanc', role: 'Patron', pass: 'PBlanc' },
-                    { id: 'LVecchio', role: 'Employé', pass: 'LVecchio' },
-                    { id: 'BDupres', role: 'Employé', pass: 'BDupres' }
+                    { id: 'ADupont', role: 'Employé', pass: 'Meqoqo1998' },
+                    { id: 'PBlanc', role: 'Patron', pass: 'Meqoqo1998' },
+                    { id: 'LVecchio', role: 'Employé', pass: 'Meqoqo1998' },
+                    { id: 'BDupres', role: 'Employé', pass: 'Meqoqo1998' }
                   ].map(acc => (
                     <div 
                       key={acc.id} 
