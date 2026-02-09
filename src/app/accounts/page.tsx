@@ -95,6 +95,7 @@ export default function AccountsPage() {
   const { data: myProfile, isLoading: isProfileLoading } = useDoc<User>(userProfileRef);
   const isGlobalAdmin = myProfile?.companyId === 'admin_global' || myProfile?.role === 'super_admin';
 
+  // On ne récupère que les profils officiels
   const profilesQuery = useMemoFirebase(() => {
     if (!db || !isGlobalAdmin) return null;
     return query(collection(db, 'users'), where('isProfile', '==', true));
@@ -102,33 +103,49 @@ export default function AccountsPage() {
 
   const { data: allProfiles, isLoading: isUsersLoading } = useCollection<User>(profilesQuery);
 
+  useEffect(() => {
+    if (allProfiles && isGlobalAdmin) {
+      console.log("--- DIAGNOSTIC COMPTES RÉELS (isProfile: true) ---");
+      allProfiles.forEach(u => {
+        if (u.id !== u.uid) {
+          console.warn(`[ID ALÉATOIRE] User: ${u.loginId}, DocID: ${u.id}, UID: ${u.uid}. Prévoyez de supprimer ce document après migration.`);
+        }
+      });
+    }
+  }, [allProfiles, isGlobalAdmin]);
+
   const uniqueUsers = useMemo(() => {
     if (!allProfiles) return [];
     
-    const realProfiles = allProfiles.filter(u => u.uid === u.id || u.isProfile);
     const companyCounts = new Map<string, number>();
     const companyPatrons = new Map<string, string>();
 
-    realProfiles.forEach(u => {
+    // Premier passage : On compte et on identifie les patrons
+    allProfiles.forEach(u => {
       const cId = u.companyId?.toLowerCase().trim();
       if (cId) {
         companyCounts.set(cId, (companyCounts.get(cId) || 0) + 1);
-        if (u.role === 'admin') companyPatrons.set(cId, u.name || u.loginId);
+        if (u.role === 'admin') {
+          companyPatrons.set(cId, u.name || u.loginId);
+        }
       }
     });
 
-    return realProfiles.map(u => {
+    // Second passage : On prépare l'affichage
+    return allProfiles.map(u => {
       const cId = u.companyId?.toLowerCase().trim();
       const userCount = companyCounts.get(cId) || 0;
       const patronName = companyPatrons.get(cId) || "son patron";
       const isInternalAdmin = u.companyId === 'admin_global';
-      const calculatedAmount = isInternalAdmin ? 0 : (userCount * 39.99);
+      
+      // Seul le patron paie, et l'admin global paie 0
+      const totalAmount = isInternalAdmin ? 0 : (userCount * 39.99);
 
       return { 
         ...u, 
         companyName: isInternalAdmin ? "Grow&Go Admin" : (u.companyName || u.companyId),
         displaySubscription: {
-          totalAmount: calculatedAmount,
+          totalAmount: totalAmount,
           activeUsers: userCount,
           patronName: patronName
         }
@@ -143,7 +160,11 @@ export default function AccountsPage() {
         u.companyName?.toLowerCase().includes(search)
       );
     })
-    .sort((a, b) => (a.companyId === 'admin_global' ? -1 : 1));
+    .sort((a, b) => {
+      if (a.companyId === 'admin_global') return -1;
+      if (b.companyId === 'admin_global') return 1;
+      return (a.companyId || '').localeCompare(b.companyId || '');
+    });
   }, [allProfiles, searchQuery]);
 
   const handleSendResetEmail = async (email: string) => {
@@ -152,14 +173,18 @@ export default function AccountsPage() {
       await sendPasswordResetEmail(auth, email);
       toast({ title: "E-mail envoyé", description: `Lien de réinitialisation envoyé à ${email}.` });
     } catch (e: any) {
-      toast({ variant: "destructive", title: "Erreur", description: "L'utilisateur n'existe pas encore dans Firebase Auth ou l'e-mail est invalide." });
+      toast({ 
+        variant: "destructive", 
+        title: "Erreur d'envoi", 
+        description: "L'adresse e-mail n'est pas encore enregistrée dans Firebase Auth. L'utilisateur doit d'abord se connecter une fois ou l'admin doit synchroniser son e-mail." 
+      });
     }
   };
 
   const handleDeleteUser = () => {
     if (!db || !deletingUser) return;
     deleteDocumentNonBlocking(doc(db, 'users', deletingUser.id));
-    toast({ title: "Compte supprimé" });
+    toast({ title: "Compte supprimé de la base" });
     setDeletingUser(null);
   };
 
@@ -179,7 +204,7 @@ export default function AccountsPage() {
     updateDocumentNonBlocking(doc(db, 'users', editingPassUser.id), { 
       password: newPassword.trim()
     });
-    toast({ title: "Mémo mis à jour", description: "Le mot de passe Firestore est synchronisé avec le mode dev." });
+    toast({ title: "Mot de passe Mémo mis à jour" });
     setEditingPassUser(null);
   };
 
@@ -198,7 +223,7 @@ export default function AccountsPage() {
               <UserCog className="w-8 h-8" />
               Répertoire & Abonnements
             </h1>
-            <p className="text-muted-foreground font-medium text-sm">Gestion globale des accès et facturations.</p>
+            <p className="text-muted-foreground font-medium text-sm italic">Affichage exclusif des profils officiels (isProfile: true).</p>
           </div>
           <div className="relative">
             <Search className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
@@ -218,7 +243,7 @@ export default function AccountsPage() {
                 <TableRow className="hover:bg-primary/95 border-none">
                   <TableHead className="pl-8 py-4 text-[10px] font-black uppercase tracking-widest text-primary-foreground/70">Utilisateur / ID</TableHead>
                   <TableHead className="text-[10px] font-black uppercase tracking-widest text-primary-foreground/70">Entreprise</TableHead>
-                  <TableHead className="text-[10px] font-black uppercase tracking-widest text-primary-foreground/70">Abonnement</TableHead>
+                  <TableHead className="text-[10px] font-black uppercase tracking-widest text-primary-foreground/70">Abonnement Mensuel</TableHead>
                   <TableHead className="text-[10px] font-black uppercase tracking-widest text-primary-foreground/70">Mot de passe</TableHead>
                   <TableHead className="text-[10px] font-black uppercase tracking-widest text-primary-foreground/70 text-center">Rôle</TableHead>
                   <TableHead className="text-right pr-8 text-[10px] font-black uppercase tracking-widest text-primary-foreground/70">Actions</TableHead>
@@ -241,14 +266,17 @@ export default function AccountsPage() {
                     </TableCell>
                     <TableCell className="py-4">
                       {u.companyId === 'admin_global' ? (
-                        <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 font-bold text-[9px]">OFFERT</Badge>
+                        <Badge variant="secondary" className="bg-rose-950 text-white font-bold text-[9px] border-none">OFFERT (ADMIN)</Badge>
                       ) : u.role === 'admin' ? (
                         <div className="flex flex-col">
-                          <span className="text-xs font-black text-primary">{u.displaySubscription.totalAmount.toFixed(2)}€</span>
-                          <span className="text-[9px] text-muted-foreground">39,99€ × {u.displaySubscription.activeUsers} pers.</span>
+                          <span className="text-xs font-black text-primary">{u.displaySubscription.totalAmount.toFixed(2)}€ / mois</span>
+                          <span className="text-[9px] text-muted-foreground font-bold">39,99€ × {u.displaySubscription.activeUsers} collaborateurs</span>
                         </div>
                       ) : (
-                        <span className="text-[10px] font-bold text-muted-foreground">Payé par {u.displaySubscription.patronName}</span>
+                        <div className="flex flex-col">
+                          <span className="text-[9px] font-bold text-muted-foreground italic">Inclus dans l'abonnement</span>
+                          <span className="text-[9px] font-black text-primary/60 uppercase">Payé par {u.displaySubscription.patronName}</span>
+                        </div>
                       )}
                     </TableCell>
                     <TableCell className="py-4">
@@ -268,17 +296,17 @@ export default function AccountsPage() {
                     </TableCell>
                     <TableCell className="text-center py-4">
                       <Badge className={cn(
-                        "text-[10px] font-black uppercase px-3 h-6",
-                        u.companyId === 'admin_global' ? "bg-rose-950" : (u.role === 'admin' ? "bg-primary" : "bg-muted text-muted-foreground")
+                        "text-[10px] font-black uppercase px-3 h-6 border-none",
+                        u.companyId === 'admin_global' ? "bg-rose-950 text-white" : (u.role === 'admin' ? "bg-primary text-white" : "bg-muted text-muted-foreground")
                       )}>
                         {u.companyId === 'admin_global' ? 'ADMIN' : (u.role === 'admin' ? 'PATRON' : 'EMPLOYÉ')}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right pr-8 py-4">
                       <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" title="Lien de reset" onClick={() => handleSendResetEmail(u.email)}><Mail className="w-4 h-4" /></Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" title="Modifier mot de passe" onClick={() => { setEditingPassUser(u); setNewPassword(u.password || ''); }}><Key className="w-4 h-4" /></Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" title="Changer rôle" onClick={() => { setEditingRoleUser(u); setNewRole(u.role); }}><ShieldCheck className="w-4 h-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" title="Réinitialiser" onClick={() => handleSendResetEmail(u.email)}><Mail className="w-4 h-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" title="Mot de passe" onClick={() => { setEditingPassUser(u); setNewPassword(u.password || ''); }}><Key className="w-4 h-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" title="Rôle" onClick={() => { setEditingRoleUser(u); setNewRole(u.role); }}><ShieldCheck className="w-4 h-4" /></Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-600" title="Supprimer" onClick={() => setDeletingUser(u)}><Trash2 className="w-4 h-4" /></Button>
                       </div>
                     </TableCell>
@@ -297,9 +325,9 @@ export default function AccountsPage() {
             <div className="bg-amber-50 p-4 rounded-xl border border-amber-200 flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
               <div className="space-y-1">
-                <p className="text-xs font-bold text-amber-800">Information Importante</p>
+                <p className="text-xs font-bold text-amber-800">Note de synchronisation</p>
                 <p className="text-[10px] text-amber-700 leading-relaxed">
-                  Modifier ce champ met à jour l'affichage et le mode développement. Pour changer l'accès réel, l'utilisateur doit utiliser un lien de réinitialisation.
+                  Cette modification met à jour l'affichage et le mode développement. Pour changer l'accès de sécurité réel, envoyez un lien de réinitialisation via l'icône e-mail.
                 </p>
               </div>
             </div>
@@ -330,7 +358,11 @@ export default function AccountsPage() {
 
       <AlertDialog open={!!deletingUser} onOpenChange={(open) => !open && setDeletingUser(null)}>
         <AlertDialogContent className="rounded-[2rem]">
-          <AlertDialogHeader><AlertDialogTitle>Supprimer le compte ?</AlertDialogTitle></AlertDialogHeader>
+          <AlertDialogHeader><AlertDialogTitle>Supprimer définitivement le profil ?</AlertDialogTitle></AlertDialogHeader>
+          <div className="bg-rose-50 p-4 rounded-xl border border-rose-100 mb-4">
+            <p className="text-xs font-bold text-rose-800">Attention</p>
+            <p className="text-[10px] text-rose-700">Cette action supprimera le document Firestore. L'accès Firebase Auth restera actif sauf si vous le désactivez manuellement.</p>
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel className="rounded-full">Annuler</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteUser} className="bg-rose-600 rounded-full">Supprimer</AlertDialogAction>
