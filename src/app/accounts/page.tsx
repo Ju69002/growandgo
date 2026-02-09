@@ -106,15 +106,17 @@ export default function AccountsPage() {
   const uniqueUsers = useMemo(() => {
     if (!allProfiles) return [];
     
-    // Compter le nombre d'utilisateurs par entreprise ID
+    // Normalisation et comptage robuste par entreprise
     const companyCounts = new Map<string, number>();
     const companyPatrons = new Map<string, string>();
 
     allProfiles.forEach(u => {
-      if (u.companyId && u.isProfile) {
-        companyCounts.set(u.companyId, (companyCounts.get(u.companyId) || 0) + 1);
+      const cId = u.companyId?.toLowerCase().trim();
+      if (cId) {
+        // On compte tout le monde (Patron + Employés) pour la facturation globale
+        companyCounts.set(cId, (companyCounts.get(cId) || 0) + 1);
         if (u.role === 'admin') {
-          companyPatrons.set(u.companyId, u.name || u.loginId);
+          companyPatrons.set(cId, u.name || u.loginId);
         }
       }
     });
@@ -132,11 +134,12 @@ export default function AccountsPage() {
       const baseDoc = profileDoc || docs[0];
       const bestName = docs.find(d => d.name && d.name.toLowerCase() !== id.toLowerCase())?.name || baseDoc.name || baseDoc.loginId;
       
-      const companyInfo = allCompanies?.find(c => c.id === baseDoc.companyId);
-      const userCount = companyCounts.get(baseDoc.companyId) || 1;
-      const patronName = companyPatrons.get(baseDoc.companyId) || "son patron";
+      const cId = baseDoc.companyId?.toLowerCase().trim();
+      const companyInfo = allCompanies?.find(c => c.id.toLowerCase() === cId);
+      const userCount = companyCounts.get(cId) || 1;
+      const patronName = companyPatrons.get(cId) || "son patron";
       
-      const calculatedAmount = baseDoc.companyId === 'admin_global' ? 0 : (userCount * 39.99);
+      const calculatedAmount = cId === 'admin_global' ? 0 : (userCount * 39.99);
 
       return { 
         ...baseDoc, 
