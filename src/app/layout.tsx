@@ -24,7 +24,6 @@ function ThemeInjector({ children }: { children: React.ReactNode }) {
     setMounted(true);
   }, []);
 
-  // Sécurité : Redirection forcée vers /login si non connecté
   useEffect(() => {
     if (mounted && !isUserLoading && !user && pathname !== '/login') {
       router.push('/login');
@@ -50,10 +49,10 @@ function ThemeInjector({ children }: { children: React.ReactNode }) {
     return <div className="min-h-screen bg-[#F5F2EA] flex items-center justify-center"><Loader2 className="animate-spin opacity-20" /></div>;
   }
 
-  // L'affichage du contenu public (login) ou privé
   if (pathname === '/login') return <div className="min-h-screen bg-[#F5F2EA]">{children}</div>;
 
-  const isInactive = profile?.subscriptionStatus === 'inactive' && profile?.role !== 'super_admin';
+  const isGlobalAdmin = profile?.companyId === 'admin_global';
+  const isInactive = profile?.subscriptionStatus === 'inactive' && !isGlobalAdmin;
 
   const handleLogout = async () => {
     const { getAuth } = await import('firebase/auth');

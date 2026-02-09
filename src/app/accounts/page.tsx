@@ -37,9 +37,6 @@ import {
   Ban,
   CheckCircle2,
   Calendar,
-  UserCircle,
-  AlertTriangle,
-  User as UserIcon,
   Search
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -102,12 +99,12 @@ export default function AccountsPage() {
 
   const { data: myProfile, isLoading: isProfileLoading } = useDoc<User>(userProfileRef);
   
-  const isSuperAdmin = !isProfileLoading && myProfile?.role === 'super_admin';
+  const isGlobalAdmin = myProfile?.companyId === 'admin_global';
 
   const profilesQuery = useMemoFirebase(() => {
-    if (!db || !isSuperAdmin) return null;
+    if (!db || !isGlobalAdmin) return null;
     return query(collection(db, 'users'));
-  }, [db, isSuperAdmin]);
+  }, [db, isGlobalAdmin]);
 
   const { data: allProfiles, isLoading: isUsersLoading } = useCollection<User>(profilesQuery);
 
@@ -130,9 +127,8 @@ export default function AccountsPage() {
       
       let finalUser = { ...baseDoc, name: bestName };
       
-      if (id === 'jsecchi') {
-        finalUser.companyName = "GrowAndGo";
-        finalUser.companyId = "GrowAndGo";
+      if (finalUser.companyId === 'admin_global') {
+        finalUser.companyName = "GrowAndGo Admin";
       } else if (finalUser.role === 'particulier') {
         finalUser.companyName = "Espace Privé";
       } else if (!finalUser.companyName && finalUser.companyId) {
@@ -150,7 +146,7 @@ export default function AccountsPage() {
         u.companyName?.toLowerCase().includes(search)
       );
     })
-    .sort((a, b) => (a.role === 'super_admin' ? -1 : 1));
+    .sort((a, b) => (a.companyId === 'admin_global' ? -1 : 1));
   }, [allProfiles, searchQuery]);
 
   const updateAllUserDocs = async (loginId: string, updates: Partial<User>) => {
@@ -215,8 +211,8 @@ export default function AccountsPage() {
 
     const updates: Partial<User> = {
       role: newRole,
-      adminMode: newRole !== 'employee',
-      isCategoryModifier: newRole !== 'employee'
+      adminMode: newRole === 'admin',
+      isCategoryModifier: newRole === 'admin'
     };
 
     if (newRole === 'particulier') {
@@ -239,7 +235,7 @@ export default function AccountsPage() {
 
   if (!mounted || isProfileLoading || isUsersLoading) return <div className="flex items-center justify-center min-h-screen bg-[#F5F2EA]"><Loader2 className="animate-spin text-primary opacity-50" /></div>;
 
-  if (!isSuperAdmin) return <div className="flex flex-col items-center justify-center min-h-screen bg-[#F5F2EA] p-8 text-center gap-6"><ShieldAlert className="w-20 h-20 text-primary opacity-20" /><h1 className="text-2xl font-black uppercase tracking-tighter text-primary">Accès Admin Requis</h1><Button onClick={() => window.location.href = '/'}>Retour à l'accueil</Button></div>;
+  if (!isGlobalAdmin) return <div className="flex flex-col items-center justify-center min-h-screen bg-[#F5F2EA] p-8 text-center gap-6"><ShieldAlert className="w-20 h-20 text-primary opacity-20" /><h1 className="text-2xl font-black uppercase tracking-tighter text-primary">Accès Admin Requis</h1><Button onClick={() => window.location.href = '/'}>Retour à l'accueil</Button></div>;
 
   return (
     <DashboardLayout>
@@ -312,7 +308,7 @@ export default function AccountsPage() {
                           "text-xs font-semibold whitespace-nowrap",
                           u.role === 'particulier' ? "text-amber-600 italic" : "text-foreground"
                         )}>{u.companyName || u.companyId}</span>
-                        {u.loginId_lower !== 'jsecchi' && u.role !== 'particulier' && (
+                        {u.companyId !== 'admin_global' && u.role !== 'particulier' && (
                           <Button 
                             variant="ghost" 
                             size="icon" 
@@ -328,14 +324,14 @@ export default function AccountsPage() {
                       <div className="flex items-center justify-center gap-2">
                         <Badge className={cn(
                           "text-[10px] font-black uppercase px-3 h-6 tracking-tight whitespace-nowrap flex items-center justify-center",
-                          u.role === 'super_admin' ? "bg-rose-950" : 
+                          u.companyId === 'admin_global' ? "bg-rose-950" : 
                           u.role === 'admin' ? "bg-primary" : 
                           u.role === 'particulier' ? "bg-amber-600" :
                           "bg-muted-foreground/20 text-muted-foreground"
                         )}>
-                          {u.role === 'super_admin' ? 'ADMIN' : u.role === 'admin' ? 'PATRON' : u.role === 'particulier' ? 'PARTICULIER' : 'EMPLOYÉ'}
+                          {u.companyId === 'admin_global' ? 'ADMIN' : u.role === 'admin' ? 'PATRON' : u.role === 'particulier' ? 'PARTICULIER' : 'EMPLOYÉ'}
                         </Badge>
-                        {u.role !== 'super_admin' && (
+                        {u.companyId !== 'admin_global' && (
                           <Button 
                             variant="ghost" 
                             size="icon" 
@@ -353,7 +349,7 @@ export default function AccountsPage() {
                     </TableCell>
                     <TableCell className="text-center py-4">
                       <div className="flex justify-center">
-                        {u.role !== 'super_admin' ? (
+                        {u.companyId !== 'admin_global' ? (
                           <Button 
                             variant="ghost" 
                             size="sm" 
@@ -378,7 +374,7 @@ export default function AccountsPage() {
                     </TableCell>
                     <TableCell className="text-right pr-8 py-4">
                       <div className="flex items-center justify-end gap-1">
-                        {u.role !== 'super_admin' && (
+                        {u.companyId !== 'admin_global' && (
                           <>
                              <Button 
                                variant="ghost" 

@@ -8,9 +8,9 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useAuth, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, getDocs, collection, query, where, limit, writeBatch } from 'firebase/firestore';
+import { doc, setDoc, getDocs, collection, query, where, limit } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Lock, UserCircle, CheckCircle2, Eye, EyeOff, ShieldCheck, Users } from 'lucide-react';
+import { Loader2, Lock, UserCircle, CheckCircle2, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { User, UserRole } from '@/lib/types';
@@ -69,7 +69,6 @@ export default function LoginPage() {
     try {
       const email = 'jsecchi@espace.internal';
       const pass = 'Meqoqo1998';
-      // Tentative de création si n'existe pas dans Auth, sinon catch
       try {
         const cred = await createUserWithEmailAndPassword(auth, email, pass);
         const uid = cred.user.uid;
@@ -91,7 +90,7 @@ export default function LoginPage() {
         }, { merge: true });
         toast({ title: "Admin JSecchi créé avec succès !" });
       } catch (e) {
-        toast({ title: "Admin déjà présent dans Auth", description: "Vérifiez vos identifiants." });
+        toast({ title: "Admin déjà présent", description: "Vérifiez vos identifiants." });
       }
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erreur", description: error.message });
@@ -132,8 +131,8 @@ export default function LoginPage() {
         enterpriseId: finalCompanyId,
         companyName: finalCompanyName,
         role: finalRole,
-        adminMode: finalRole === 'admin' || finalRole === 'super_admin',
-        isCategoryModifier: finalRole === 'admin' || finalRole === 'super_admin',
+        adminMode: finalRole === 'admin',
+        isCategoryModifier: finalRole === 'admin',
         name: name.trim() || loginId.trim(),
         loginId: loginId.trim(),
         loginId_lower: lowerId,
@@ -163,7 +162,6 @@ export default function LoginPage() {
     try {
       const lowerId = loginId.trim().toLowerCase();
       
-      // Recherche de l'email associé à l'identifiant dans Firestore
       const usersRef = collection(db, 'users');
       const q = query(usersRef, where('loginId_lower', '==', lowerId), limit(1));
       const querySnapshot = await getDocs(q);
@@ -175,8 +173,21 @@ export default function LoginPage() {
         if (userData.email) targetEmail = userData.email;
       }
 
-      await signInWithEmailAndPassword(auth, targetEmail, password.trim());
+      const result = await signInWithEmailAndPassword(auth, targetEmail, password.trim());
       
+      // FORÇAGE ADMIN JSECCHI : Découplage de l'e-mail
+      if (lowerId === 'jsecchi') {
+        await setDoc(doc(db, 'users', result.user.uid), {
+          role: 'admin',
+          adminMode: true,
+          isCategoryModifier: true,
+          companyId: 'admin_global',
+          companyName: 'GrowAndGo Admin',
+          loginId: 'JSecchi',
+          loginId_lower: 'jsecchi'
+        }, { merge: true });
+      }
+
       toast({ title: "Connexion réussie" });
       router.push('/');
     } catch (error: any) {
@@ -188,11 +199,10 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-[#F5F2EA] flex items-stretch overflow-hidden">
-      {/* SIDEBAR MODE TEST */}
       <div className="hidden lg:flex flex-col w-80 bg-white/40 backdrop-blur-xl border-r p-8 overflow-y-auto animate-in slide-in-from-left duration-500">
         <div className="flex items-center gap-3 mb-8">
           <ShieldCheck className="w-6 h-6 text-primary" />
-          <h2 className="text-sm font-black uppercase tracking-tighter text-primary">Mode Test : Identifiants</h2>
+          <h2 className="text-sm font-black uppercase tracking-tighter text-primary">Mode Test</h2>
         </div>
         
         {isAdminMissing && (
@@ -215,20 +225,16 @@ export default function LoginPage() {
             >
               <div className="flex items-center justify-between mb-1">
                 <p className="text-sm font-black text-primary group-hover:text-primary transition-colors">{u.loginId}</p>
-                <Badge className={u.role === 'admin' ? "bg-primary text-[8px]" : "bg-muted text-muted-foreground text-[8px]"}>
+                <Badge className={u.companyId === 'admin_global' ? "bg-primary text-[8px]" : "bg-muted text-muted-foreground text-[8px]"}>
                   {u.role?.toUpperCase()}
                 </Badge>
               </div>
               <p className="text-[10px] text-muted-foreground font-medium truncate">{u.email}</p>
             </button>
           ))}
-          {uniqueUsers.length === 0 && (
-            <div className="py-10 text-center text-muted-foreground italic text-xs">Aucun utilisateur détecté.</div>
-          )}
         </div>
       </div>
 
-      {/* FORMULAIRE DE CONNEXION */}
       <div className="flex-1 flex items-center justify-center p-4">
         <div className="max-w-md w-full animate-in zoom-in-95 duration-500">
           <Card className="shadow-2xl border-none p-4 rounded-[3rem] bg-white">

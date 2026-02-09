@@ -27,13 +27,13 @@ export async function fetchGoogleEvents(token: string, timeMin: string, timeMax:
 
 /**
  * Mappe un événement Google vers le format local.
- * Correction CRITIQUE ligne 46 : Chaînage optionnel sur emailAddress.
+ * Sécurisation de la ligne 46 pour éviter les plantages si participants absents.
  */
 export function mapGoogleEvent(event: any, companyId: string, userId: string): Partial<CalendarEvent> {
   const start = event.start?.dateTime || event.start?.date || new Date().toISOString();
   const end = event.end?.dateTime || event.end?.date || new Date().toISOString();
   
-  // Correction ligne 46 : Utilisation sécurisée de a.emailAddress?.address
+  // Correction ligne 46 : Chaînage optionnel et fallback vide
   const attendees = event.attendees?.map((a: any) => {
     return a.emailAddress?.address || a.email || '';
   }).filter(Boolean) || [];
@@ -60,7 +60,6 @@ export async function syncEventToFirestore(db: Firestore, eventData: Partial<Cal
   if (!eventData.id_externe || !eventData.companyId) return;
   try {
     const eventRef = doc(db, 'companies', eventData.companyId, 'events', eventData.id_externe);
-    // Utilisation impérative de merge: true pour ne jamais écraser de champs par erreur
     await setDoc(eventRef, eventData, { merge: true });
   } catch (error) {
     console.error("Erreur lors de la sauvegarde de l'événement:", error);
