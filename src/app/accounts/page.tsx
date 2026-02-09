@@ -182,7 +182,7 @@ export default function AccountsPage() {
       await sendPasswordResetEmail(auth, email);
       toast({ title: "E-mail envoyé", description: `Un lien de réinitialisation a été envoyé à ${email}.` });
     } catch (e: any) {
-      toast({ variant: "destructive", title: "Erreur", description: "Impossible d'envoyer l'e-mail. Vérifiez l'adresse." });
+      toast({ variant: "destructive", title: "Erreur", description: "Impossible d'envoyer l'e-mail. Vérifiez que l'adresse est valide." });
     }
   };
 
@@ -213,7 +213,7 @@ export default function AccountsPage() {
     updateAllUserDocs(editingPasswordUser.loginId, { password: newPassword.trim() });
     toast({ 
       title: "Mot de passe modifié (Base)", 
-      description: "Note : Le mot de passe de connexion reste l'ancien. Utilisez 'Réinitialisation par e-mail' pour changer l'accès réel." 
+      description: "Note : Pour changer l'accès réel, utilisez l'icône Mail pour envoyer un lien de réinitialisation." 
     });
     setEditingPasswordUser(null);
   };
@@ -223,11 +223,6 @@ export default function AccountsPage() {
     updateAllUserDocs(editingNameUser.loginId, { name: newName.trim() });
     toast({ title: "Nom mis à jour" });
     setEditingNameUser(null);
-  };
-
-  const resetNameToLoginId = (u: User) => {
-    updateAllUserDocs(u.loginId, { name: u.loginId });
-    toast({ title: "Doublon corrigé" });
   };
 
   const handleUpdateCompany = () => {
@@ -473,7 +468,7 @@ export default function AccountsPage() {
           <DialogHeader>
             <DialogTitle>Modifier le mot de passe (Référence)</DialogTitle>
             <DialogDescription>
-              Note : Modifier cette valeur ne change pas l'accès Firebase Auth réel du client. Utilisez l'icône <Mail className="w-3 h-3 inline" /> pour envoyer un lien de réinitialisation sécurisé.
+              Note : Modifier cette valeur ne change pas l'accès Firebase Auth réel du client. Pour qu'il puisse se connecter avec ce mot de passe, utilisez l'icône <Mail className="w-3 h-3 inline" /> pour envoyer un lien de réinitialisation sécurisé.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">

@@ -119,19 +119,17 @@ export default function LoginPage() {
         dbPassword = userData.password || '';
       }
 
-      // Tentative de connexion avec le mot de passe saisi
       try {
         await signInWithEmailAndPassword(auth, targetEmail, password.trim());
         toast({ title: "Connexion réussie" });
         router.push('/');
       } catch (authError: any) {
-        // Si Auth échoue mais que le MDP saisi correspond au MDP Firestore (Admin Reset)
         if (dbPassword && dbPassword === password.trim()) {
           setSyncError(true);
           toast({ 
             variant: "destructive", 
             title: "Désynchronisation détectée", 
-            description: "Le mot de passe en base a été changé par l'admin mais pas votre accès réel. Utilisez 'Mot de passe oublié' ou votre ancien mot de passe." 
+            description: "Le mot de passe en base a été changé par l'admin mais pas votre accès réel." 
           });
         } else {
           throw authError;
@@ -174,7 +172,7 @@ export default function LoginPage() {
                 <div className="space-y-1">
                   <p className="text-xs font-black text-amber-900 uppercase">Alerte de Synchronisation</p>
                   <p className="text-[10px] font-bold text-amber-800 leading-tight">
-                    Votre administrateur a modifié votre mot de passe en base de données, mais vos accès réels n'ont pas encore été synchronisés. Veuillez essayer votre ancien mot de passe ou demander un lien de réinitialisation.
+                    Votre administrateur a modifié votre mot de passe dans le répertoire (Firestore), mais vos accès réels (Firebase Auth) n'ont pas été synchronisés. Utilisez votre ancien mot de passe ou demandez une réinitialisation par e-mail.
                   </p>
                 </div>
               </div>
@@ -203,7 +201,7 @@ export default function LoginPage() {
               )}
               <div className="relative">
                 <UserCircle className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
-                <Input placeholder="Identifiant (ex: ADupont)" value={loginId} onChange={(e) => setLoginId(e.target.value)} className="pl-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
+                <Input placeholder="Ex d'identifiant : ADupont" value={loginId} onChange={(e) => setLoginId(e.target.value)} className="pl-11 h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
               </div>
               <div className="relative">
                 <Lock className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
