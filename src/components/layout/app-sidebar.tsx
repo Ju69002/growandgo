@@ -74,8 +74,9 @@ export function AppSidebar() {
     { title: 'Sécurité & Sync', icon: KeyRound, url: '/settings/security' },
   ];
 
-  const isItemActive = (url: string) => {
+  const isItemActive = (url: string, exact = false) => {
     if (url === '/' && pathname !== '/') return false;
+    if (exact) return pathname === url;
     return pathname === url || pathname.startsWith(url + '/');
   };
 
@@ -200,18 +201,18 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton 
               asChild 
-              isActive={isItemActive('/settings')}
+              isActive={isItemActive('/settings', true)}
               className={cn(
                 "transition-all duration-200 h-11 rounded-xl font-bold px-4",
-                isItemActive('/settings') 
+                isItemActive('/settings', true) 
                   ? "bg-white text-primary shadow-lg hover:bg-white hover:text-primary" 
                   : "text-white hover:bg-white/10",
                 "group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:w-9"
               )}
             >
               <Link href="/settings">
-                <Settings className={cn("w-5 h-5 shrink-0", isItemActive('/settings') ? "text-primary" : "text-white")} />
-                <span className={cn("group-data-[collapsible=icon]:hidden", isItemActive('/settings') ? "text-primary" : "text-white")}>Paramètres</span>
+                <Settings className={cn("w-5 h-5 shrink-0", isItemActive('/settings', true) ? "text-primary" : "text-white")} />
+                <span className={cn("group-data-[collapsible=icon]:hidden", isItemActive('/settings', true) ? "text-primary" : "text-white")}>Paramètres</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

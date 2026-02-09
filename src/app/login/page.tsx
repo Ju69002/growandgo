@@ -225,9 +225,9 @@ export default function LoginPage() {
               {showDevMode && (
                 <div className="mt-4 grid grid-cols-1 gap-2 animate-in slide-in-from-top-2">
                   {[
-                    { id: 'JSecchi', role: 'Patron (Global)', pass: 'Meqoqo1998' },
-                    { id: 'ADupont', role: 'Employé', pass: '123456' },
-                    { id: 'PBlanc', role: 'Particulier', pass: '123456' }
+                    { id: 'JSecchi', role: 'Patron (Global)', pass: 'Meqoqo1998!' },
+                    { id: 'ADupont', role: 'Employé', pass: 'ADupont2026' },
+                    { id: 'PBlanc', role: 'Particulier', pass: 'PBlanc2026' }
                   ].map(acc => (
                     <div 
                       key={acc.id} 
