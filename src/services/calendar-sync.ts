@@ -27,13 +27,13 @@ export async function fetchGoogleEvents(token: string, timeMin: string, timeMax:
 
 /**
  * Mappe un événement Google vers le format local.
- * Sécurisation de la ligne 46 pour éviter les plantages si participants absents.
+ * Correction critique ligne 46 pour éviter les plantages si participants absents.
  */
 export function mapGoogleEvent(event: any, companyId: string, userId: string): Partial<CalendarEvent> {
   const start = event.start?.dateTime || event.start?.date || new Date().toISOString();
   const end = event.end?.dateTime || event.end?.date || new Date().toISOString();
   
-  // Correction ligne 46 : Chaînage optionnel et fallback vide
+  // Correction ligne 46 : Chaînage optionnel sécurisé
   const attendees = event.attendees?.map((a: any) => {
     return a.emailAddress?.address || a.email || '';
   }).filter(Boolean) || [];

@@ -64,30 +64,39 @@ export default function BillingPage() {
     }
   }, [db, user, isSuperAdmin, allUsers]);
 
-  const isActive = profile?.subscriptionStatus !== 'inactive' || isSuperAdmin;
-
-  const getPrice = (role?: string) => {
-    if (role === 'super_admin') return "0,00";
-    if (role === 'admin') return "99,99";
-    if (role === 'particulier') return "39,99";
-    return "69,99";
-  };
-
-  const getRoleLabel = (role?: string) => {
-    if (role === 'super_admin') return "ADMIN";
-    if (role === 'admin') return "PATRON";
-    if (role === 'particulier') return "PARTICULIER";
-    return "EMPLOYÉ";
+  const getPriceData = (userData: User) => {
+    if (userData.role === 'super_admin') return { price: "0,00", label: "ADMIN" };
+    if (userData.role === 'particulier') return { price: "39,99", label: "PARTICULIER" };
+    if (userData.role === 'employee') return { price: "0,00", label: "INCLUS" };
+    
+    // Calcul pour le Patron (admin)
+    // On compte le nombre d'employés actifs dans la même entreprise
+    const companyEmployees = allUsers?.filter(u => 
+      u.companyId === userData.companyId && 
+      u.role === 'employee' && 
+      u.subscriptionStatus !== 'inactive'
+    ) || [];
+    
+    const n = companyEmployees.length;
+    if (n <= 5) return { price: "199,99", label: "FORFAIT 0-5 EMP." };
+    if (n <= 10) return { price: "399,99", label: "FORFAIT 6-10 EMP." };
+    
+    const extra = (n - 10) * 39.99;
+    const total = 399.99 + extra;
+    return { 
+      price: total.toFixed(2).replace('.', ','), 
+      label: `FORFAIT ${n} EMP.` 
+    };
   };
 
   const handleDownloadInvoice = (userData: User) => {
     setIsGenerating(userData.uid);
     try {
-      const price = getPrice(userData.role);
+      const { price } = getPriceData(userData);
       generateInvoicePDF(userData, price);
-      toast({ title: "Facture générée", description: `Le document pour ${userData.name} est prêt.` });
+      toast({ title: "Facture générée" });
     } catch (error) {
-      toast({ variant: "destructive", title: "Erreur PDF", description: "Impossible de générer le document." });
+      toast({ variant: "destructive", title: "Erreur PDF" });
     } finally {
       setIsGenerating(null);
     }
@@ -95,26 +104,17 @@ export default function BillingPage() {
 
   const uniqueProfiles = useMemo(() => {
     if (!allUsers) return [];
-    
-    const userGroups = new Map<string, User[]>();
+    const map = new Map();
     allUsers.forEach(u => {
-      const id = (u.loginId_lower || u.loginId?.toLowerCase() || '').trim();
-      if (!id) return;
-      if (!userGroups.has(id)) userGroups.set(id, []);
-      userGroups.get(id)!.push(u);
+      const id = (u.loginId_lower || u.loginId || '').toLowerCase();
+      if (id && !map.has(id)) map.set(id, u);
     });
-
-    return Array.from(userGroups.entries()).map(([id, docs]) => {
-      const profileDoc = docs.find(d => d.isProfile === true);
-      const baseDoc = profileDoc || docs[0];
-      
-      const bestName = docs.find(d => d.name && d.name.toLowerCase() !== id.toLowerCase())?.name || baseDoc.name || baseDoc.loginId;
-      
-      return { ...baseDoc, name: bestName };
-    }).sort((a, b) => (a.role === 'super_admin' ? -1 : 1));
+    return Array.from(map.values()).sort((a, b) => (a.role === 'super_admin' ? -1 : 1));
   }, [allUsers]);
 
   if (!mounted) return null;
+
+  const isActive = profile?.subscriptionStatus !== 'inactive' || isSuperAdmin;
 
   return (
     <DashboardLayout>
@@ -125,8 +125,8 @@ export default function BillingPage() {
               <CreditCard className="w-8 h-8" />
             </div>
             <div>
-              <h1 className="text-4xl font-black tracking-tighter text-primary uppercase leading-tight">Abonnement Espace</h1>
-              <p className="text-muted-foreground font-medium">Gestion des accès et récapitulatif des comptes actifs.</p>
+              <h1 className="text-4xl font-black tracking-tighter text-primary uppercase">Abonnement</h1>
+              <p className="text-muted-foreground font-medium">Gestion des tarifs et récapitulatif des comptes.</p>
             </div>
           </div>
         </div>
@@ -137,10 +137,10 @@ export default function BillingPage() {
               <div className="flex items-center justify-between">
                 <CardTitle className="text-2xl font-black uppercase tracking-tighter flex items-center gap-3">
                   <Users className="w-7 h-7" />
-                  Récapitulatif des Abonnements
+                  Récapitulatif des Tarifs
                 </CardTitle>
                 <Badge className="bg-white text-primary font-black uppercase px-4 h-8 border-none shadow-lg">
-                  {uniqueProfiles.length} UTILISATEURS
+                  {uniqueProfiles.length} COMPTES
                 </Badge>
               </div>
             </CardHeader>
@@ -148,74 +148,50 @@ export default function BillingPage() {
               <Table>
                 <TableHeader className="bg-muted/50">
                   <TableRow>
-                    <TableHead className="pl-8 py-4">Utilisateur / ID</TableHead>
-                    <TableHead>Rôle</TableHead>
-                    <TableHead>Date de création</TableHead>
+                    <TableHead className="pl-8 py-4">Utilisateur</TableHead>
+                    <TableHead>Type de Plan</TableHead>
+                    <TableHead>Date création</TableHead>
                     <TableHead>Prix mensuel</TableHead>
                     <TableHead className="text-right pr-8">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isLoadingUsers ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="py-20 text-center">
-                        <Loader2 className="w-10 h-10 animate-spin text-primary/20 mx-auto" />
-                      </TableCell>
-                    </TableRow>
-                  ) : uniqueProfiles.map((u) => (
-                    <TableRow key={u.uid} className="hover:bg-primary/5 border-b-primary/5">
-                      <TableCell className="pl-8 py-6">
-                        <div className="flex flex-col">
-                          <span className="font-bold text-base">{u.name}</span>
-                          <span className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest">{u.loginId}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={cn(
-                          "font-black uppercase text-[10px] h-6 px-3",
-                          u.role === 'super_admin' ? "bg-rose-950" : 
-                          u.role === 'admin' ? "bg-primary" : 
-                          u.role === 'particulier' ? "bg-amber-600" :
-                          "bg-muted text-muted-foreground"
-                        )}>
-                          {getRoleLabel(u.role)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2 text-muted-foreground text-sm font-medium">
-                          <Calendar className="w-4 h-4 opacity-30" />
+                    <TableRow><TableCell colSpan={5} className="py-20 text-center"><Loader2 className="animate-spin mx-auto" /></TableCell></TableRow>
+                  ) : uniqueProfiles.map((u) => {
+                    const priceData = getPriceData(u);
+                    return (
+                      <TableRow key={u.uid} className="hover:bg-primary/5">
+                        <TableCell className="pl-8 py-6">
+                          <div className="flex flex-col">
+                            <span className="font-bold">{u.name}</span>
+                            <span className="font-mono text-[10px] text-muted-foreground uppercase">{u.loginId}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className="font-black uppercase text-[10px] bg-muted text-muted-foreground">
+                            {priceData.label}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground text-sm">
                           {u.createdAt ? new Date(u.createdAt).toLocaleDateString('fr-FR') : '08/02/2026'}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1.5 font-black text-primary">
-                          <Euro className="w-4 h-4 opacity-50" />
-                          {getPrice(u.role)}€
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right pr-8">
-                        {u.role !== 'super_admin' && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 rounded-full gap-2 font-black uppercase text-[10px] tracking-widest text-primary hover:bg-primary/10"
-                            onClick={() => handleDownloadInvoice(u)}
-                            disabled={!!isGenerating}
-                          >
-                            {isGenerating === u.uid ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            ) : (
-                              <FileDown className="w-3.5 h-3.5" />
-                            )}
-                            Facture
-                          </Button>
-                        )}
-                        {u.role === 'super_admin' && (
-                          <Badge variant="outline" className="text-[9px] font-black uppercase opacity-30">GRATUIT</Badge>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1.5 font-black text-primary">
+                            {priceData.price}€
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right pr-8">
+                          {u.role !== 'super_admin' && u.role !== 'employee' && (
+                            <Button variant="ghost" size="sm" className="h-8 rounded-full gap-2 font-black uppercase text-[10px]" onClick={() => handleDownloadInvoice(u)} disabled={!!isGenerating}>
+                              {isGenerating === u.uid ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileDown className="w-3 h-3" />}
+                              Facture
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </CardContent>
@@ -226,54 +202,27 @@ export default function BillingPage() {
               <div className="flex items-center justify-between">
                 <CardTitle className="text-2xl font-black uppercase tracking-tighter flex items-center gap-3">
                   <ShieldCheck className="w-7 h-7" />
-                  Statut de votre Accès
+                  Statut de l'Accès
                 </CardTitle>
-                <Badge className={cn(
-                  "font-black uppercase text-xs h-8 px-4 border-none shadow-lg",
-                  isActive ? "bg-emerald-500 text-white" : "bg-rose-500 text-white"
-                )}>
-                  {isActive ? "ABONNEMENT ACTIF" : "ABONNEMENT SUSPENDU"}
+                <Badge className={cn("font-black uppercase text-xs h-8 px-4", isActive ? "bg-emerald-500" : "bg-rose-500")}>
+                  {isActive ? "ACTIF" : "SUSPENDU"}
                 </Badge>
               </div>
-              <CardDescription className="text-primary-foreground/70 font-medium">
-                Espace de travail GROW&GO
-              </CardDescription>
             </CardHeader>
             <CardContent className="p-10 space-y-8 text-center">
-              <div className="flex flex-col items-center gap-6 p-8 rounded-[2rem] bg-muted/30 border-2 border-dashed">
-                <div className={cn(
-                  "w-20 h-20 rounded-full flex items-center justify-center shadow-inner",
-                  isActive ? "bg-emerald-100 text-emerald-600" : "bg-rose-100 text-rose-600"
-                )}>
+              <div className="p-8 rounded-[2rem] bg-muted/30 border-2 border-dashed">
+                <div className={cn("w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4", isActive ? "bg-emerald-100 text-emerald-600" : "bg-rose-100 text-rose-600")}>
                   {isActive ? <CheckCircle2 className="w-10 h-10" /> : <Ban className="w-10 h-10" />}
                 </div>
-                <div className="space-y-2">
-                  <h3 className="text-2xl font-bold">{isActive ? "Votre espace est opérationnel" : "Accès restreint"}</h3>
-                  <p className="text-muted-foreground max-w-sm mx-auto">
-                    {isActive 
-                      ? "Tous vos outils collaboratifs et documents sont accessibles sans restriction." 
-                      : "Veuillez contacter votre administrateur pour rétablir vos accès."}
-                  </p>
-                </div>
+                <h3 className="text-2xl font-bold">{isActive ? "Espace opérationnel" : "Accès restreint"}</h3>
               </div>
-
-              <div className="max-w-md mx-auto space-y-4">
-                <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Votre Plan actuel</h4>
-                <div className="p-6 rounded-2xl border bg-card hover:border-primary/20 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4 text-left">
-                      <div className="p-2 bg-primary/5 rounded-xl">
-                        <CreditCard className="w-6 h-6 text-primary" />
-                      </div>
-                      <div>
-                        <p className="font-bold">Plan {getRoleLabel(profile?.role)}</p>
-                        <p className="text-[10px] text-muted-foreground font-black uppercase">Renouvellement automatique</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-2xl font-black text-primary">{getPrice(profile?.role)}€<span className="text-sm font-bold text-muted-foreground">/mois</span></p>
-                    </div>
+              <div className="max-w-md mx-auto p-6 rounded-2xl border bg-card">
+                <div className="flex items-center justify-between">
+                  <div className="text-left">
+                    <p className="font-bold">Plan actuel</p>
+                    <p className="text-[10px] font-black uppercase text-muted-foreground">{getPriceData(profile!).label}</p>
                   </div>
+                  <p className="text-2xl font-black text-primary">{getPriceData(profile!).price}€<span className="text-sm font-bold text-muted-foreground">/mois</span></p>
                 </div>
               </div>
             </CardContent>
