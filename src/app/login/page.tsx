@@ -9,10 +9,10 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useAuth, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { signInAnonymously } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc, collection, query, where, getDocs, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Lock, UserCircle, Users, Key, CheckCircle2, ShieldCheck, User, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Lock, UserCircle, Users, Key, CheckCircle2, User, Eye, EyeOff } from 'lucide-react';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { User as UserProfile, UserRole } from '@/lib/types';
@@ -44,38 +44,30 @@ export default function LoginPage() {
 
   const allUsersQuery = useMemoFirebase(() => {
     if (!db) return null;
-    return query(collection(db, 'users'));
+    return query(collection(db, 'users'), where('isProfile', '==', true));
   }, [db]);
 
   const { data: allUsers, isLoading: isUsersLoading } = useCollection<UserProfile>(allUsersQuery);
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!db) return;
+    if (!db || !auth) return;
     setIsLoading(true);
 
     try {
       const lowerId = loginId.trim().toLowerCase();
-      const profileId = `profile_${lowerId}`;
+      const email = `${lowerId}@espace.internal`;
       
-      const q = query(collection(db, 'users'), where('loginId_lower', '==', lowerId));
-      const snap = await getDocs(q);
-      if (!snap.empty) {
-        throw new Error("Cet identifiant existe déjà.");
-      }
+      // 1. Création du compte Auth Firebase (Email/Password)
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password.trim());
+      const uid = userCredential.user.uid;
 
       let finalRole = selectedRole;
       let finalCompanyName = companyName.trim();
-      
-      if (finalRole === 'particulier') {
-        finalCompanyName = "Mon Espace Personnel";
-      }
+      if (finalRole === 'particulier') finalCompanyName = "Mon Espace Personnel";
 
       let finalCompanyId = normalizeId(finalCompanyName);
-      
-      if (finalRole === 'particulier') {
-        finalCompanyId = `private-${lowerId}`;
-      }
+      if (finalRole === 'particulier') finalCompanyId = `private-${lowerId}`;
 
       // Harmonisation Super Admin
       if (lowerId === 'jsecchi') {
@@ -84,10 +76,9 @@ export default function LoginPage() {
         finalCompanyId = "growandgo";
       }
 
-      const now = new Date().toISOString();
-
-      await setDoc(doc(db, 'users', profileId), {
-        uid: profileId,
+      // 2. Création du profil Firestore avec setDoc merge pour sécurité
+      await setDoc(doc(db, 'users', uid), {
+        uid: uid,
         isProfile: true,
         companyId: finalCompanyId,
         companyName: finalCompanyName,
@@ -97,12 +88,13 @@ export default function LoginPage() {
         name: name.trim() || loginId.trim(),
         loginId: loginId.trim(),
         loginId_lower: lowerId,
-        password: password.trim(),
-        email: `${lowerId}@espace.internal`,
+        password: password.trim(), // Stocké pour rappel (MVP uniquement)
+        email: email,
         subscriptionStatus: 'active',
-        createdAt: now
-      });
+        createdAt: new Date().toISOString()
+      }, { merge: true });
 
+      // 3. Initialisation des catégories par défaut
       if (finalRole !== 'employee') {
         const batch = writeBatch(db);
         const defaultCategories = [
@@ -132,9 +124,9 @@ export default function LoginPage() {
 
       setSignUpSuccess(true);
       setIsSignUp(false);
-      toast({ title: "Identifiant créé !" });
+      toast({ title: "Compte créé avec succès !" });
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Erreur", description: error.message });
+      toast({ variant: "destructive", title: "Erreur d'inscription", description: error.message });
     } finally {
       setIsLoading(false);
     }
@@ -147,56 +139,19 @@ export default function LoginPage() {
 
     try {
       const lowerId = loginId.trim().toLowerCase();
-      const q = query(collection(db, 'users'), where('loginId_lower', '==', lowerId));
-      const querySnap = await getDocs(q);
+      const email = `${lowerId}@espace.internal`;
       
-      let profileData: UserProfile | null = null;
-      if (!querySnap.empty) {
-        profileData = querySnap.docs[0].data() as UserProfile;
-      }
-
-      if (!profileData) throw new Error("Identifiant inconnu.");
-      if (profileData.password?.trim() !== password.trim()) throw new Error("Mot de passe incorrect.");
-
-      const userCredential = await signInAnonymously(auth);
-      const sessionUid = userCredential.user.uid;
-
-      let finalCompanyId = profileData.companyId;
-      let finalCompanyName = profileData.companyName;
-      if (lowerId === 'jsecchi') {
-        finalCompanyId = "growandgo";
-        finalCompanyName = "GrowAndGo";
-      }
-
-      await setDoc(doc(db, 'users', sessionUid), {
-        ...profileData,
-        uid: sessionUid,
-        companyId: finalCompanyId,
-        companyName: finalCompanyName,
-        isProfile: false,
-        isSession: true,
-        lastLogin: serverTimestamp()
-      });
-
+      // Authentification standard Email/Password
+      await signInWithEmailAndPassword(auth, email, password.trim());
+      
+      toast({ title: "Connexion réussie" });
       router.push('/');
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Accès refusé", description: error.message });
+      toast({ variant: "destructive", title: "Accès refusé", description: "Identifiant ou mot de passe incorrect." });
     } finally {
       setIsLoading(false);
     }
   };
-
-  const displayUsers = Array.from(
-    new Map(
-      (allUsers || [])
-        .filter(u => u.loginId || u.loginId_lower)
-        .map(u => [u.loginId_lower || u.loginId?.toLowerCase(), u])
-    ).values()
-  ).sort((a, b) => {
-    if (a.role === 'super_admin') return -1;
-    if (b.role === 'super_admin') return 1;
-    return (a.loginId || '').localeCompare(b.loginId || '');
-  });
 
   return (
     <div className="min-h-screen bg-[#F5F2EA] flex items-center justify-center p-4">
@@ -210,7 +165,7 @@ export default function LoginPage() {
             <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
               {isUsersLoading ? (
                 <div className="py-8 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-primary/20" /></div>
-              ) : displayUsers.map(u => (
+              ) : allUsers?.map(u => (
                 <div key={u.uid} className="flex flex-col p-3 rounded-xl bg-muted/30 border border-black/5 gap-1.5 hover:bg-muted/50 transition-colors">
                   <div className="flex items-center justify-between">
                     <span className="font-mono text-[12px] font-black text-primary">{u.loginId}</span>
@@ -224,7 +179,7 @@ export default function LoginPage() {
                     </Badge>
                   </div>
                   <p className="text-[8px] font-black uppercase text-muted-foreground/60 truncate">
-                    {(u.loginId_lower === 'jsecchi' || u.loginId?.toLowerCase() === 'jsecchi') ? "GrowAndGo" : (u.role === 'particulier' ? "Espace Privé" : (u.companyName || u.companyId))}
+                    {u.companyName || u.companyId}
                   </p>
                   <div className="flex items-center gap-1.5 text-rose-950 bg-rose-50/50 p-1.5 rounded border border-rose-100">
                     <Key className="w-3 h-3 opacity-50" />
@@ -244,7 +199,7 @@ export default function LoginPage() {
             <div>
               <CardTitle className="text-3xl font-black text-[#1E4D3B] uppercase tracking-tighter">GROW&GO</CardTitle>
               <CardDescription className="text-[#1E4D3B]/60 font-medium">
-                {signUpSuccess ? "Inscription réussie !" : isSignUp ? "Créer un nouvel identifiant" : "Connectez-vous à votre espace de travail"}
+                {signUpSuccess ? "Inscription réussie !" : isSignUp ? "Créer un nouvel identifiant" : "Connectez-vous à votre espace"}
               </CardDescription>
             </div>
           </CardHeader>

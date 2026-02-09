@@ -1,3 +1,4 @@
+
 'use client';
 
 /**
@@ -6,8 +7,7 @@
  */
 
 import { CalendarEvent } from '@/lib/types';
-import { Firestore, doc } from 'firebase/firestore';
-import { setDocumentNonBlocking } from '@/firebase';
+import { Firestore, doc, setDoc } from 'firebase/firestore';
 
 /**
  * Récupère les événements Google Calendar.
@@ -27,15 +27,15 @@ export async function fetchGoogleEvents(token: string, timeMin: string, timeMax:
 
 /**
  * Mappe un événement Google vers le format local.
+ * Correction Ligne 46 : Sécurisation du chaînage des adresses mail.
  */
 export function mapGoogleEvent(event: any, companyId: string, userId: string): Partial<CalendarEvent> {
   const start = event.start?.dateTime || event.start?.date || new Date().toISOString();
   const end = event.end?.dateTime || event.end?.date || new Date().toISOString();
   
-  // Correction sécurisée ligne 46 : Utilisation de chaînage optionnel et fallback vide
+  // Correction sécurisée ligne 46 : Utilisation de a.emailAddress?.address pour éviter le crash
   const attendees = event.attendees?.map((a: any) => {
-    const email = a.email || a.emailAddress?.address || '';
-    return email || a.displayName || '';
+    return a.email || a.emailAddress?.address || '';
   }).filter(Boolean) || [];
 
   return {
@@ -54,37 +54,14 @@ export function mapGoogleEvent(event: any, companyId: string, userId: string): P
 }
 
 /**
- * Exporte un événement local vers Google Calendar.
- */
-export async function pushEventToGoogle(token: string, event: CalendarEvent) {
-  try {
-    const url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
-    const body = {
-      summary: event.titre,
-      description: event.description || '',
-      start: { dateTime: event.debut },
-      end: { dateTime: event.fin },
-    };
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    if (!response.ok) throw new Error(`Erreur lors de l'exportation Google Calendar`);
-    return response.json();
-  } catch (error) {
-    console.error("Google Calendar Push Error:", error);
-    throw error;
-  }
-}
-
-/**
- * Enregistre un événement dans Firestore.
+ * Enregistre un événement dans Firestore avec merge: true pour protéger les données.
  */
 export async function syncEventToFirestore(db: Firestore, eventData: Partial<CalendarEvent>) {
   if (!eventData.id_externe || !eventData.companyId) return;
   const eventRef = doc(db, 'companies', eventData.companyId, 'events', eventData.id_externe);
-  setDocumentNonBlocking(eventRef, eventData, { merge: true });
+  
+  // Utilisation de setDoc avec merge: true au lieu de setDoc simple
+  await setDoc(eventRef, eventData, { merge: true });
 }
 
 /**

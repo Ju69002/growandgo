@@ -6,12 +6,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Chrome, ShieldCheck, KeyRound, Loader2, CheckCircle2, RefreshCw } from 'lucide-react';
 import { useAuth, useFirestore, useUser, useMemoFirebase } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { signInWithGoogleCalendar } from '@/firebase/non-blocking-login';
 import { getSyncTimeRange, fetchGoogleEvents, mapGoogleEvent, syncEventToFirestore } from '@/services/calendar-sync';
-import { cn } from '@/lib/utils';
+import { cn, normalizeId } from '@/lib/utils';
 import { User } from '@/lib/types';
 import { useDoc } from '@/firebase';
 
@@ -33,7 +33,7 @@ export default function SecuritySettingsPage() {
 
   const handleGoogleSync = async () => {
     if (!db || !companyId || !user || !auth) {
-      toast({ variant: "destructive", title: "Erreur", description: "Services non disponibles." });
+      toast({ variant: "destructive", title: "Erreur", description: "Veuillez vérifier votre connexion." });
       return;
     }
     
@@ -41,27 +41,36 @@ export default function SecuritySettingsPage() {
     setSyncStatus('authenticating');
     
     try {
-      toast({ title: "Connexion Google...", description: "Veuillez valider la fenêtre de connexion." });
+      // 1. Connexion Google manuelle par Popup
+      toast({ title: "Connexion Google...", description: "Sélectionnez votre compte dans la fenêtre." });
       const result = await signInWithGoogleCalendar(auth);
       const token = result.token;
       
       if (!token) throw new Error("Aucun jeton d'accès reçu de Google.");
 
+      // 2. Récupération sécurisée des événements
       setSyncStatus('fetching');
       const { timeMin, timeMax } = getSyncTimeRange();
       const externalEvents = await fetchGoogleEvents(token, timeMin, timeMax);
 
+      // 3. Sauvegarde Firestore avec protection merge:true
       setSyncStatus('saving');
+      const normalizedCompanyId = normalizeId(companyId);
+      
       for (const extEvent of externalEvents) {
-        const mapped = mapGoogleEvent(extEvent, companyId, user.uid);
+        const mapped = mapGoogleEvent(extEvent, normalizedCompanyId, user.uid);
         await syncEventToFirestore(db, mapped);
       }
+
+      // Mise à jour du profil (Email Google) avec merge pour ne pas perdre les catégories
+      await setDoc(userRef!, { googleEmail: result.user.email }, { merge: true });
 
       setSyncStatus('success');
       toast({ title: "Synchronisation réussie !", description: `${externalEvents.length} événements importés.` });
       setTimeout(() => setSyncStatus('idle'), 3000);
     } catch (error: any) {
       setSyncStatus('error');
+      console.error("Sync Error:", error);
       toast({ variant: "destructive", title: "Échec", description: error.message });
     } finally {
       setIsSyncing(false);
@@ -99,14 +108,14 @@ export default function SecuritySettingsPage() {
                 <div className="flex gap-4">
                   <div className={cn(
                     "w-12 h-12 rounded-full flex items-center justify-center transition-colors",
-                    syncStatus === 'success' ? "bg-emerald-100 text-emerald-600" : "bg-primary/10 text-primary"
+                    syncStatus === 'success' || profile?.googleEmail ? "bg-emerald-100 text-emerald-600" : "bg-primary/10 text-primary"
                   )}>
-                    {syncStatus === 'success' ? <CheckCircle2 className="w-6 h-6" /> : <Chrome className="w-6 h-6" />}
+                    {syncStatus === 'success' || profile?.googleEmail ? <CheckCircle2 className="w-6 h-6" /> : <Chrome className="w-6 h-6" />}
                   </div>
                   <div>
                     <p className="font-bold">Statut de la connexion</p>
                     <p className="text-sm text-muted-foreground">
-                      {syncStatus === 'success' ? "Connecté et synchronisé" : "Non connecté"}
+                      {profile?.googleEmail ? `Connecté (${profile.googleEmail})` : "Non synchronisé"}
                     </p>
                   </div>
                 </div>
@@ -117,7 +126,7 @@ export default function SecuritySettingsPage() {
                   disabled={isSyncing}
                 >
                   {isSyncing ? <Loader2 className="w-5 h-5 animate-spin" /> : <RefreshCw className="w-5 h-5" />}
-                  {syncStatus === 'success' ? "Re-synchroniser" : "Connecter mon compte Google"}
+                  {profile?.googleEmail ? "Re-synchroniser" : "Connecter mon compte Google"}
                 </Button>
               </div>
 
@@ -126,14 +135,14 @@ export default function SecuritySettingsPage() {
                   <ShieldCheck className="w-5 h-5 text-primary/60 mt-0.5" />
                   <div className="space-y-1">
                     <p className="text-sm font-bold">Confidentialité</p>
-                    <p className="text-xs text-muted-foreground">Nous ne lisons que vos calendriers sélectionnés.</p>
+                    <p className="text-xs text-muted-foreground">Nous ne lisons que vos calendriers sélectionnés sans rien supprimer.</p>
                   </div>
                 </div>
                 <div className="p-4 border rounded-xl flex items-start gap-3">
                   <RefreshCw className="w-5 h-5 text-primary/60 mt-0.5" />
                   <div className="space-y-1">
-                    <p className="text-sm font-bold">Temps réel</p>
-                    <p className="text-xs text-muted-foreground">La synchronisation est manuelle pour un contrôle total.</p>
+                    <p className="text-sm font-bold">Mise à jour manuelle</p>
+                    <p className="text-xs text-muted-foreground">La synchronisation s'effectue uniquement quand vous le décidez.</p>
                   </div>
                 </div>
               </div>

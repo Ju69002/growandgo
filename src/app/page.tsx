@@ -39,6 +39,7 @@ export default function Home() {
     setMounted(true);
   }, []);
 
+  // Sécurité : Redirection vers /login si non authentifié
   useEffect(() => {
     if (mounted && !isUserLoading && !user) {
       router.push('/login');
@@ -50,7 +51,7 @@ export default function Home() {
     return doc(db, 'users', user.uid);
   }, [db, user]);
 
-  const { data: profile } = useDoc<User>(userRef);
+  const { data: profile, isLoading: isProfileLoading } = useDoc<User>(userRef);
   
   const isSuperAdmin = profile?.role === 'super_admin';
   const isParticulier = profile?.role === 'particulier';
@@ -58,19 +59,24 @@ export default function Home() {
 
   const allUsersQuery = useMemoFirebase(() => {
     if (!db || !isSuperAdmin) return null;
-    return query(collection(db, 'users'));
+    return query(collection(db, 'users'), where('isProfile', '==', true));
   }, [db, isSuperAdmin]);
 
   const { data: allUsers } = useCollection<User>(allUsersQuery);
 
+  // Synchronisation des tâches de facturation avec try/catch
   useEffect(() => {
-    if (db && user && isSuperAdmin && allUsers && !syncLockRef.current) {
-      syncLockRef.current = true;
-      const timer = setTimeout(() => {
-        syncBillingTasks(db, user.uid, allUsers);
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
+    const handleSync = async () => {
+      if (db && user && isSuperAdmin && allUsers && !syncLockRef.current) {
+        syncLockRef.current = true;
+        try {
+          await syncBillingTasks(db, user.uid, allUsers);
+        } catch (error) {
+          console.error("Facturation sync error:", error);
+        }
+      }
+    };
+    handleSync();
   }, [db, user, isSuperAdmin, allUsers]);
 
   const eventsQuery = useMemoFirebase(() => {
@@ -81,28 +87,36 @@ export default function Home() {
 
   const { data: allEvents, isLoading: isEventsLoading } = useCollection<CalendarEvent>(eventsQuery);
 
-  // Extraction dynamique des tâches de la semaine depuis l'agenda
+  // Extraction dynamique des tâches de la semaine avec sécurité
   const weeklyTasks = useMemo(() => {
-    if (!allEvents) return [];
-    const now = new Date();
-    const start = startOfWeek(now, { locale: fr, weekStartsOn: 1 });
-    const end = endOfWeek(now, { locale: fr, weekStartsOn: 1 });
+    try {
+      if (!allEvents) return [];
+      const now = new Date();
+      const start = startOfWeek(now, { locale: fr, weekStartsOn: 1 });
+      const end = endOfWeek(now, { locale: fr, weekStartsOn: 1 });
 
-    return allEvents
-      .filter(event => {
-        if (!event.isBillingEvent) return false;
-        try {
-          const eventDate = parseISO(event.debut);
-          if (!isValid(eventDate)) return false;
-          return isWithinInterval(eventDate, { start, end });
-        } catch (e) {
-          return false;
-        }
-      })
-      .sort((a, b) => new Date(a.debut).getTime() - new Date(b.debut).getTime());
+      return allEvents
+        .filter(event => {
+          if (!event.isBillingEvent) return false;
+          try {
+            const eventDate = parseISO(event.debut);
+            if (!isValid(eventDate)) return false;
+            return isWithinInterval(eventDate, { start, end });
+          } catch (e) {
+            return false;
+          }
+        })
+        .sort((a, b) => new Date(a.debut).getTime() - new Date(b.debut).getTime());
+    } catch (err) {
+      return [];
+    }
   }, [allEvents]);
 
-  if (!mounted || isUserLoading || !user) return null;
+  if (!mounted || isUserLoading) {
+    return <div className="flex items-center justify-center min-h-screen"><Loader2 className="w-10 h-10 animate-spin text-primary opacity-20" /></div>;
+  }
+
+  if (!user) return null;
 
   const companyDisplayName = isParticulier ? "Espace Privé" : (profile?.companyName || "GrowAndGo");
 
@@ -131,7 +145,6 @@ export default function Home() {
           </div>
         </header>
 
-        {/* Section Tâches en haut, pleine largeur */}
         <section className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-black uppercase tracking-tighter flex items-center gap-2 text-primary">
@@ -187,7 +200,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Section Calendrier agrandie */}
         <section className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-black uppercase tracking-tighter flex items-center gap-2 text-primary">
@@ -217,7 +229,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Section Dossiers descendue pour laisser respirer l'agenda */}
         <section className="pt-24 border-t border-primary/10">
           <h2 className="text-2xl font-black uppercase tracking-tighter mb-10 flex items-center gap-3 text-primary">
             <FileText className="w-7 h-7" />

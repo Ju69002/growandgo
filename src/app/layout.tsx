@@ -7,28 +7,36 @@ import { useFirestore, useDoc, useUser, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { User, Company } from '@/lib/types';
 import { Toaster } from '@/components/ui/toaster';
-import { Ban, ShieldAlert, LogOut } from 'lucide-react';
+import { Ban, ShieldAlert, LogOut, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { signOut } from 'firebase/auth';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import './globals.css';
 
 function ThemeInjector({ children }: { children: React.ReactNode }) {
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const db = useFirestore();
   const router = useRouter();
+  const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
+  // Sécurité : Redirection forcée vers /login si non connecté
+  useEffect(() => {
+    if (mounted && !isUserLoading && !user && pathname !== '/login') {
+      router.push('/login');
+    }
+  }, [mounted, user, isUserLoading, pathname, router]);
+
   const userRef = useMemoFirebase(() => {
     if (!db || !user) return null;
     return doc(db, 'users', user.uid);
   }, [db, user]);
 
-  const { data: profile } = useDoc<User>(userRef);
+  const { data: profile, isLoading: isProfileLoading } = useDoc<User>(userRef);
   const companyId = profile?.companyId;
 
   const companyRef = useMemoFirebase(() => {
@@ -38,9 +46,12 @@ function ThemeInjector({ children }: { children: React.ReactNode }) {
 
   const { data: company } = useDoc<Company>(companyRef);
 
-  if (!mounted) {
-    return <div className="min-h-screen bg-[#F5F2EA]">{children}</div>;
+  if (!mounted || isUserLoading) {
+    return <div className="min-h-screen bg-[#F5F2EA] flex items-center justify-center"><Loader2 className="animate-spin opacity-20" /></div>;
   }
+
+  // L'affichage du contenu public (login) ou privé
+  if (pathname === '/login') return <div className="min-h-screen bg-[#F5F2EA]">{children}</div>;
 
   const isInactive = profile?.subscriptionStatus === 'inactive' && profile?.role !== 'super_admin';
 
@@ -87,41 +98,29 @@ function ThemeInjector({ children }: { children: React.ReactNode }) {
   const lightness = lightnessMatch ? parseInt(lightnessMatch[1]) : 96;
   const isDark = lightness < 40;
 
-  const card = isDark ? '157 44% 11%' : '0 0% 100%';
-  const border = isDark ? '157 44% 20%' : '157 20% 85%';
-  const muted = isDark ? '157 44% 15%' : '43 38% 90%';
-  const mutedForeground = isDark ? '157 20% 70%' : '157 20% 40%';
-
   const themeStyles = {
     '--primary': primary,
     '--background': background,
     '--foreground': foreground,
-    '--card': card,
+    '--card': isDark ? '157 44% 11%' : '0 0% 100%',
     '--card-foreground': foreground,
-    '--popover': card,
+    '--popover': isDark ? '157 44% 11%' : '0 0% 100%',
     '--popover-foreground': foreground,
-    '--border': border,
-    '--input': border,
+    '--border': isDark ? '157 44% 20%' : '157 20% 85%',
+    '--input': isDark ? '157 44% 20%' : '157 20% 85%',
     '--ring': primary,
-    '--muted': muted,
-    '--muted-foreground': mutedForeground,
+    '--muted': isDark ? '157 44% 15%' : '43 38% 90%',
+    '--muted-foreground': isDark ? '157 20% 70%' : '157 20% 40%',
   } as React.CSSProperties;
 
   return (
-    <div 
-      style={themeStyles} 
-      className="min-h-screen bg-background text-foreground transition-colors duration-500 flex flex-col"
-    >
+    <div style={themeStyles} className="min-h-screen bg-background text-foreground transition-colors duration-500 flex flex-col">
       {children}
     </div>
   );
 }
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr" className="h-full">
       <head>
