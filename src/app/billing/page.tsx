@@ -65,6 +65,7 @@ export default function BillingPage() {
   }, [db, user, isSuperAdmin, allUsers]);
 
   const getPriceData = (userData: User | null) => {
+    // Sécurisation contre le crash si userData est null
     if (!userData) return { price: "0,00", label: "CHARGEMENT..." };
     
     if (userData.companyId === 'admin_global' || userData.role === 'super_admin') {
@@ -79,7 +80,7 @@ export default function BillingPage() {
       return { price: "0,00", label: "INCLUS" };
     }
     
-    // Calcul pour le Patron (admin)
+    // Calcul pour le Patron (admin) selon les nouveaux paliers
     const companyEmployees = allUsers?.filter(u => 
       u.companyId === userData.companyId && 
       u.role === 'employee' && 
@@ -87,9 +88,12 @@ export default function BillingPage() {
     ) || [];
     
     const n = companyEmployees.length;
+    // Patron + (0-5) employés = 199.99€
     if (n <= 5) return { price: "199,99", label: "FORFAIT 0-5 EMP." };
+    // Patron + (6-10) employés = 399.99€
     if (n <= 10) return { price: "399,99", label: "FORFAIT 6-10 EMP." };
     
+    // Patron + (11-infini) = 399.99 + 39.99 par employé sup
     const extra = (n - 10) * 39.99;
     const total = 399.99 + extra;
     return { 
@@ -105,7 +109,7 @@ export default function BillingPage() {
       generateInvoicePDF(userData, price);
       toast({ title: "Facture générée" });
     } catch (error) {
-      toast({ variant: "destructive", title: "Erreur PDF" });
+      toast({ variant: "destructive", title: "Erreur lors de la génération PDF" });
     } finally {
       setIsGenerating(null);
     }
