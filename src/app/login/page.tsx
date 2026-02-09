@@ -10,7 +10,7 @@ import { useAuth, useFirestore } from '@/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc, getDocs, collection, query, where, limit } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Lock, UserCircle, CheckCircle2, Eye, EyeOff, Terminal } from 'lucide-react';
+import { Loader2, Lock, UserCircle, CheckCircle2, Eye, EyeOff, Terminal, AlertTriangle } from 'lucide-react';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { UserRole } from '@/lib/types';
@@ -34,6 +34,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [signUpSuccess, setSignUpSuccess] = useState(false);
   const [showDevMode, setShowDevMode] = useState(false);
+  const [syncError, setSyncError] = useState(false);
   
   const router = useRouter();
   const auth = useAuth();
@@ -100,6 +101,7 @@ export default function LoginPage() {
     e.preventDefault();
     if (!auth || !db) return;
     setIsLoading(true);
+    setSyncError(false);
 
     try {
       const lowerId = loginId.trim().toLowerCase();
@@ -109,29 +111,33 @@ export default function LoginPage() {
       const querySnapshot = await getDocs(q);
       
       let targetEmail = `${lowerId}@espace.internal`;
+      let dbPassword = '';
       
       if (!querySnapshot.empty) {
         const userData = querySnapshot.docs[0].data();
         if (userData.email) targetEmail = userData.email;
+        dbPassword = userData.password || '';
       }
 
-      const result = await signInWithEmailAndPassword(auth, targetEmail, password.trim());
-      
-      if (lowerId === 'jsecchi') {
-        await setDoc(doc(db, 'users', result.user.uid), {
-          role: 'admin',
-          adminMode: true,
-          isCategoryModifier: true,
-          companyId: 'admin_global',
-          companyName: 'GrowAndGo Admin',
-          loginId: 'JSecchi',
-          loginId_lower: 'jsecchi',
-          password: password.trim()
-        }, { merge: true });
+      // Tentative de connexion avec le mot de passe saisi
+      try {
+        await signInWithEmailAndPassword(auth, targetEmail, password.trim());
+        toast({ title: "Connexion réussie" });
+        router.push('/');
+      } catch (authError: any) {
+        // Si Auth échoue mais que le MDP saisi correspond au MDP Firestore (Admin Reset)
+        if (dbPassword && dbPassword === password.trim()) {
+          setSyncError(true);
+          toast({ 
+            variant: "destructive", 
+            title: "Désynchronisation détectée", 
+            description: "Le mot de passe en base a été changé par l'admin mais pas votre accès réel. Utilisez 'Mot de passe oublié' ou votre ancien mot de passe." 
+          });
+        } else {
+          throw authError;
+        }
       }
 
-      toast({ title: "Connexion réussie" });
-      router.push('/');
     } catch (error: any) {
       toast({ variant: "destructive", title: "Accès refusé", description: "Identifiant ou mot de passe incorrect." });
     } finally {
@@ -161,6 +167,19 @@ export default function LoginPage() {
                 <p className="text-xs font-bold text-emerald-800 uppercase">Compte prêt. Connectez-vous.</p>
               </div>
             )}
+            
+            {syncError && (
+              <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="text-xs font-black text-amber-900 uppercase">Alerte de Synchronisation</p>
+                  <p className="text-[10px] font-bold text-amber-800 leading-tight">
+                    Votre administrateur a modifié votre mot de passe en base de données, mais vos accès réels n'ont pas encore été synchronisés. Veuillez essayer votre ancien mot de passe ou demander un lien de réinitialisation.
+                  </p>
+                </div>
+              </div>
+            )}
+
             <form onSubmit={isSignUp ? handleSignUp : handleLogin} className="space-y-4">
               {isSignUp && (
                 <>

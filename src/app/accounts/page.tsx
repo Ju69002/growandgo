@@ -21,9 +21,11 @@ import {
   useDoc, 
   useMemoFirebase,
   updateDocumentNonBlocking,
-  deleteDocumentNonBlocking
+  deleteDocumentNonBlocking,
+  useAuth
 } from '@/firebase';
 import { collection, doc, query } from 'firebase/firestore';
+import { sendPasswordResetEmail } from 'firebase/auth';
 import { User, UserRole } from '@/lib/types';
 import { 
   ShieldCheck, 
@@ -39,7 +41,7 @@ import {
   Calendar,
   Search,
   AlertTriangle,
-  UserPlus
+  Mail
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useMemo, useEffect } from 'react';
@@ -74,6 +76,7 @@ import { Label } from '@/components/ui/label';
 export default function AccountsPage() {
   const { user: currentUser } = useUser();
   const db = useFirestore();
+  const auth = useAuth();
   const { toast } = useToast();
   const [mounted, setMounted] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -113,7 +116,6 @@ export default function AccountsPage() {
   const uniqueUsers = useMemo(() => {
     if (!allProfiles) return [];
     
-    // 1. Groupage par loginId (casse insensible)
     const userGroups = new Map<string, User[]>();
     allProfiles.forEach(u => {
       const id = (u.loginId_lower || u.loginId?.toLowerCase() || '').trim();
@@ -122,7 +124,6 @@ export default function AccountsPage() {
       userGroups.get(id)!.push(u);
     });
 
-    // 2. Calcul des doublons sur les noms réels entre UTILISATEURS UNIQUES
     const nameCounts = new Map<string, number>();
     userGroups.forEach((docs) => {
       const bestName = docs.find(d => d.name && d.name.toLowerCase() !== docs[0].loginId?.toLowerCase())?.name || docs[0].name;
@@ -131,7 +132,6 @@ export default function AccountsPage() {
       }
     });
 
-    // 3. Construction de la liste finale
     return Array.from(userGroups.entries()).map(([id, docs]) => {
       const profileDoc = docs.find(d => d.isProfile === true);
       const baseDoc = profileDoc || docs[0];
@@ -176,6 +176,16 @@ export default function AccountsPage() {
     });
   };
 
+  const handleSendResetEmail = async (email: string) => {
+    if (!auth || !email) return;
+    try {
+      await sendPasswordResetEmail(auth, email);
+      toast({ title: "E-mail envoyé", description: `Un lien de réinitialisation a été envoyé à ${email}.` });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Erreur", description: "Impossible d'envoyer l'e-mail. Vérifiez l'adresse." });
+    }
+  };
+
   const handleDeleteUser = () => {
     if (!db || !allProfiles || !deletingUser) return;
     const loginId = deletingUser.loginId;
@@ -201,20 +211,23 @@ export default function AccountsPage() {
   const handleUpdatePassword = () => {
     if (!db || !editingPasswordUser || !newPassword.trim()) return;
     updateAllUserDocs(editingPasswordUser.loginId, { password: newPassword.trim() });
-    toast({ title: "Mot de passe modifié" });
+    toast({ 
+      title: "Mot de passe modifié (Base)", 
+      description: "Note : Le mot de passe de connexion reste l'ancien. Utilisez 'Réinitialisation par e-mail' pour changer l'accès réel." 
+    });
     setEditingPasswordUser(null);
   };
 
   const handleUpdateName = () => {
     if (!db || !editingNameUser || !newName.trim()) return;
     updateAllUserDocs(editingNameUser.loginId, { name: newName.trim() });
-    toast({ title: "Nom mis à jour", description: `Le nom "${newName}" a été enregistré en base.` });
+    toast({ title: "Nom mis à jour" });
     setEditingNameUser(null);
   };
 
   const resetNameToLoginId = (u: User) => {
     updateAllUserDocs(u.loginId, { name: u.loginId });
-    toast({ title: "Doublon corrigé", description: `Le nom a été réinitialisé vers l'identifiant : ${u.loginId}` });
+    toast({ title: "Doublon corrigé" });
   };
 
   const handleUpdateCompany = () => {
@@ -250,7 +263,7 @@ export default function AccountsPage() {
     }
 
     updateAllUserDocs(editingRoleUser.loginId, updates);
-    toast({ title: "Rôle mis à jour", description: `L'utilisateur est désormais ${newRole.toUpperCase()}.` });
+    toast({ title: "Rôle mis à jour" });
     setEditingRoleUser(null);
     setRoleCompanyInput('');
   };
@@ -268,7 +281,7 @@ export default function AccountsPage() {
               <UserCog className="w-8 h-8" />
               Répertoire
             </h1>
-            <p className="text-muted-foreground font-medium text-sm">Contrôle global des utilisateurs et détection de doublons.</p>
+            <p className="text-muted-foreground font-medium text-sm">Contrôle global des utilisateurs et gestion des accès.</p>
           </div>
           <div className="flex items-center gap-3">
             <div className="relative">
@@ -302,15 +315,8 @@ export default function AccountsPage() {
                   <TableRow key={u.uid} className="hover:bg-primary/5 transition-colors group">
                     <TableCell className="pl-8 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="relative">
-                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-black text-xs">
-                            {u.name?.charAt(0) || u.loginId?.charAt(0)}
-                          </div>
-                          {u.isDuplicateName && (
-                            <div className="absolute -top-1 -right-1 bg-rose-500 text-white rounded-full p-0.5" title="Nom en doublon">
-                              <AlertTriangle className="w-3 h-3" />
-                            </div>
-                          )}
+                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-black text-xs">
+                          {u.name?.charAt(0) || u.loginId?.charAt(0)}
                         </div>
                         <div className="flex flex-col">
                           <div className="flex items-center gap-1.5">
@@ -326,17 +332,6 @@ export default function AccountsPage() {
                             >
                               <Edit2 className="w-3 h-3" />
                             </Button>
-                            {u.isDuplicateName && (
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                className="h-6 px-2 text-[8px] bg-rose-50 text-rose-600 font-black uppercase border border-rose-100 hover:bg-rose-100"
-                                onClick={() => resetNameToLoginId(u)}
-                                title="Utiliser l'ID pour corriger le doublon"
-                              >
-                                Corriger
-                              </Button>
-                            )}
                           </div>
                           <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
                             <Calendar className="w-2.5 h-2.5 opacity-40" />
@@ -366,7 +361,7 @@ export default function AccountsPage() {
                     <TableCell className="text-center py-4">
                       <div className="flex items-center justify-center gap-2">
                         <Badge className={cn(
-                          "text-[10px] font-black uppercase px-3 h-6 tracking-tight whitespace-nowrap flex items-center justify-center",
+                          "text-[10px] font-black uppercase px-3 h-6 tracking-tight whitespace-nowrap",
                           u.companyId === 'admin_global' ? "bg-rose-950" : 
                           u.role === 'admin' ? "bg-primary" : 
                           u.role === 'particulier' ? "bg-amber-600" :
@@ -406,7 +401,7 @@ export default function AccountsPage() {
                             {u.subscriptionStatus === 'inactive' ? 'Désactivé' : 'Actif'}
                           </Button>
                         ) : (
-                          <Badge className="bg-emerald-600 font-black uppercase text-[9px] h-6 px-3 flex items-center justify-center">TOUJOURS ACTIF</Badge>
+                          <Badge className="bg-emerald-600 font-black uppercase text-[9px] h-6 px-3">TOUJOURS ACTIF</Badge>
                         )}
                       </div>
                     </TableCell>
@@ -423,7 +418,16 @@ export default function AccountsPage() {
                                variant="ghost" 
                                size="icon" 
                                className="h-8 w-8 text-primary hover:bg-primary/10" 
-                               title="Modifier le mot de passe"
+                               title="Réinitialisation par e-mail"
+                               onClick={() => handleSendResetEmail(u.email)}
+                             >
+                               <Mail className="w-4 h-4" />
+                             </Button>
+                             <Button 
+                               variant="ghost" 
+                               size="icon" 
+                               className="h-8 w-8 text-primary hover:bg-primary/10" 
+                               title="Modifier manuellement (Base uniquement)"
                                onClick={() => { setEditingPasswordUser(u); setNewPassword(u.password || ''); }}
                              >
                                <Key className="w-4 h-4" />
@@ -467,12 +471,14 @@ export default function AccountsPage() {
       <Dialog open={!!editingPasswordUser} onOpenChange={(open) => !open && setEditingPasswordUser(null)}>
         <DialogContent className="rounded-[2rem]">
           <DialogHeader>
-            <DialogTitle>Modifier le mot de passe</DialogTitle>
-            <DialogDescription>Mise à jour pour l'utilisateur : <strong>{editingPasswordUser?.loginId}</strong></DialogDescription>
+            <DialogTitle>Modifier le mot de passe (Référence)</DialogTitle>
+            <DialogDescription>
+              Note : Modifier cette valeur ne change pas l'accès Firebase Auth réel du client. Utilisez l'icône <Mail className="w-3 h-3 inline" /> pour envoyer un lien de réinitialisation sécurisé.
+            </DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <div className="space-y-1">
-              <span className="text-[10px] font-black uppercase text-muted-foreground ml-1">Nouveau mot de passe</span>
+              <span className="text-[10px] font-black uppercase text-muted-foreground ml-1">Nouveau mot de passe (Base)</span>
               <Input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="rounded-xl h-12 font-bold" />
             </div>
           </div>
