@@ -65,7 +65,7 @@ export default function BillingPage() {
   }, [db, user, isSuperAdmin, allUsers]);
 
   const getPriceData = (userData: User | null) => {
-    // Sécurisation contre le crash si userData est null
+    // Sécurisation critique contre le crash si userData est null au chargement
     if (!userData) return { price: "0,00", label: "CHARGEMENT..." };
     
     if (userData.companyId === 'admin_global' || userData.role === 'super_admin') {
@@ -80,7 +80,7 @@ export default function BillingPage() {
       return { price: "0,00", label: "INCLUS" };
     }
     
-    // Calcul pour le Patron (admin) selon les nouveaux paliers
+    // Calcul pour le Patron (admin) selon les paliers d'employés
     const companyEmployees = allUsers?.filter(u => 
       u.companyId === userData.companyId && 
       u.role === 'employee' && 
