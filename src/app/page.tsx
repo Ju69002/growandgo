@@ -197,8 +197,7 @@ export default function Home() {
               </Link>
             </Button>
           </div>
-          {/* Augmentation de la hauteur pour éviter le scroll avec hourHeight à 70px */}
-          <div className="h-[950px] border-none shadow-2xl rounded-[3rem] overflow-hidden bg-white border border-primary/5">
+          <div className="h-[1100px] border-none shadow-2xl rounded-[3rem] overflow-hidden bg-white border border-primary/5">
             {companyId ? (
               <SharedCalendar companyId={companyId} isCompact={false} defaultView="3day" hideViewSwitcher={true} />
             ) : (
@@ -209,7 +208,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Espace augmenté avant les dossiers */}
         <section className="pt-24 border-t border-primary/10">
           <h2 className="text-2xl font-black uppercase tracking-tighter mb-8 flex items-center gap-3">
             <FileText className="w-7 h-7 text-primary" />
