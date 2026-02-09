@@ -27,17 +27,14 @@ service cloud.firestore {
     match /companies/{companyId} {
       allow read: if isSignedIn();
       // On autorise l'écriture si l'utilisateur est authentifié. 
-      // Idéalement on vérifierait l'appartenance à la compagnie ici.
       allow write: if isSignedIn();
 
-      // Règle de stabilisation : vérification du userId sur les ressources sensibles (événements, docs)
       match /events/{eventId} {
         allow read: if isSignedIn();
+        // Validation stricte du userId
         allow write: if isSignedIn() && (
-          // Création ou mise à jour autorisée si le userId correspond à l'auth
-          request.resource.data.userId == request.auth.uid ||
-          // Ou si le document existant appartient déjà à l'utilisateur
-          resource.data.userId == request.auth.uid
+          (request.resource != null && request.resource.data.userId == request.auth.uid) ||
+          (resource != null && resource.data.userId == request.auth.uid)
         );
       }
 

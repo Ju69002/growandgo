@@ -6,16 +6,15 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { useAuth, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useAuth, useFirestore } from '@/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, collection, query, where, writeBatch } from 'firebase/firestore';
+import { doc, setDoc, writeBatch } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Lock, UserCircle, Users, Key, CheckCircle2, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Lock, UserCircle, Key, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { User as UserProfile, UserRole } from '@/lib/types';
-import { cn, normalizeId } from '@/lib/utils';
+import { UserRole } from '@/lib/types';
+import { normalizeId } from '@/lib/utils';
 import {
   Select,
   SelectContent,
@@ -41,13 +40,6 @@ export default function LoginPage() {
   const { toast } = useToast();
   const logo = PlaceHolderImages.find(img => img.id === 'app-logo');
 
-  const allUsersQuery = useMemoFirebase(() => {
-    if (!db) return null;
-    return query(collection(db, 'users'), where('isProfile', '==', true));
-  }, [db]);
-
-  const { data: allUsers, isLoading: isUsersLoading } = useCollection<UserProfile>(allUsersQuery);
-
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!db || !auth) return;
@@ -57,7 +49,6 @@ export default function LoginPage() {
       const lowerId = loginId.trim().toLowerCase();
       const email = `${lowerId}@espace.internal`;
       
-      // 1. Création du compte Auth Firebase (Email/Password) - Pas d'anonyme
       const userCredential = await createUserWithEmailAndPassword(auth, email, password.trim());
       const uid = userCredential.user.uid;
 
@@ -68,14 +59,12 @@ export default function LoginPage() {
       let finalCompanyId = normalizeId(finalCompanyName);
       if (finalRole === 'particulier') finalCompanyId = `private-${lowerId}`;
 
-      // Harmonisation Super Admin
       if (lowerId === 'jsecchi') {
         finalRole = 'super_admin';
         finalCompanyName = "GrowAndGo";
         finalCompanyId = "growandgo";
       }
 
-      // 2. Création du profil Firestore avec merge: true pour protéger les données
       await setDoc(doc(db, 'users', uid), {
         uid: uid,
         isProfile: true,
@@ -93,7 +82,6 @@ export default function LoginPage() {
         createdAt: new Date().toISOString()
       }, { merge: true });
 
-      // 3. Initialisation des catégories par défaut
       if (finalRole !== 'employee') {
         const batch = writeBatch(db);
         const defaultCategories = [
@@ -139,10 +127,7 @@ export default function LoginPage() {
     try {
       const lowerId = loginId.trim().toLowerCase();
       const email = `${lowerId}@espace.internal`;
-      
-      // Authentification standard Email/Password
       await signInWithEmailAndPassword(auth, email, password.trim());
-      
       toast({ title: "Connexion réussie" });
       router.push('/');
     } catch (error: any) {
@@ -154,43 +139,8 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-[#F5F2EA] flex items-center justify-center p-4">
-      <div className="flex flex-col md:flex-row gap-8 items-start max-w-5xl w-full">
-        <div className="w-full md:w-80 space-y-4">
-          <div className="bg-white p-6 rounded-[2rem] shadow-xl border-none">
-            <div className="flex items-center gap-2 mb-4 text-[#1E4D3B]">
-              <Users className="w-5 h-5" />
-              <h3 className="font-black uppercase text-[10px] tracking-widest">Répertoire</h3>
-            </div>
-            <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
-              {isUsersLoading ? (
-                <div className="py-8 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-primary/20" /></div>
-              ) : allUsers?.map(u => (
-                <div key={u.uid} className="flex flex-col p-3 rounded-xl bg-muted/30 border border-black/5 gap-1.5 hover:bg-muted/50 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-[12px] font-black text-primary">{u.loginId}</span>
-                    <Badge className={cn("text-[8px] font-black uppercase h-4 px-1", 
-                      u.role === 'super_admin' ? "bg-rose-950" : 
-                      u.role === 'admin' ? "bg-primary" : 
-                      u.role === 'particulier' ? "bg-amber-600" :
-                      "bg-muted text-muted-foreground"
-                    )}>
-                      {u.role === 'super_admin' ? 'A' : u.role === 'admin' ? 'P' : u.role === 'particulier' ? 'PR' : 'E'}
-                    </Badge>
-                  </div>
-                  <p className="text-[8px] font-black uppercase text-muted-foreground/60 truncate">
-                    {u.companyName || u.companyId}
-                  </p>
-                  <div className="flex items-center gap-1.5 text-rose-950 bg-rose-50/50 p-1.5 rounded border border-rose-100">
-                    <Key className="w-3 h-3 opacity-50" />
-                    <span className="text-[11px] font-mono font-black tracking-tight">{u.password || '••••••'}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <Card className="flex-1 w-full shadow-2xl border-none p-4 rounded-[2.5rem] bg-white">
+      <div className="max-w-md w-full">
+        <Card className="shadow-2xl border-none p-4 rounded-[2.5rem] bg-white">
           <CardHeader className="text-center space-y-4">
             <div className="relative w-20 h-20 mx-auto overflow-hidden rounded-2xl border bg-white shadow-xl">
               <Image src={logo?.imageUrl || "https://picsum.photos/seed/growgo/100/100"} alt="Logo" fill className="object-cover p-2" />
@@ -212,7 +162,7 @@ export default function LoginPage() {
             <form onSubmit={isSignUp ? handleSignUp : handleLogin} className="space-y-4">
               {isSignUp && (
                 <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4">
                     <Input placeholder="Prénom Nom" value={name} onChange={(e) => setName(e.target.value)} className="h-12 bg-[#F9F9F7] border-none rounded-xl font-bold" required />
                     <div className="space-y-1">
                       <Select value={selectedRole} onValueChange={(v) => setSelectedRole(v as UserRole)}>
