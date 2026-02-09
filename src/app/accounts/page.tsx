@@ -38,7 +38,8 @@ import {
   CheckCircle2,
   Calendar,
   Search,
-  AlertTriangle
+  AlertTriangle,
+  UserPlus
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useMemo, useEffect } from 'react';
@@ -112,14 +113,7 @@ export default function AccountsPage() {
   const uniqueUsers = useMemo(() => {
     if (!allProfiles) return [];
     
-    // On détecte les doublons de noms affichés
-    const nameCounts = new Map<string, number>();
-    allProfiles.forEach(u => {
-      if (u.name) {
-        nameCounts.set(u.name, (nameCounts.get(u.name) || 0) + 1);
-      }
-    });
-
+    // 1. Groupage par loginId (casse insensible)
     const userGroups = new Map<string, User[]>();
     allProfiles.forEach(u => {
       const id = (u.loginId_lower || u.loginId?.toLowerCase() || '').trim();
@@ -128,6 +122,16 @@ export default function AccountsPage() {
       userGroups.get(id)!.push(u);
     });
 
+    // 2. Calcul des doublons sur les noms réels entre UTILISATEURS UNIQUES
+    const nameCounts = new Map<string, number>();
+    userGroups.forEach((docs) => {
+      const bestName = docs.find(d => d.name && d.name.toLowerCase() !== docs[0].loginId?.toLowerCase())?.name || docs[0].name;
+      if (bestName) {
+        nameCounts.set(bestName, (nameCounts.get(bestName) || 0) + 1);
+      }
+    });
+
+    // 3. Construction de la liste finale
     return Array.from(userGroups.entries()).map(([id, docs]) => {
       const profileDoc = docs.find(d => d.isProfile === true);
       const baseDoc = profileDoc || docs[0];
@@ -206,6 +210,11 @@ export default function AccountsPage() {
     updateAllUserDocs(editingNameUser.loginId, { name: newName.trim() });
     toast({ title: "Nom mis à jour", description: `Le nom "${newName}" a été enregistré en base.` });
     setEditingNameUser(null);
+  };
+
+  const resetNameToLoginId = (u: User) => {
+    updateAllUserDocs(u.loginId, { name: u.loginId });
+    toast({ title: "Doublon corrigé", description: `Le nom a été réinitialisé vers l'identifiant : ${u.loginId}` });
   };
 
   const handleUpdateCompany = () => {
@@ -317,6 +326,17 @@ export default function AccountsPage() {
                             >
                               <Edit2 className="w-3 h-3" />
                             </Button>
+                            {u.isDuplicateName && (
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-6 px-2 text-[8px] bg-rose-50 text-rose-600 font-black uppercase border border-rose-100 hover:bg-rose-100"
+                                onClick={() => resetNameToLoginId(u)}
+                                title="Utiliser l'ID pour corriger le doublon"
+                              >
+                                Corriger
+                              </Button>
+                            )}
                           </div>
                           <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
                             <Calendar className="w-2.5 h-2.5 opacity-40" />

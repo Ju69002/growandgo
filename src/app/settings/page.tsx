@@ -61,7 +61,7 @@ export default function SettingsPage() {
     }
   }, [profile]);
 
-  // Vérification de doublons de noms dans toute la base
+  // Vérification de doublons de noms dans toute la base (basée sur des utilisateurs uniques)
   const checkDuplicateNames = async (name: string) => {
     if (!db || !name.trim() || name === profile?.name) {
       setDuplicateNames([]);
@@ -71,11 +71,13 @@ export default function SettingsPage() {
     try {
       const q = query(collection(db, 'users'), where('name', '==', name.trim()));
       const querySnapshot = await getDocs(q);
-      const others = querySnapshot.docs
-        .map(d => d.data() as User)
-        .filter(u => u.uid !== user?.uid);
       
-      setDuplicateNames(others.map(u => u.loginId));
+      // On filtre pour ne garder que les autres utilisateurs réels (loginId différent)
+      const otherUsers = querySnapshot.docs
+        .map(d => d.data() as User)
+        .filter(u => u.loginId?.toLowerCase() !== profile?.loginId?.toLowerCase());
+      
+      setDuplicateNames(Array.from(new Set(otherUsers.map(u => u.loginId))));
     } catch (e) {
       console.error("Erreur check doublons:", e);
     }
@@ -89,24 +91,27 @@ export default function SettingsPage() {
   }, [userName]);
 
   const handleSave = () => {
-    if (!db || !user) return;
-    setIsSaving(true);
+    if (!db || !user || !profile) return;
+    setIsSaving(false);
 
-    const userDocRef = doc(db, 'users', user.uid);
-    // Utilisation de merge: true via updateDocumentNonBlocking
-    updateDocumentNonBlocking(userDocRef, { 
-      name: userName.trim(),
-      email: userEmail.trim(),
-      password: userPassword.trim()
-    });
-
-    setTimeout(() => {
-      setIsSaving(false);
+    // On récupère tous les documents liés à cet utilisateur pour assurer la synchronisation
+    const q = query(collection(db, 'users'), where('loginId_lower', '==', profile.loginId.toLowerCase()));
+    
+    getDocs(q).then((snapshot) => {
+      snapshot.forEach((uDoc) => {
+        const ref = doc(db, 'users', uDoc.id);
+        updateDocumentNonBlocking(ref, { 
+          name: userName.trim(),
+          email: userEmail.trim(),
+          password: userPassword.trim()
+        });
+      });
+      
       toast({ 
         title: "Profil mis à jour", 
         description: `Les modifications pour ${userName} ont été enregistrées en base de données.` 
       });
-    }, 500);
+    });
   };
 
   if (isProfileLoading) {
