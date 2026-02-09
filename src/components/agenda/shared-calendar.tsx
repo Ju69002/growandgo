@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -109,7 +108,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
 
   const startHour = 8;
   const endHour = 20;
-  const hourHeight = 52; // Calibré pour 8h-20h (12 créneaux) sans scroll dans le dashboard
+  const hourHeight = 52; 
 
   const eventsQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
@@ -314,7 +313,6 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
         </div>
 
         <div className="relative flex-1 overflow-hidden">
-          {/* Scrollable area with padding to avoid clipping labels */}
           <div className="absolute inset-0 overflow-y-auto pt-6 pb-6">
             <div className="flex relative" style={{ height: `${totalHeight}px` }}>
               <div className="w-16 flex-shrink-0 flex flex-col relative bg-muted/5 border-r">
@@ -340,14 +338,14 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
 
                         const isCurrentDragged = draggedEventId === event.id;
                         const topPos = (eventStartHour - startHour) * hourHeight + (start.getMinutes() / 60 * hourHeight);
-                        const height = Math.max(30, (duration / 60) * hourHeight);
+                        const height = Math.max(24, (duration / 60) * hourHeight);
 
                         return (
                           <div 
                             key={event.id} 
                             onMouseDown={(e) => handleMouseDown(e, event)}
                             className={cn(
-                              "absolute left-0 right-0 mx-1 z-10 rounded-xl border-l-4 shadow-sm cursor-pointer p-3 overflow-hidden flex flex-col select-none transition-all",
+                              "absolute left-0 right-0 mx-1 z-10 rounded-xl border-l-4 shadow-sm cursor-pointer p-2 overflow-hidden flex flex-col select-none transition-all",
                               event.isBillingEvent ? "bg-amber-50 border-amber-500" : (event.source === 'google' ? "bg-white border-primary" : "bg-primary/5 border-primary/40"),
                               isCurrentDragged && "z-30 opacity-90 scale-[1.02] shadow-2xl ring-2 ring-primary"
                             )}
@@ -357,12 +355,21 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
                               height: `${height}px`
                             }}
                           >
-                            <span className="font-black text-primary/40 text-[9px] mb-1 leading-none">
-                              {format(isCurrentDragged ? addMinutes(start, (dragOffset/hourHeight)*60) : start, "HH:mm")}
-                            </span>
-                            <h4 className="font-bold text-[12px] leading-snug text-primary break-words mt-0.5">
-                              {event.titre}
-                            </h4>
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className="font-black text-primary/40 text-[9px] shrink-0">
+                                {format(isCurrentDragged ? addMinutes(start, (dragOffset/hourHeight)*60) : start, "HH:mm")}
+                              </span>
+                              {duration <= 30 && (
+                                <span className="font-bold text-[10px] text-primary truncate flex-1">
+                                  {event.titre}
+                                </span>
+                              )}
+                            </div>
+                            {duration > 30 && (
+                              <h4 className="font-bold text-[12px] leading-none text-primary break-words mt-1 line-clamp-1">
+                                {event.titre}
+                              </h4>
+                            )}
                           </div>
                         );
                       })}

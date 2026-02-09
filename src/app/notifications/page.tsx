@@ -1,4 +1,3 @@
-
 'use client';
 
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
@@ -32,7 +31,6 @@ export default function NotificationsPage() {
 
   const pendingDocsQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
-    // On utilise une clause 'in' car Firestore n'autorise pas plusieurs '!='
     return query(
       collection(db, 'companies', companyId, 'documents'),
       where('status', 'in', ['pending_analysis', 'waiting_verification', 'waiting_validation'])
@@ -41,7 +39,6 @@ export default function NotificationsPage() {
 
   const { data: tasks, isLoading } = useCollection<BusinessDocument>(pendingDocsQuery);
 
-  // Filtrage côté client pour exclure les anciennes tâches de facturation
   const filteredTasks = tasks?.filter(t => !t.isBillingTask) || [];
 
   return (

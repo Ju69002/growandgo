@@ -1,16 +1,13 @@
-
 'use client';
 
-import { Firestore, collection, doc } from 'firebase/firestore';
-import { User, CalendarEvent } from '@/lib/types';
+import { Firestore, doc } from 'firebase/firestore';
+import { User } from '@/lib/types';
 import { setDocumentNonBlocking } from '@/firebase';
-import { format, addMonths, isBefore, isSameDay } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { format, addMonths, isBefore } from 'date-fns';
 
 /**
  * Service pour synchroniser les rendez-vous de facturation (Version V1).
  * Génère uniquement des RDV récurrents mensuels sur 12 mois dans l'agenda.
- * Les tâches du dashboard seront déduites de ces événements.
  */
 export async function syncBillingTasks(db: Firestore, adminUid: string, allUsers: User[]) {
   const adminCompanyId = "growandgo";
@@ -44,22 +41,20 @@ export async function syncBillingTasks(db: Firestore, adminUid: string, allUsers
       const monthId = format(checkDate, 'yyyy-MM');
       const slug = (client.loginId_lower || client.loginId || client.uid).toLowerCase();
       
-      // Identifiant unique stable pour l'événement (Version V1)
       const currentEventId = `event_v1_${slug}_${monthId}`;
       const eventRef = doc(db, 'companies', adminCompanyId, 'events', currentEventId);
 
       if (isActive) {
-        // Date par défaut : le 8 du mois
-        let eventDate = new Date(checkDate.getFullYear(), checkDate.getMonth(), 8);
-        
-        // Si c'est le mois en cours, on force à aujourd'hui pour voir la tâche dans le dashboard
+        // Pour le mois en cours, on force à aujourd'hui pour voir la tâche dans le dashboard
+        let eventDate;
         if (checkDate.getMonth() === now.getMonth() && checkDate.getFullYear() === now.getFullYear()) {
            eventDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        } else {
+           eventDate = new Date(checkDate.getFullYear(), checkDate.getMonth(), 8);
         }
         
         eventDate.setHours(9 + hourOffset, 0, 0, 0);
 
-        // Événement Agenda : Titre condensé, instruction en note
         setDocumentNonBlocking(eventRef, {
           id: currentEventId,
           id_externe: currentEventId,
