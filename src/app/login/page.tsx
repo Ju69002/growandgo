@@ -117,14 +117,15 @@ export default function LoginPage() {
         if (userData.email) targetEmail = userData.email;
       }
 
-      const userCredential = await signInWithEmailAndPassword(auth, targetEmail, password.trim());
-      const uid = userCredential.user.uid;
-
+      await signInWithEmailAndPassword(auth, targetEmail, password.trim());
+      const userCredential = auth.currentUser;
+      if (!userCredential) throw new Error("Erreur d'authentification");
+      
+      const uid = userCredential.uid;
       const userDocRef = doc(db, 'users', uid);
       const userDocSnap = await getDoc(userDocRef);
 
       if (!userDocSnap.exists()) {
-        console.log("Profil manquant détecté, création en cours...");
         let legacyData = {};
         if (!querySnapshot.empty) {
           legacyData = querySnapshot.docs[0].data();
@@ -141,7 +142,7 @@ export default function LoginPage() {
           name: legacyData['name'] || loginId.trim(),
           companyId: legacyData['companyId'] || 'pending',
           createdAt: legacyData['createdAt'] || new Date().toISOString()
-        });
+        }, { merge: true });
       } else if (!userDocSnap.data().isProfile) {
         await updateDoc(userDocRef, { isProfile: true });
       }
@@ -224,9 +225,20 @@ export default function LoginPage() {
                     { id: 'LVecchio', role: 'Employé', pass: 'LVecchio' },
                     { id: 'BDupres', role: 'Employé', pass: 'BDupres' }
                   ].map(acc => (
-                    <div key={acc.id} className="p-3 bg-muted/30 rounded-xl text-[10px] flex justify-between items-center cursor-pointer hover:bg-primary/10" onClick={() => { setLoginId(acc.id); setPassword(acc.pass); }}>
-                      <span className="font-black text-primary uppercase">{acc.id} ({acc.role})</span>
-                      <span className="font-mono bg-white px-2 py-0.5 rounded border">{acc.pass}</span>
+                    <div 
+                      key={acc.id} 
+                      className="p-3 bg-muted/30 rounded-xl text-[10px] flex justify-between items-center cursor-pointer hover:bg-primary/10 transition-colors" 
+                      onClick={() => { 
+                        setLoginId(acc.id); 
+                        setPassword(acc.pass); 
+                        toast({ title: `Identifiants pour ${acc.id} remplis` });
+                      }}
+                    >
+                      <div className="flex flex-col">
+                        <span className="font-black text-primary uppercase">{acc.id}</span>
+                        <span className="text-[8px] opacity-60">({acc.role})</span>
+                      </div>
+                      <span className="font-mono bg-white px-2 py-0.5 rounded border shadow-sm">{acc.pass}</span>
                     </div>
                   ))}
                 </div>

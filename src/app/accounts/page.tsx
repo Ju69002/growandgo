@@ -14,6 +14,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { 
   useFirestore, 
   useCollection, 
@@ -37,7 +38,10 @@ import {
   CreditCard,
   Building2,
   UserCheck,
-  AlertTriangle
+  AlertTriangle,
+  Key,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useMemo, useEffect } from 'react';
@@ -73,10 +77,13 @@ export default function AccountsPage() {
   const { toast } = useToast();
   const [mounted, setMounted] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
   
   const [editingRoleUser, setEditingRoleUser] = useState<User | null>(null);
+  const [editingPassUser, setEditingPassUser] = useState<User | null>(null);
   const [deletingUser, setDeletingUser] = useState<User | null>(null);
   const [newRole, setNewRole] = useState<UserRole>('employee');
+  const [newPassword, setNewPassword] = useState('');
 
   useEffect(() => {
     setMounted(true);
@@ -92,31 +99,15 @@ export default function AccountsPage() {
 
   const profilesQuery = useMemoFirebase(() => {
     if (!db || !isGlobalAdmin) return null;
-    return query(collection(db, 'users'));
+    return query(collection(db, 'users'), where('isProfile', '==', true));
   }, [db, isGlobalAdmin]);
 
   const { data: allProfiles, isLoading: isUsersLoading } = useCollection<User>(profilesQuery);
 
-  const companiesQuery = useMemoFirebase(() => {
-    if (!db || !isGlobalAdmin) return null;
-    return query(collection(db, 'companies'));
-  }, [db, isGlobalAdmin]);
-
-  const { data: allCompanies } = useCollection<Company>(companiesQuery);
-
   const uniqueUsers = useMemo(() => {
     if (!allProfiles) return [];
     
-    // REGLE : On ne garde que les profils réels (isProfile: true) dont l'ID Firestore correspond à leur UID
-    // Cela élimine les fantômes à IDs aléatoires générés par addDoc()
-    const realProfiles = allProfiles.filter(u => u.isProfile === true && u.id === u.uid);
-    
-    // Détection des fantômes pour logs
-    const ghosts = allProfiles.filter(u => !u.isProfile || u.id !== u.uid);
-    if (ghosts.length > 0) {
-      console.log("Documents fantômes détectés (IDs aléatoires ou marqueur manquant) :", ghosts.map(g => g.id));
-    }
-
+    const realProfiles = allProfiles.filter(u => u.id === u.uid);
     const companyCounts = new Map<string, number>();
     const companyPatrons = new Map<string, string>();
 
@@ -124,9 +115,7 @@ export default function AccountsPage() {
       const cId = u.companyId?.toLowerCase().trim();
       if (cId) {
         companyCounts.set(cId, (companyCounts.get(cId) || 0) + 1);
-        if (u.role === 'admin') {
-          companyPatrons.set(cId, u.name || u.loginId);
-        }
+        if (u.role === 'admin') companyPatrons.set(cId, u.name || u.loginId);
       }
     });
 
@@ -134,7 +123,6 @@ export default function AccountsPage() {
       const cId = u.companyId?.toLowerCase().trim();
       const userCount = companyCounts.get(cId) || 0;
       const patronName = companyPatrons.get(cId) || "son patron";
-      
       const isInternalAdmin = u.companyId === 'admin_global';
       const calculatedAmount = isInternalAdmin ? 0 : (userCount * 39.99);
 
@@ -158,7 +146,7 @@ export default function AccountsPage() {
       );
     })
     .sort((a, b) => (a.companyId === 'admin_global' ? -1 : 1));
-  }, [allProfiles, allCompanies, searchQuery]);
+  }, [allProfiles, searchQuery]);
 
   const handleSendResetEmail = async (email: string) => {
     if (!auth || !email) return;
@@ -166,28 +154,39 @@ export default function AccountsPage() {
       await sendPasswordResetEmail(auth, email);
       toast({ title: "E-mail envoyé", description: `Lien de réinitialisation envoyé à ${email}.` });
     } catch (e: any) {
-      toast({ variant: "destructive", title: "Erreur", description: "L'utilisateur doit d'abord synchroniser son compte dans ses paramètres." });
+      toast({ variant: "destructive", title: "Erreur", description: "L'utilisateur doit d'abord synchroniser son e-mail." });
     }
   };
 
   const handleDeleteUser = () => {
     if (!db || !deletingUser) return;
-    const ref = doc(db, 'users', deletingUser.id);
-    deleteDocumentNonBlocking(ref);
+    deleteDocumentNonBlocking(doc(db, 'users', deletingUser.id));
     toast({ title: "Compte supprimé" });
     setDeletingUser(null);
   };
 
   const handleUpdateRole = () => {
     if (!db || !editingRoleUser) return;
-    const ref = doc(db, 'users', editingRoleUser.id);
-    updateDocumentNonBlocking(ref, { 
+    updateDocumentNonBlocking(doc(db, 'users', editingRoleUser.id), { 
       role: newRole,
       adminMode: newRole === 'admin',
       isCategoryModifier: newRole === 'admin'
     });
     toast({ title: "Rôle mis à jour" });
     setEditingRoleUser(null);
+  };
+
+  const handleUpdatePassword = () => {
+    if (!db || !editingPassUser || !newPassword.trim()) return;
+    updateDocumentNonBlocking(doc(db, 'users', editingPassUser.id), { 
+      password: newPassword.trim()
+    });
+    toast({ title: "Mot de passe Firestore mis à jour", description: "Note: Le mot de passe réel de connexion n'est pas modifié ici." });
+    setEditingPassUser(null);
+  };
+
+  const togglePassVisibility = (id: string) => {
+    setShowPasswords(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
   if (!mounted || isProfileLoading || isUsersLoading) return <div className="flex items-center justify-center min-h-screen"><Loader2 className="animate-spin text-primary opacity-20" /></div>;
@@ -201,18 +200,16 @@ export default function AccountsPage() {
               <UserCog className="w-8 h-8" />
               Répertoire & Abonnements
             </h1>
-            <p className="text-muted-foreground font-medium text-sm">Contrôle global des utilisateurs. Seuls les profils synchronisés (ID=UID) sont visibles.</p>
+            <p className="text-muted-foreground font-medium text-sm">Gestion globale des accès et facturations.</p>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
-              <Input 
-                placeholder="Rechercher..." 
-                className="pl-9 h-10 w-64 rounded-full bg-white border-primary/10 shadow-sm"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
+          <div className="relative">
+            <Search className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
+            <Input 
+              placeholder="Rechercher..." 
+              className="pl-9 h-10 w-64 rounded-full bg-white border-primary/10 shadow-sm"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
         </div>
 
@@ -221,9 +218,10 @@ export default function AccountsPage() {
             <Table>
               <TableHeader className="bg-primary text-primary-foreground">
                 <TableRow className="hover:bg-primary/95 border-none">
-                  <TableHead className="pl-8 py-4 text-[10px] font-black uppercase tracking-widest text-primary-foreground/70">Utilisateur</TableHead>
+                  <TableHead className="pl-8 py-4 text-[10px] font-black uppercase tracking-widest text-primary-foreground/70">Utilisateur / ID</TableHead>
                   <TableHead className="text-[10px] font-black uppercase tracking-widest text-primary-foreground/70">Entreprise</TableHead>
                   <TableHead className="text-[10px] font-black uppercase tracking-widest text-primary-foreground/70">Abonnement</TableHead>
+                  <TableHead className="text-[10px] font-black uppercase tracking-widest text-primary-foreground/70">Mot de passe</TableHead>
                   <TableHead className="text-[10px] font-black uppercase tracking-widest text-primary-foreground/70 text-center">Rôle</TableHead>
                   <TableHead className="text-right pr-8 text-[10px] font-black uppercase tracking-widest text-primary-foreground/70">Actions</TableHead>
                 </TableRow>
@@ -234,7 +232,7 @@ export default function AccountsPage() {
                     <TableCell className="pl-8 py-4">
                       <div className="flex flex-col">
                         <span className="font-bold text-sm text-primary">{u.name || u.loginId}</span>
-                        <span className="text-[10px] text-muted-foreground font-mono">{u.email}</span>
+                        <span className="text-[10px] text-muted-foreground font-mono">ID: {u.loginId}</span>
                       </div>
                     </TableCell>
                     <TableCell className="py-4">
@@ -245,23 +243,30 @@ export default function AccountsPage() {
                     </TableCell>
                     <TableCell className="py-4">
                       {u.companyId === 'admin_global' ? (
-                        <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 font-bold text-[9px]">OFFERT (ADMIN)</Badge>
+                        <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 font-bold text-[9px]">OFFERT</Badge>
                       ) : u.role === 'admin' ? (
                         <div className="flex flex-col">
-                          <span className="text-xs font-black text-primary flex items-center gap-1">
-                            <CreditCard className="w-3 h-3" />
-                            {u.displaySubscription.totalAmount.toFixed(2).replace('.', ',')}€
-                          </span>
-                          <span className="text-[9px] text-muted-foreground font-bold">
-                            39,99€ × {u.displaySubscription.activeUsers} collaborateurs
-                          </span>
+                          <span className="text-xs font-black text-primary">{u.displaySubscription.totalAmount.toFixed(2)}€</span>
+                          <span className="text-[9px] text-muted-foreground">39,99€ × {u.displaySubscription.activeUsers} pers.</span>
                         </div>
                       ) : (
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <UserCheck className="w-3 h-3" />
-                          <span className="text-[10px] font-bold">Payé par {u.displaySubscription.patronName}</span>
-                        </div>
+                        <span className="text-[10px] font-bold text-muted-foreground">Payé par {u.displaySubscription.patronName}</span>
                       )}
+                    </TableCell>
+                    <TableCell className="py-4">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-[11px] bg-muted px-2 py-0.5 rounded border">
+                          {showPasswords[u.id] ? (u.password || '---') : '••••••••'}
+                        </span>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-6 w-6" 
+                          onClick={() => togglePassVisibility(u.id)}
+                        >
+                          {showPasswords[u.id] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                        </Button>
+                      </div>
                     </TableCell>
                     <TableCell className="text-center py-4">
                       <Badge className={cn(
@@ -273,9 +278,10 @@ export default function AccountsPage() {
                     </TableCell>
                     <TableCell className="text-right pr-8 py-4">
                       <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => handleSendResetEmail(u.email)}><Mail className="w-4 h-4" /></Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => { setEditingRoleUser(u); setNewRole(u.role); }}><ShieldCheck className="w-4 h-4" /></Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-600" onClick={() => setDeletingUser(u)}><Trash2 className="w-4 h-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" title="Lien de reset" onClick={() => handleSendResetEmail(u.email)}><Mail className="w-4 h-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" title="Modifier mot de passe" onClick={() => { setEditingPassUser(u); setNewPassword(u.password || ''); }}><Key className="w-4 h-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" title="Changer rôle" onClick={() => { setEditingRoleUser(u); setNewRole(u.role); }}><ShieldCheck className="w-4 h-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-600" title="Supprimer" onClick={() => setDeletingUser(u)}><Trash2 className="w-4 h-4" /></Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -284,31 +290,28 @@ export default function AccountsPage() {
             </Table>
           </CardContent>
         </Card>
+      </div>
 
-        {isGlobalAdmin && (
-          <div className="p-6 bg-amber-50 rounded-[2rem] border border-amber-200 flex items-start gap-4">
-            <AlertTriangle className="w-6 h-6 text-amber-600 shrink-0 mt-1" />
-            <div className="space-y-1">
-              <h3 className="font-bold text-amber-800">Gestion des utilisateurs fantômes</h3>
-              <p className="text-sm text-amber-700">
-                L'application ignore automatiquement les documents sans le marqueur <code>isProfile: true</code> ou ceux ayant un ID aléatoire. 
-                Vérifiez la console de votre navigateur pour identifier les IDs à supprimer manuellement dans Firestore si nécessaire.
-              </p>
+      <Dialog open={!!editingPassUser} onOpenChange={(open) => !open && setEditingPassUser(null)}>
+        <DialogContent className="rounded-[2rem]">
+          <DialogHeader><DialogTitle>Modifier le mot de passe (Mémo)</DialogTitle></DialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="space-y-2">
+              <Label>Nouveau mot de passe</Label>
+              <Input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="rounded-xl font-bold" />
+              <p className="text-[10px] text-muted-foreground">Attention: Cela modifie uniquement l'affichage admin et le mode dev, pas l'accès réel si l'utilisateur l'a déjà changé.</p>
             </div>
           </div>
-        )}
-      </div>
+          <DialogFooter><Button onClick={handleUpdatePassword} className="rounded-full bg-primary px-8">Enregistrer</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!editingRoleUser} onOpenChange={(open) => !open && setEditingRoleUser(null)}>
         <DialogContent className="rounded-[2rem]">
-          <DialogHeader>
-            <DialogTitle>Modifier le rôle</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Modifier le rôle</DialogTitle></DialogHeader>
           <div className="py-4 space-y-4">
             <Select value={newRole} onValueChange={(v) => setNewRole(v as UserRole)}>
-              <SelectTrigger className="rounded-xl h-12 font-bold">
-                <SelectValue />
-              </SelectTrigger>
+              <SelectTrigger className="rounded-xl h-12 font-bold"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="admin">Patron</SelectItem>
                 <SelectItem value="employee">Employé</SelectItem>
@@ -321,9 +324,7 @@ export default function AccountsPage() {
 
       <AlertDialog open={!!deletingUser} onOpenChange={(open) => !open && setDeletingUser(null)}>
         <AlertDialogContent className="rounded-[2rem]">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Supprimer le compte ?</AlertDialogTitle>
-          </AlertDialogHeader>
+          <AlertDialogHeader><AlertDialogTitle>Supprimer le compte ?</AlertDialogTitle></AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="rounded-full">Annuler</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteUser} className="bg-rose-600 rounded-full">Supprimer</AlertDialogAction>
