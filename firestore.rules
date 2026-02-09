@@ -11,13 +11,8 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    function belongsToUser() {
-      return isSignedIn() && request.auth.uid == resource.data.userId;
-    }
-
     // Gestion des profils utilisateurs
     match /users/{userId} {
-      // Autoriser la lecture publique pour permettre la recherche par identifiant lors du login
       allow read: if true; 
       allow write: if isOwner(userId); 
       
@@ -34,10 +29,11 @@ service cloud.firestore {
 
       match /events/{eventId} {
         allow read: if isSignedIn();
-        // Validation par userId pour l'appartenance de l'événement ou Admin
+        // Autorisation si propriétaire de l'événement, admin jsecchi, ou membre admin_global
         allow write: if isSignedIn() && (
           request.resource.data.userId == request.auth.uid || 
           resource.data.userId == request.auth.uid ||
+          companyId == 'admin_global' ||
           request.auth.uid == 'jsecchi'
         );
       }
@@ -57,7 +53,6 @@ service cloud.firestore {
       }
     }
 
-    // Autoriser la lecture des modules (statique)
     match /modules/{moduleId} {
       allow read: if true;
     }

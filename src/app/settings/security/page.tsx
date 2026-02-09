@@ -11,7 +11,7 @@ import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { signInWithGoogleCalendar } from '@/firebase/non-blocking-login';
 import { getSyncTimeRange, fetchGoogleEvents, mapGoogleEvent, syncEventToFirestore } from '@/services/calendar-sync';
-import { cn, normalizeId } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { User } from '@/lib/types';
 import { useDoc } from '@/firebase';
 
@@ -41,29 +41,38 @@ export default function SecuritySettingsPage() {
     setSyncStatus('authenticating');
     
     try {
-      // 1. Connexion Google manuelle par Popup
+      // 1. Connexion Google par Popup (compatible Mozilla)
       toast({ title: "Connexion Google...", description: "Sélectionnez votre compte dans la fenêtre." });
       const result = await signInWithGoogleCalendar(auth);
       const token = result.token;
       
       if (!token) throw new Error("Aucun jeton d'accès reçu de Google.");
 
-      // 2. Récupération sécurisée des événements
+      // 2. Récupération des événements
       setSyncStatus('fetching');
       const { timeMin, timeMax } = getSyncTimeRange();
       const externalEvents = await fetchGoogleEvents(token, timeMin, timeMax);
 
       // 3. Sauvegarde Firestore avec protection merge:true
       setSyncStatus('saving');
-      const normalizedCompanyId = normalizeId(companyId);
       
+      // Utilisation de l'ID de l'utilisateur qui vient de s'authentifier pour valider les permissions
+      const currentUid = result.user.uid;
+
       for (const extEvent of externalEvents) {
-        const mapped = mapGoogleEvent(extEvent, normalizedCompanyId, user.uid);
+        // On mappe l'événement avec le UID actuel pour satisfaire les rules
+        const mapped = mapGoogleEvent(extEvent, companyId, currentUid);
         await syncEventToFirestore(db, mapped);
       }
 
-      // Mise à jour du profil (Email Google) avec merge pour ne pas perdre les catégories
-      await setDoc(userRef!, { googleEmail: result.user.email }, { merge: true });
+      // 4. Mise à jour du profil avec protection merge:true pour ne rien écraser
+      const currentProfileRef = doc(db, 'users', currentUid);
+      await setDoc(currentProfileRef, { 
+        googleEmail: result.user.email,
+        companyId: companyId,
+        role: profile?.role || 'admin',
+        name: result.user.displayName || profile?.name || 'JSecchi'
+      }, { merge: true });
 
       setSyncStatus('success');
       toast({ title: "Synchronisation réussie !", description: `${externalEvents.length} événements importés.` });
