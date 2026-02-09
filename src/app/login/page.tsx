@@ -10,7 +10,7 @@ import { useAuth, useFirestore } from '@/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc, getDocs, collection, query, where, limit } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Lock, UserCircle, CheckCircle2, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Lock, UserCircle, CheckCircle2, Eye, EyeOff, Terminal } from 'lucide-react';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { UserRole } from '@/lib/types';
@@ -33,6 +33,7 @@ export default function LoginPage() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [signUpSuccess, setSignUpSuccess] = useState(false);
+  const [showDevMode, setShowDevMode] = useState(false);
   
   const router = useRouter();
   const auth = useAuth();
@@ -209,6 +210,40 @@ export default function LoginPage() {
                 {isSignUp ? "Déjà un compte ? Connexion" : "Pas encore de compte ? Créer un identifiant"}
               </button>
             </form>
+
+            <div className="mt-6 pt-6 border-t border-dashed">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="w-full text-[10px] font-black uppercase tracking-widest opacity-40 hover:opacity-100 gap-2"
+                onClick={() => setShowDevMode(!showDevMode)}
+              >
+                <Terminal className="w-3 h-3" />
+                {showDevMode ? "Cacher" : "Afficher"} Mode Développement
+              </Button>
+              
+              {showDevMode && (
+                <div className="mt-4 grid grid-cols-1 gap-2 animate-in slide-in-from-top-2">
+                  {[
+                    { id: 'JSecchi', role: 'Patron (Global)', pass: 'Meqoqo1998' },
+                    { id: 'ADupont', role: 'Employé', pass: '123456' },
+                    { id: 'PBlanc', role: 'Particulier', pass: '123456' }
+                  ].map(acc => (
+                    <div 
+                      key={acc.id} 
+                      className="p-3 bg-[#F9F9F7] rounded-xl border border-primary/5 text-[10px] flex justify-between items-center cursor-pointer hover:bg-primary/5 transition-colors"
+                      onClick={() => { setLoginId(acc.id); setPassword(acc.pass); }}
+                    >
+                      <div className="flex flex-col">
+                        <span className="font-black text-primary uppercase">{acc.id}</span>
+                        <span className="opacity-50 text-[8px] font-bold">{acc.role}</span>
+                      </div>
+                      <span className="font-mono bg-white px-2 py-0.5 rounded border text-primary/70">{acc.pass}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>

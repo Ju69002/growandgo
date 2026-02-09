@@ -115,12 +115,11 @@ export function AppSidebar() {
                       tooltip={item.title} 
                       isActive={active}
                       className={cn(
-                        "transition-all duration-200 h-11 rounded-xl font-bold",
-                        "group-data-[collapsible=icon]:!mx-auto group-data-[collapsible=icon]:!w-8 group-data-[collapsible=icon]:mx-0 group-data-[collapsible=icon]:px-0",
-                        "mx-2 w-[calc(100%-1rem)] px-4",
+                        "transition-all duration-200 h-11 rounded-xl font-bold px-4",
                         active 
                           ? "bg-white text-primary shadow-lg hover:bg-white hover:text-primary" 
-                          : "text-white hover:bg-white/10"
+                          : "text-white hover:bg-white/10",
+                        "group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:w-9"
                       )}
                     >
                       <Link href={item.url}>
@@ -146,12 +145,11 @@ export function AppSidebar() {
                     tooltip="Gestion des Comptes" 
                     isActive={isItemActive('/accounts')}
                     className={cn(
-                      "transition-all duration-200 h-11 rounded-xl font-bold",
-                      "group-data-[collapsible=icon]:!mx-auto group-data-[collapsible=icon]:!w-8 group-data-[collapsible=icon]:mx-0 group-data-[collapsible=icon]:px-0",
-                      "mx-2 w-[calc(100%-1rem)] px-4",
+                      "transition-all duration-200 h-11 rounded-xl font-bold px-4",
                       isItemActive('/accounts') 
                         ? "bg-white text-primary shadow-lg hover:bg-white hover:text-primary" 
-                        : "text-white hover:bg-white/10"
+                        : "text-white hover:bg-white/10",
+                      "group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:w-9"
                     )}
                   >
                     <Link href="/accounts">
@@ -178,12 +176,11 @@ export function AppSidebar() {
                       tooltip={item.title} 
                       isActive={active}
                       className={cn(
-                        "transition-all duration-200 h-11 rounded-xl font-bold",
-                        "group-data-[collapsible=icon]:!mx-auto group-data-[collapsible=icon]:!w-8 group-data-[collapsible=icon]:mx-0 group-data-[collapsible=icon]:px-0",
-                        "mx-2 w-[calc(100%-1rem)] px-4",
+                        "transition-all duration-200 h-11 rounded-xl font-bold px-4",
                         active 
                           ? "bg-white text-primary shadow-lg hover:bg-white hover:text-primary" 
-                          : "text-white hover:bg-white/10"
+                          : "text-white hover:bg-white/10",
+                        "group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:w-9"
                       )}
                     >
                       <Link href={item.url}>
@@ -205,12 +202,11 @@ export function AppSidebar() {
               asChild 
               isActive={isItemActive('/settings')}
               className={cn(
-                "transition-all duration-200 h-11 rounded-xl font-bold",
-                "group-data-[collapsible=icon]:!mx-auto group-data-[collapsible=icon]:!w-8 group-data-[collapsible=icon]:mx-0 group-data-[collapsible=icon]:px-0",
-                "mx-2 w-[calc(100%-1rem)] px-4",
+                "transition-all duration-200 h-11 rounded-xl font-bold px-4",
                 isItemActive('/settings') 
                   ? "bg-white text-primary shadow-lg hover:bg-white hover:text-primary" 
-                  : "text-white hover:bg-white/10"
+                  : "text-white hover:bg-white/10",
+                "group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:w-9"
               )}
             >
               <Link href="/settings">
