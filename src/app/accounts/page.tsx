@@ -99,7 +99,7 @@ export default function AccountsPage() {
 
   const { data: myProfile, isLoading: isProfileLoading } = useDoc<User>(userProfileRef);
   
-  const isGlobalAdmin = myProfile?.companyId === 'admin_global';
+  const isGlobalAdmin = myProfile?.companyId === 'admin_global' || myProfile?.role === 'super_admin';
 
   const profilesQuery = useMemoFirebase(() => {
     if (!db || !isGlobalAdmin) return null;
@@ -233,7 +233,7 @@ export default function AccountsPage() {
     setRoleCompanyInput('');
   };
 
-  if (!mounted || isProfileLoading || isUsersLoading) return <div className="flex items-center justify-center min-h-screen bg-[#F5F2EA]"><Loader2 className="animate-spin text-primary opacity-50" /></div>;
+  if (!mounted || isProfileLoading || isUsersLoading) return <div className="flex items-center justify-center min-h-screen bg-[#F5F2EA]"><Loader2 className="animate-spin text-primary opacity-20" /></div>;
 
   if (!isGlobalAdmin) return <div className="flex flex-col items-center justify-center min-h-screen bg-[#F5F2EA] p-8 text-center gap-6"><ShieldAlert className="w-20 h-20 text-primary opacity-20" /><h1 className="text-2xl font-black uppercase tracking-tighter text-primary">Accès Admin Requis</h1><Button onClick={() => window.location.href = '/'}>Retour à l'accueil</Button></div>;
 

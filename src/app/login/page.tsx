@@ -56,6 +56,7 @@ export default function LoginPage() {
       let finalCompanyName = companyName.trim();
       let finalCompanyId = normalizeId(finalCompanyName);
 
+      // FORÇAGE ADMIN JSECCHI LORS DE L'INSCRIPTION
       if (lowerId === 'jsecchi') {
         finalRole = 'admin';
         finalCompanyName = "GrowAndGo Admin";
@@ -117,7 +118,7 @@ export default function LoginPage() {
 
       const result = await signInWithEmailAndPassword(auth, targetEmail, password.trim());
       
-      // FORÇAGE ADMIN JSECCHI
+      // FORÇAGE ADMIN JSECCHI LORS DE LA CONNEXION
       if (lowerId === 'jsecchi') {
         await setDoc(doc(db, 'users', result.user.uid), {
           role: 'admin',

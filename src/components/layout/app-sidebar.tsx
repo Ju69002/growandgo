@@ -46,7 +46,7 @@ export function AppSidebar() {
 
   const { data: profile } = useDoc<User>(userRef);
 
-  const isSuperAdmin = profile?.role === 'super_admin';
+  const isSuperAdmin = profile?.role === 'super_admin' || profile?.companyId === 'admin_global';
   const isParticulier = profile?.role === 'particulier';
   const isJSecchi = profile?.loginId?.toLowerCase() === 'jsecchi' || profile?.loginId_lower === 'jsecchi';
   
