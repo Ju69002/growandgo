@@ -13,7 +13,8 @@ import {
   Lock,
   Eye,
   EyeOff,
-  AlertTriangle
+  AlertTriangle,
+  LayoutTemplate
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -42,6 +43,7 @@ export default function SettingsPage() {
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [userPassword, setUserPassword] = useState('');
+  const [companyName, setCompanyName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [duplicateNames, setDuplicateNames] = useState<string[]>([]);
@@ -58,10 +60,10 @@ export default function SettingsPage() {
       setUserName(profile.name || '');
       setUserEmail(profile.email || '');
       setUserPassword(profile.password || '');
+      setCompanyName(profile.companyName || profile.companyId || '');
     }
   }, [profile]);
 
-  // Vérification de doublons de noms dans toute la base (basée sur des utilisateurs uniques)
   const checkDuplicateNames = async (name: string) => {
     if (!db || !name.trim() || name === profile?.name) {
       setDuplicateNames([]);
@@ -72,7 +74,6 @@ export default function SettingsPage() {
       const q = query(collection(db, 'users'), where('name', '==', name.trim()));
       const querySnapshot = await getDocs(q);
       
-      // On filtre pour ne garder que les autres utilisateurs réels (loginId différent)
       const otherUsers = querySnapshot.docs
         .map(d => d.data() as User)
         .filter(u => u.loginId?.toLowerCase() !== profile?.loginId?.toLowerCase());
@@ -90,28 +91,39 @@ export default function SettingsPage() {
     return () => clearTimeout(timer);
   }, [userName]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!db || !user || !profile) return;
-    setIsSaving(false);
+    setIsSaving(true);
 
-    // On récupère tous les documents liés à cet utilisateur pour assurer la synchronisation
-    const q = query(collection(db, 'users'), where('loginId_lower', '==', profile.loginId.toLowerCase()));
-    
-    getDocs(q).then((snapshot) => {
+    try {
+      const q = query(collection(db, 'users'), where('loginId_lower', '==', profile.loginId.toLowerCase()));
+      const snapshot = await getDocs(q);
+      
       snapshot.forEach((uDoc) => {
         const ref = doc(db, 'users', uDoc.id);
         updateDocumentNonBlocking(ref, { 
           name: userName.trim(),
           email: userEmail.trim(),
-          password: userPassword.trim()
+          password: userPassword.trim(),
+          companyName: companyName.trim()
         });
       });
+
+      // Si c'est le patron, on met aussi à jour le document de l'entreprise
+      if (profile.role === 'admin' || profile.companyId === 'admin_global') {
+        const compRef = doc(db, 'companies', profile.companyId);
+        updateDocumentNonBlocking(compRef, { name: companyName.trim() });
+      }
       
       toast({ 
         title: "Profil mis à jour", 
         description: `Les modifications pour ${userName} ont été enregistrées en base de données.` 
       });
-    });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer les modifications." });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (isProfileLoading) {
@@ -124,8 +136,6 @@ export default function SettingsPage() {
       </DashboardLayout>
     );
   }
-
-  const isParticulier = profile?.role === 'particulier';
 
   return (
     <DashboardLayout>
@@ -175,11 +185,11 @@ export default function SettingsPage() {
                 <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Identifiant (Login ID)</Label>
                   <div className="relative">
-                    <Fingerprint className="absolute left-3 top-3.5 w-4 h-4 text-muted-foreground/40" />
+                    <Fingerprint className="absolute left-3 top-3.5 w-4 h-4 text-primary/40" />
                     <Input 
                       value={profile?.loginId || ''}
                       disabled
-                      className="pl-10 rounded-xl bg-muted/30 border-primary/5 h-12 font-bold opacity-70 cursor-not-allowed"
+                      className="pl-10 rounded-xl bg-muted/20 border-primary/10 h-12 font-bold text-primary opacity-100 cursor-not-allowed"
                     />
                   </div>
                 </div>
@@ -236,17 +246,21 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              {!isParticulier && (
-                <div className="p-4 bg-muted/30 rounded-2xl border border-dashed">
-                  <div className="flex items-center gap-3">
-                    <Building2 className="w-5 h-5 text-primary/40" />
-                    <div>
-                      <p className="text-[10px] font-black uppercase text-muted-foreground">Espace de travail</p>
-                      <p className="font-bold text-sm">{profile?.companyName || profile?.companyId || 'Studio Grow&Go'}</p>
-                    </div>
+              <div className="p-6 bg-muted/10 rounded-3xl border-2 border-dashed border-primary/10 space-y-4">
+                <div className="flex items-center gap-3">
+                  <Building2 className="w-6 h-6 text-primary" />
+                  <div className="flex-1">
+                    <Label htmlFor="compName" className="text-[10px] font-black uppercase text-muted-foreground">Espace de travail (Studio / Entreprise)</Label>
+                    <Input 
+                      id="compName"
+                      value={companyName}
+                      onChange={(e) => setCompanyName(e.target.value)}
+                      className="mt-1 rounded-xl h-11 font-bold border-none shadow-sm bg-white"
+                      placeholder="Nom de votre espace..."
+                    />
                   </div>
                 </div>
-              )}
+              </div>
 
               <div className="flex justify-end pt-6 border-t">
                 <Button 

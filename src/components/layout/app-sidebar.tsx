@@ -30,7 +30,7 @@ import { usePathname } from 'next/navigation';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
-import { User } from '@/lib/types';
+import { User, Company } from '@/lib/types';
 import { cn, normalizeId } from '@/lib/utils';
 
 export function AppSidebar() {
@@ -45,20 +45,24 @@ export function AppSidebar() {
   }, [db, user]);
 
   const { data: profile } = useDoc<User>(userRef);
+  const companyId = profile?.companyId;
+
+  const companyRef = useMemoFirebase(() => {
+    if (!db || !companyId) return null;
+    return doc(db, 'companies', companyId);
+  }, [db, companyId]);
+
+  const { data: company } = useDoc<Company>(companyRef);
 
   const isSuperAdmin = profile?.role === 'super_admin' || profile?.companyId === 'admin_global';
   const isParticulier = profile?.role === 'particulier';
-  const isJSecchi = profile?.loginId?.toLowerCase() === 'jsecchi' || profile?.loginId_lower === 'jsecchi';
   
-  // Nom d'affichage adapté au rôle
-  let displayName = profile?.companyName || profile?.companyId || "GrowAndGo";
-  if (isJSecchi) displayName = "GrowAndGo";
-  if (isParticulier) displayName = "Mon Espace";
+  // Nom d'affichage priorisant le Nom de l'Entreprise
+  let displayName = company?.name || profile?.companyName || profile?.companyId || "GROW&GO";
+  if (isParticulier) displayName = "Mon Espace Privé";
 
-  // Configuration dynamique des menus
   const mainItems = [
     { title: 'Tableau de bord', icon: LayoutDashboard, url: '/' },
-    // On masque "Équipe" pour le super_admin car il a le "Répertoire"
     ...(!isSuperAdmin ? [{ 
       title: isParticulier ? 'Mes Accès' : 'Équipe', 
       icon: Users, 
@@ -89,11 +93,11 @@ export function AppSidebar() {
             />
           </div>
           <div className="flex flex-col group-data-[collapsible=icon]:hidden max-w-[160px]">
-            <span className="text-lg leading-tight tracking-tight text-white truncate">
+            <span className="text-sm font-black uppercase leading-tight tracking-tighter text-white truncate">
               {displayName}
             </span>
-            <span className="text-[10px] uppercase tracking-widest opacity-70 font-medium text-white truncate">
-              {isSuperAdmin ? "Administration" : isParticulier ? "Espace Privé" : "Espace de travail"}
+            <span className="text-[9px] uppercase tracking-widest opacity-50 font-black text-white truncate">
+              {isSuperAdmin ? "Administration" : isParticulier ? "Confidentiel" : "Espace de travail"}
             </span>
           </div>
         </div>
