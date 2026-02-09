@@ -19,7 +19,7 @@ export async function syncBillingTasks(db: Firestore, adminUid: string, allUsers
   // Filtrer pour n'avoir qu'un seul profil par utilisateur
   const uniqueUsersMap = new Map<string, User>();
   allUsers.forEach(u => {
-    const id = (u.loginId_lower || u.loginId?.toLowerCase() || '').trim();
+    const id = (u.loginId_lower || u.loginId || u.uid).toLowerCase();
     if (!id || u.role === 'super_admin') return;
     
     if (!uniqueUsersMap.has(id) || u.isProfile) {
@@ -49,10 +49,10 @@ export async function syncBillingTasks(db: Firestore, adminUid: string, allUsers
       const eventRef = doc(db, 'companies', adminCompanyId, 'events', currentEventId);
 
       if (isActive) {
-        // On place le RDV au jour 8 du mois concerné pour les archives
+        // Date par défaut : le 8 du mois
         let eventDate = new Date(checkDate.getFullYear(), checkDate.getMonth(), 8);
         
-        // Si c'est le mois en cours, on s'assure qu'il apparaît dans la semaine pour le test (le 9 fév par exemple)
+        // Si c'est le mois en cours, on force à aujourd'hui pour voir la tâche dans le dashboard
         if (checkDate.getMonth() === now.getMonth() && checkDate.getFullYear() === now.getFullYear()) {
            eventDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         }

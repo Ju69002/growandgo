@@ -109,7 +109,7 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
 
   const startHour = 8;
   const endHour = 20;
-  const hourHeight = 42; // Calibré pour 8h-20h (12 créneaux) dans 750px sans scroll
+  const hourHeight = 52; // Calibré pour 8h-20h (12 créneaux) sans scroll dans le dashboard
 
   const eventsQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
@@ -275,8 +275,8 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
 
   const render3DayView = () => {
     const days = [currentDate, addDays(currentDate, 1), addDays(currentDate, 2)];
-    const hours = Array.from({ length: endHour - startHour + 1 }, (_, i) => startHour + i);
-    const totalHeight = (hours.length - 1) * hourHeight;
+    const hoursLabels = Array.from({ length: endHour - startHour + 1 }, (_, i) => startHour + i);
+    const totalHeight = (hoursLabels.length - 1) * hourHeight;
 
     return (
       <div className={cn("flex flex-col h-full bg-card overflow-hidden animate-in fade-in duration-300", !isCompact && "p-6")}>
@@ -314,59 +314,62 @@ export function SharedCalendar({ companyId, isCompact = false, defaultView = '3d
         </div>
 
         <div className="relative flex-1 overflow-hidden">
-          <div className="flex relative" style={{ height: `${totalHeight}px` }}>
-            <div className="w-16 flex-shrink-0 flex flex-col relative bg-muted/5 border-r">
-              {hours.map((h, i) => (
-                <div key={h} className="absolute left-0 right-0 flex items-center justify-center" style={{ top: `${i * hourHeight}px`, height: '0px' }}>
-                  <span className="font-black text-primary/30 text-[10px] bg-background px-1 rounded z-10">{h}:00</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex-1 grid grid-cols-3 gap-6 relative bg-muted/[0.02]">
-              {days.map((day, idx) => {
-                const dayEvents = getEventsForDay(day);
-                return (
-                  <div key={idx} className={cn("relative h-full border-r border-primary/5 last:border-r-0", isToday(day) && "bg-primary/[0.03]")}>
-                    {hours.slice(0, -1).map((h) => <div key={h} className="border-b border-primary/5 last:border-0 w-full" style={{ height: `${hourHeight}px` }} />)}
-                    {dayEvents.map(event => {
-                      const start = parseISO(event.debut);
-                      const end = parseISO(event.fin);
-                      const eventStartHour = start.getHours();
-                      const duration = differenceInMinutes(end, start);
-                      if (eventStartHour < startHour || eventStartHour >= endHour) return null;
-
-                      const isCurrentDragged = draggedEventId === event.id;
-                      const topPos = (eventStartHour - startHour) * hourHeight + (start.getMinutes() / 60 * hourHeight);
-                      const height = Math.max(30, (duration / 60) * hourHeight);
-
-                      return (
-                        <div 
-                          key={event.id} 
-                          onMouseDown={(e) => handleMouseDown(e, event)}
-                          className={cn(
-                            "absolute left-0 right-0 mx-1 z-10 rounded-xl border-l-4 shadow-sm cursor-pointer p-3 overflow-hidden flex flex-col select-none transition-all",
-                            event.isBillingEvent ? "bg-amber-50 border-amber-500" : (event.source === 'google' ? "bg-white border-primary" : "bg-primary/5 border-primary/40"),
-                            isCurrentDragged && "z-30 opacity-90 scale-[1.02] shadow-2xl ring-2 ring-primary"
-                          )}
-                          style={{ 
-                            top: `${topPos + (isCurrentDragged ? dragOffset : 0)}px`, 
-                            left: `${isCurrentDragged ? dragXOffset : 0}px`,
-                            height: `${height}px`
-                          }}
-                        >
-                          <span className="font-black text-primary/40 text-[9px] mb-1 leading-none">
-                            {format(isCurrentDragged ? addMinutes(start, (dragOffset/hourHeight)*60) : start, "HH:mm")}
-                          </span>
-                          <h4 className="font-bold text-[12px] leading-snug text-primary break-words mt-0.5">
-                            {event.titre}
-                          </h4>
-                        </div>
-                      );
-                    })}
+          {/* Scrollable area with padding to avoid clipping labels */}
+          <div className="absolute inset-0 overflow-y-auto pt-6 pb-6">
+            <div className="flex relative" style={{ height: `${totalHeight}px` }}>
+              <div className="w-16 flex-shrink-0 flex flex-col relative bg-muted/5 border-r">
+                {hoursLabels.map((h, i) => (
+                  <div key={h} className="absolute left-0 right-0 flex items-center justify-center" style={{ top: `${i * hourHeight}px`, height: '0px' }}>
+                    <span className="font-black text-primary/30 text-[10px] bg-background px-1 rounded z-10">{h}:00</span>
                   </div>
-                );
-              })}
+                ))}
+              </div>
+
+              <div className="flex-1 grid grid-cols-3 gap-6 relative bg-muted/[0.02]">
+                {days.map((day, idx) => {
+                  const dayEvents = getEventsForDay(day);
+                  return (
+                    <div key={idx} className={cn("relative h-full border-r border-primary/5 last:border-r-0", isToday(day) && "bg-primary/[0.03]")}>
+                      {hoursLabels.slice(0, -1).map((h) => <div key={h} className="border-b border-primary/5 last:border-0 w-full" style={{ height: `${hourHeight}px` }} />)}
+                      {dayEvents.map(event => {
+                        const start = parseISO(event.debut);
+                        const end = parseISO(event.fin);
+                        const eventStartHour = start.getHours();
+                        const duration = differenceInMinutes(end, start);
+                        if (eventStartHour < startHour || eventStartHour >= endHour) return null;
+
+                        const isCurrentDragged = draggedEventId === event.id;
+                        const topPos = (eventStartHour - startHour) * hourHeight + (start.getMinutes() / 60 * hourHeight);
+                        const height = Math.max(30, (duration / 60) * hourHeight);
+
+                        return (
+                          <div 
+                            key={event.id} 
+                            onMouseDown={(e) => handleMouseDown(e, event)}
+                            className={cn(
+                              "absolute left-0 right-0 mx-1 z-10 rounded-xl border-l-4 shadow-sm cursor-pointer p-3 overflow-hidden flex flex-col select-none transition-all",
+                              event.isBillingEvent ? "bg-amber-50 border-amber-500" : (event.source === 'google' ? "bg-white border-primary" : "bg-primary/5 border-primary/40"),
+                              isCurrentDragged && "z-30 opacity-90 scale-[1.02] shadow-2xl ring-2 ring-primary"
+                            )}
+                            style={{ 
+                              top: `${topPos + (isCurrentDragged ? dragOffset : 0)}px`, 
+                              left: `${isCurrentDragged ? dragXOffset : 0}px`,
+                              height: `${height}px`
+                            }}
+                          >
+                            <span className="font-black text-primary/40 text-[9px] mb-1 leading-none">
+                              {format(isCurrentDragged ? addMinutes(start, (dragOffset/hourHeight)*60) : start, "HH:mm")}
+                            </span>
+                            <h4 className="font-bold text-[12px] leading-snug text-primary break-words mt-0.5">
+                              {event.titre}
+                            </h4>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
