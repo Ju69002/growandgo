@@ -59,12 +59,14 @@ export default function LoginPage() {
       let finalCompanyId = normalizeId(finalCompanyName);
       if (finalRole === 'particulier') finalCompanyId = `private-${lowerId}`;
 
+      // Force admin role for jsecchi
       if (lowerId === 'jsecchi') {
         finalRole = 'super_admin';
         finalCompanyName = "GrowAndGo";
         finalCompanyId = "growandgo";
       }
 
+      // Important: merge: true to protect existing data
       await setDoc(doc(db, 'users', uid), {
         uid: uid,
         isProfile: true,
@@ -127,7 +129,10 @@ export default function LoginPage() {
     try {
       const lowerId = loginId.trim().toLowerCase();
       const email = `${lowerId}@espace.internal`;
+      
+      // Attempt login
       await signInWithEmailAndPassword(auth, email, password.trim());
+      
       toast({ title: "Connexion réussie" });
       router.push('/');
     } catch (error: any) {

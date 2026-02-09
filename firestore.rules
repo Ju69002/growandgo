@@ -13,7 +13,7 @@ service cloud.firestore {
 
     // Gestion des profils utilisateurs
     match /users/{userId} {
-      // Lecture autorisée pour l'auth, mais écriture restreinte au propriétaire exact
+      // Lecture autorisée pour les connectés, mais écriture restreinte au propriétaire
       allow read: if isSignedIn();
       allow write: if isOwner(userId); 
       
@@ -26,12 +26,11 @@ service cloud.firestore {
     // Gestion des entreprises et de leurs sous-collections
     match /companies/{companyId} {
       allow read: if isSignedIn();
-      // On autorise l'écriture si l'utilisateur est authentifié. 
       allow write: if isSignedIn();
 
       match /events/{eventId} {
         allow read: if isSignedIn();
-        // Validation stricte du userId
+        // Validation stricte du userId pour l'appartenance de l'événement
         allow write: if isSignedIn() && (
           (request.resource != null && request.resource.data.userId == request.auth.uid) ||
           (resource != null && resource.data.userId == request.auth.uid)

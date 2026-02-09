@@ -33,9 +33,9 @@ export function mapGoogleEvent(event: any, companyId: string, userId: string): P
   const start = event.start?.dateTime || event.start?.date || new Date().toISOString();
   const end = event.end?.dateTime || event.end?.date || new Date().toISOString();
   
-  // Correction sécurisée : Utilisation de a.emailAddress?.address avec repli sur a.email
+  // Correction sécurisée ligne 46 : Utilisation de a.emailAddress?.address avec replis
   const attendees = event.attendees?.map((a: any) => {
-    return a.email || a.emailAddress?.address || '';
+    return a.emailAddress?.address || a.email || '';
   }).filter(Boolean) || [];
 
   return {
