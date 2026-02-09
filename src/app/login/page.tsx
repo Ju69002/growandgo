@@ -56,10 +56,9 @@ export default function LoginPage() {
       const finalCompanyName = companyName.trim();
       const finalCompanyId = normalizeId(finalCompanyName);
 
-      // REGLE : setDoc avec UID pour éviter les ID aléatoires
       const userData = {
         uid: uid,
-        isProfile: true, // Marqueur obligatoire
+        isProfile: true, 
         companyId: finalCompanyId,
         companyName: finalCompanyName,
         role: selectedRole,
@@ -76,7 +75,6 @@ export default function LoginPage() {
 
       await setDoc(doc(db, 'users', uid), userData, { merge: true });
 
-      // Initialiser l'entreprise
       const companyRef = doc(db, 'companies', finalCompanyId);
       await setDoc(companyRef, {
         id: finalCompanyId,
@@ -110,7 +108,6 @@ export default function LoginPage() {
       const lowerId = loginId.trim().toLowerCase();
       const usersRef = collection(db, 'users');
       
-      // 1. Chercher l'e-mail lié à l'identifiant technique
       const q = query(usersRef, where('loginId_lower', '==', lowerId), limit(1));
       const querySnapshot = await getDocs(q);
       
@@ -120,20 +117,14 @@ export default function LoginPage() {
         if (userData.email) targetEmail = userData.email;
       }
 
-      // 2. Authentification réelle
       const userCredential = await signInWithEmailAndPassword(auth, targetEmail, password.trim());
       const uid = userCredential.user.uid;
 
-      // 3. REGLE CRITIQUE : Vérification / Réparation du document utilisateur
       const userDocRef = doc(db, 'users', uid);
       const userDocSnap = await getDoc(userDocRef);
 
       if (!userDocSnap.exists()) {
-        // Migration ou création forcée si le document UID n'existe pas
         console.log("Profil manquant détecté, création en cours...");
-        const lowerId = loginId.trim().toLowerCase();
-        
-        // On récupère les données de l'ancien document s'il existait par loginId (legacy)
         let legacyData = {};
         if (!querySnapshot.empty) {
           legacyData = querySnapshot.docs[0].data();
@@ -142,7 +133,7 @@ export default function LoginPage() {
         await setDoc(userDocRef, {
           ...legacyData,
           uid: uid,
-          isProfile: true, // Toujours présent
+          isProfile: true,
           loginId: loginId.trim(),
           loginId_lower: lowerId,
           email: targetEmail,
@@ -152,7 +143,6 @@ export default function LoginPage() {
           createdAt: legacyData['createdAt'] || new Date().toISOString()
         });
       } else if (!userDocSnap.data().isProfile) {
-        // Réparation si le marqueur est absent
         await updateDoc(userDocRef, { isProfile: true });
       }
 
@@ -162,7 +152,7 @@ export default function LoginPage() {
       toast({ 
         variant: "destructive", 
         title: "Accès refusé", 
-        description: "Identifiant ou mot de passe incorrect. Si vous venez de changer votre mot de passe, utilisez le nouveau." 
+        description: "Identifiant ou mot de passe incorrect." 
       });
     } finally {
       setIsLoading(false);
@@ -230,7 +220,9 @@ export default function LoginPage() {
                   {[
                     { id: 'JSecchi', role: 'Admin', pass: 'Meqoqo1998' },
                     { id: 'ADupont', role: 'Employé', pass: 'ADupont' },
-                    { id: 'PBlanc', role: 'Patron', pass: 'PBlanc' }
+                    { id: 'PBlanc', role: 'Patron', pass: 'PBlanc' },
+                    { id: 'LVecchio', role: 'Employé', pass: 'LVecchio' },
+                    { id: 'BDupres', role: 'Employé', pass: 'BDupres' }
                   ].map(acc => (
                     <div key={acc.id} className="p-3 bg-muted/30 rounded-xl text-[10px] flex justify-between items-center cursor-pointer hover:bg-primary/10" onClick={() => { setLoginId(acc.id); setPassword(acc.pass); }}>
                       <span className="font-black text-primary uppercase">{acc.id} ({acc.role})</span>
