@@ -101,10 +101,18 @@ export function Header() {
             <Button variant="ghost" size="icon" className="rounded-full h-9 w-9"><UserCircle className="h-6 w-6" /></Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56 shadow-2xl border-none rounded-2xl p-2">
-            <DropdownMenuLabel className="px-4 py-3"><span className="font-bold">{profile?.name}</span></DropdownMenuLabel>
+            <DropdownMenuLabel className="px-4 py-3"><span className="font-bold">{profile?.name || 'Mon Compte'}</span></DropdownMenuLabel>
             <DropdownMenuSeparator className="bg-muted/50" />
-            <DropdownMenuItem asChild className="rounded-xl cursor-pointer"><Link href="/settings">Paramètres</Link></DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive font-bold cursor-pointer" onClick={handleLogout}><LogOut className="w-4 h-4 mr-2" />Déconnexion</DropdownMenuItem>
+            <DropdownMenuItem 
+              onClick={() => router.push('/settings')}
+              className="rounded-xl cursor-pointer"
+            >
+              Paramètres
+            </DropdownMenuItem>
+            <DropdownMenuItem className="text-destructive font-bold cursor-pointer" onClick={handleLogout}>
+              <LogOut className="w-4 h-4 mr-2" />
+              Déconnexion
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
