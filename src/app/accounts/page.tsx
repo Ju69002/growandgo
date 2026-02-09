@@ -24,7 +24,7 @@ import {
   deleteDocumentNonBlocking,
   useAuth
 } from '@/firebase';
-import { collection, doc, query } from 'firebase/firestore';
+import { collection, doc, query, where } from 'firebase/firestore';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { User, UserRole, Company } from '@/lib/types';
 import { 
@@ -91,6 +91,7 @@ export default function AccountsPage() {
 
   const profilesQuery = useMemoFirebase(() => {
     if (!db || !isGlobalAdmin) return null;
+    // On récupère tout pour filtrer ensuite et identifier les fantômes
     return query(collection(db, 'users'));
   }, [db, isGlobalAdmin]);
 
@@ -106,14 +107,22 @@ export default function AccountsPage() {
   const uniqueUsers = useMemo(() => {
     if (!allProfiles) return [];
     
-    // Normalisation et comptage robuste par entreprise
+    // 1. Filtrer pour ne garder que les profils réels (isProfile: true)
+    const realProfiles = allProfiles.filter(u => u.isProfile === true);
+    
+    // LOG DE NETTOYAGE : Identifier les fantômes (docs sans isProfile: true)
+    const ghostIds = allProfiles.filter(u => !u.isProfile).map(u => u.uid);
+    if (ghostIds.length > 0) {
+      console.log("Documents fantômes détectés (à supprimer si besoin) :", ghostIds);
+    }
+
+    // 2. Comptage par entreprise uniquement sur les profils réels
     const companyCounts = new Map<string, number>();
     const companyPatrons = new Map<string, string>();
 
-    allProfiles.forEach(u => {
+    realProfiles.forEach(u => {
       const cId = u.companyId?.toLowerCase().trim();
       if (cId) {
-        // On compte tout le monde (Patron + Employés) pour la facturation globale
         companyCounts.set(cId, (companyCounts.get(cId) || 0) + 1);
         if (u.role === 'admin') {
           companyPatrons.set(cId, u.name || u.loginId);
@@ -121,32 +130,19 @@ export default function AccountsPage() {
       }
     });
 
-    const userGroups = new Map<string, User[]>();
-    allProfiles.forEach(u => {
-      const id = (u.loginId_lower || u.loginId?.toLowerCase() || '').trim();
-      if (!id) return;
-      if (!userGroups.has(id)) userGroups.set(id, []);
-      userGroups.get(id)!.push(u);
-    });
-
-    return Array.from(userGroups.entries()).map(([id, docs]) => {
-      const profileDoc = docs.find(d => d.isProfile === true);
-      const baseDoc = profileDoc || docs[0];
-      const bestName = docs.find(d => d.name && d.name.toLowerCase() !== id.toLowerCase())?.name || baseDoc.name || baseDoc.loginId;
-      
-      const cId = baseDoc.companyId?.toLowerCase().trim();
+    return realProfiles.map(u => {
+      const cId = u.companyId?.toLowerCase().trim();
       const companyInfo = allCompanies?.find(c => c.id.toLowerCase() === cId);
-      const userCount = companyCounts.get(cId) || 1;
+      const userCount = companyCounts.get(cId) || 0;
       const patronName = companyPatrons.get(cId) || "son patron";
       
       const calculatedAmount = cId === 'admin_global' ? 0 : (userCount * 39.99);
 
       return { 
-        ...baseDoc, 
-        name: bestName,
-        companyName: baseDoc.companyId === 'admin_global' ? "Grow&Go Admin" : (baseDoc.companyName || baseDoc.companyId),
+        ...u, 
+        companyName: u.companyId === 'admin_global' ? "Grow&Go Admin" : (u.companyName || u.companyId),
         displaySubscription: {
-          totalAmount: companyInfo?.subscription?.totalMonthlyAmount ?? calculatedAmount,
+          totalAmount: calculatedAmount, // Calcul dynamique immédiat
           activeUsers: userCount,
           patronName: patronName
         }
@@ -175,32 +171,21 @@ export default function AccountsPage() {
   };
 
   const handleDeleteUser = () => {
-    if (!db || !allProfiles || !deletingUser) return;
-    const loginId = deletingUser.loginId;
-    const lowerId = loginId.toLowerCase();
-    const related = allProfiles.filter(u => (u.loginId_lower === lowerId) || (u.loginId?.toLowerCase() === lowerId));
-    related.forEach(uDoc => {
-      const ref = doc(db, 'users', uDoc.uid);
-      deleteDocumentNonBlocking(ref);
-    });
+    if (!db || !deletingUser) return;
+    const ref = doc(db, 'users', deletingUser.uid);
+    deleteDocumentNonBlocking(ref);
     toast({ title: "Compte supprimé" });
     setDeletingUser(null);
   };
 
   const handleUpdateRole = () => {
-    if (!db || !editingRoleUser || !allProfiles) return;
-    const lowerId = editingRoleUser.loginId.toLowerCase();
-    const related = allProfiles.filter(u => (u.loginId_lower === lowerId) || (u.loginId?.toLowerCase() === lowerId));
-    
-    related.forEach(uDoc => {
-      const ref = doc(db, 'users', uDoc.uid);
-      updateDocumentNonBlocking(ref, { 
-        role: newRole,
-        adminMode: newRole === 'admin',
-        isCategoryModifier: newRole === 'admin'
-      });
+    if (!db || !editingRoleUser) return;
+    const ref = doc(db, 'users', editingRoleUser.uid);
+    updateDocumentNonBlocking(ref, { 
+      role: newRole,
+      adminMode: newRole === 'admin',
+      isCategoryModifier: newRole === 'admin'
     });
-    
     toast({ title: "Rôle mis à jour" });
     setEditingRoleUser(null);
   };
@@ -281,9 +266,9 @@ export default function AccountsPage() {
                     <TableCell className="text-center py-4">
                       <Badge className={cn(
                         "text-[10px] font-black uppercase px-3 h-6",
-                        u.role === 'admin' ? "bg-primary" : "bg-muted text-muted-foreground"
+                        u.companyId === 'admin_global' ? "bg-rose-600" : (u.role === 'admin' ? "bg-primary" : "bg-muted text-muted-foreground")
                       )}>
-                        {u.role === 'admin' ? 'PATRON' : 'EMPLOYÉ'}
+                        {u.companyId === 'admin_global' ? 'ADMIN' : (u.role === 'admin' ? 'PATRON' : 'EMPLOYÉ')}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right pr-8 py-4">
