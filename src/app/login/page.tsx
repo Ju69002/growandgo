@@ -8,9 +8,9 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useAuth, useFirestore } from '@/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, getDocs, collection, query, where, limit } from 'firebase/firestore';
+import { doc, setDoc, getDocs, getDoc, collection, query, where, limit } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Lock, UserCircle, Eye, EyeOff, Terminal } from 'lucide-react';
+import { Loader2, Lock, UserCircle, Eye, EyeOff, Terminal, AlertCircle } from 'lucide-react';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { UserRole } from '@/lib/types';
@@ -34,6 +34,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [signUpSuccess, setSignUpSuccess] = useState(false);
   const [showDevMode, setShowDevMode] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   const router = useRouter();
   const auth = useAuth();
@@ -45,6 +46,7 @@ export default function LoginPage() {
     e.preventDefault();
     if (!db || !auth) return;
     setIsLoading(true);
+    setError(null);
 
     try {
       const lowerId = loginId.trim().toLowerCase();
@@ -93,8 +95,9 @@ export default function LoginPage() {
       setSignUpSuccess(true);
       setIsSignUp(false);
       toast({ title: "Compte créé !", description: "Vous pouvez maintenant vous connecter." });
-    } catch (error: any) {
-      toast({ variant: "destructive", title: "Erreur", description: error.message });
+    } catch (err: any) {
+      setError(err.message);
+      toast({ variant: "destructive", title: "Erreur", description: err.message });
     } finally {
       setIsLoading(false);
     }
@@ -104,6 +107,7 @@ export default function LoginPage() {
     e.preventDefault();
     if (!auth || !db) return;
     setIsLoading(true);
+    setError(null);
 
     try {
       const lowerId = loginId.trim().toLowerCase();
@@ -112,14 +116,17 @@ export default function LoginPage() {
       const q = query(usersRef, where('loginId_lower', '==', lowerId), limit(1));
       const querySnapshot = await getDocs(q);
       
-      let targetEmail = `${lowerId}@espace.internal`;
-      let legacyData: any = null;
-
-      if (!querySnapshot.empty) {
-        legacyData = querySnapshot.docs[0].data();
-        if (legacyData.email) targetEmail = legacyData.email;
+      // RÈGLE STRICTE : Vérification Firestore avant tentative d'Authentification
+      if (querySnapshot.empty) {
+        setError("Aucun identifiant reconnu. Veuillez vous inscrire si vous n'avez pas créé de compte.");
+        setIsLoading(false);
+        return;
       }
 
+      const legacyData = querySnapshot.docs[0].data();
+      const targetEmail = legacyData.email || `${lowerId}@espace.internal`;
+
+      // Tentative de connexion via Firebase Auth
       await signInWithEmailAndPassword(auth, targetEmail, password.trim());
 
       const userCredential = auth.currentUser;
@@ -128,28 +135,37 @@ export default function LoginPage() {
       const uid = userCredential.uid;
       const userDocRef = doc(db, 'users', uid);
       
-      // Réparation et synchronisation du profil réel au login (ID = UID)
-      await setDoc(userDocRef, {
-        ...(legacyData || {}),
-        uid: uid,
-        isProfile: true, 
-        loginId: loginId.trim(),
-        loginId_lower: lowerId,
-        email: targetEmail,
-        password: password.trim(),
-        role: legacyData?.role || 'employee',
-        name: legacyData?.name || loginId.trim(),
-        companyId: legacyData?.companyId || 'pending',
-        createdAt: legacyData?.createdAt || new Date().toISOString()
-      }, { merge: true });
+      // RÈGLE : Vérification avant écriture (Ne pas écraser si le document existe déjà)
+      const docSnap = await getDoc(userDocRef);
+      
+      if (!docSnap.exists()) {
+        await setDoc(userDocRef, {
+          ...legacyData,
+          uid: uid,
+          isProfile: true, // Marqueur indispensable pour être visible
+          loginId: loginId.trim(),
+          loginId_lower: lowerId,
+          email: targetEmail,
+          password: password.trim(),
+          role: legacyData.role || 'employee',
+          name: legacyData.name || loginId.trim(),
+          companyId: legacyData.companyId || 'pending',
+          createdAt: legacyData.createdAt || new Date().toISOString()
+        });
+      }
 
       router.push('/');
-    } catch (error: any) {
-      console.error("Login error:", error);
+    } catch (err: any) {
+      console.error("Login error:", err);
+      let msg = "Identifiant ou mot de passe incorrect.";
+      if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
+        msg = "Mot de passe incorrect pour cet identifiant.";
+      }
+      setError(msg);
       toast({ 
         variant: "destructive", 
         title: "Accès refusé", 
-        description: "Identifiant ou mot de passe incorrect."
+        description: msg
       });
     } finally {
       setIsLoading(false);
@@ -173,6 +189,12 @@ export default function LoginPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={isSignUp ? handleSignUp : handleLogin} className="space-y-4">
+              {error && (
+                <div className="p-3 bg-rose-50 border border-rose-200 text-rose-600 rounded-xl text-xs font-bold flex items-center gap-2 animate-in fade-in slide-in-from-top-1">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  {error}
+                </div>
+              )}
               {isSignUp && (
                 <>
                   <Input placeholder="Nom complet" value={name} onChange={(e) => setName(e.target.value)} className="h-12 bg-muted/30 border-none rounded-xl font-bold" required />
@@ -202,7 +224,7 @@ export default function LoginPage() {
               <Button type="submit" className="w-full h-14 bg-primary hover:bg-primary/90 rounded-2xl font-bold text-lg shadow-xl" disabled={isLoading}>
                 {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (isSignUp ? "Créer mon compte" : "Se connecter")}
               </Button>
-              <button type="button" className="w-full text-xs font-black uppercase tracking-widest text-primary/60 py-2" onClick={() => { setIsSignUp(!isSignUp); setSignUpSuccess(false); }}>
+              <button type="button" className="w-full text-xs font-black uppercase tracking-widest text-primary/60 py-2" onClick={() => { setIsSignUp(!isSignUp); setSignUpSuccess(false); setError(null); }}>
                 {isSignUp ? "Déjà un compte ? Connexion" : "Pas encore de compte ? Créer un identifiant"}
               </button>
             </form>
@@ -223,6 +245,7 @@ export default function LoginPage() {
                       onClick={() => { 
                         setLoginId(acc.id); 
                         setPassword(acc.pass); 
+                        setError(null);
                         toast({ title: `Identifiants pour ${acc.id} remplis` });
                       }}
                     >
