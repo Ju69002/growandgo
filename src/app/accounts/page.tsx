@@ -95,7 +95,6 @@ export default function AccountsPage() {
 
   const { data: allProfiles, isLoading: isUsersLoading } = useCollection<User>(profilesQuery);
 
-  // Récupération des données d'entreprises pour afficher les abonnements
   const companiesQuery = useMemoFirebase(() => {
     if (!db || !isGlobalAdmin) return null;
     return query(collection(db, 'companies'));
@@ -106,6 +105,14 @@ export default function AccountsPage() {
   const uniqueUsers = useMemo(() => {
     if (!allProfiles) return [];
     
+    // Compter le nombre d'utilisateurs par entreprise ID
+    const companyCounts = new Map<string, number>();
+    allProfiles.forEach(u => {
+      if (u.companyId && u.isProfile) {
+        companyCounts.set(u.companyId, (companyCounts.get(u.companyId) || 0) + 1);
+      }
+    });
+
     const userGroups = new Map<string, User[]>();
     allProfiles.forEach(u => {
       const id = (u.loginId_lower || u.loginId?.toLowerCase() || '').trim();
@@ -120,12 +127,19 @@ export default function AccountsPage() {
       const bestName = docs.find(d => d.name && d.name.toLowerCase() !== id.toLowerCase())?.name || baseDoc.name || baseDoc.loginId;
       
       const companyInfo = allCompanies?.find(c => c.id === baseDoc.companyId);
+      const userCount = companyCounts.get(baseDoc.companyId) || 1;
       
+      // Calculer le prix en direct pour l'affichage si l'objet n'existe pas encore
+      const calculatedAmount = baseDoc.companyId === 'admin_global' ? 0 : (userCount * 39.99);
+
       return { 
         ...baseDoc, 
         name: bestName,
         companyName: baseDoc.companyId === 'admin_global' ? "Grow&Go Admin" : (baseDoc.companyName || baseDoc.companyId),
-        subscription: companyInfo?.subscription
+        displaySubscription: {
+          totalAmount: companyInfo?.subscription?.totalMonthlyAmount ?? calculatedAmount,
+          activeUsers: userCount
+        }
       };
     })
     .filter(u => {
@@ -241,10 +255,10 @@ export default function AccountsPage() {
                         <div className="flex flex-col">
                           <span className="text-xs font-black text-primary flex items-center gap-1">
                             <CreditCard className="w-3 h-3" />
-                            {u.subscription?.totalMonthlyAmount.toFixed(2).replace('.', ',')}€
+                            {u.displaySubscription.totalAmount.toFixed(2).replace('.', ',')}€
                           </span>
                           <span className="text-[9px] text-muted-foreground font-bold">
-                            {u.subscription?.activeUsersCount || 1} utilisateurs
+                            {u.displaySubscription.activeUsers} utilisateurs
                           </span>
                         </div>
                       )}
