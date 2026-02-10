@@ -15,6 +15,7 @@ import { Category, User, Company } from '@/lib/types';
 import { useState, useRef } from 'react';
 import { analyzeUploadedDocument, AnalyzeUploadedDocumentOutput } from '@/ai/flows/analyze-uploaded-document';
 import { uploadFileToDrive } from '@/services/drive-service';
+import { uploadFileToOneDrive } from '@/services/onedrive-service';
 import {
   Dialog,
   DialogContent,
@@ -148,22 +149,32 @@ export default function CategoryPage() {
     if (!db || !companyId || !analysisResult || !currentFileUrl) return;
     
     let finalFileUrl = currentFileUrl;
-    let storageType: 'firebase' | 'google_drive' = 'firebase';
+    let storageType: 'firebase' | 'google_drive' | 'one_drive' = 'firebase';
     let driveFileId: string | undefined;
 
     const drive = company?.integrations?.googleDrive;
+    const oneDrive = company?.integrations?.oneDrive;
 
-    // LOGIQUE SMART UPLOAD : Si Drive est connecté, on l'utilise
+    // LOGIQUE SMART UPLOAD : Priorité aux Cloud Connectés
     if (drive?.isConnected && drive.folderId && drive.accessToken) {
       try {
-        toast({ title: "Cloud Upload...", description: "Envoi vers votre Google Drive." });
+        toast({ title: "Google Drive Upload...", description: "Envoi vers votre Cloud Google." });
         const driveResult = await uploadFileToDrive(drive.accessToken, drive.folderId, analysisResult.name, currentFileUrl);
         finalFileUrl = driveResult.webViewLink;
         driveFileId = driveResult.id;
         storageType = 'google_drive';
       } catch (e) {
-        console.error("Drive upload failed, falling back to Firebase Storage logic", e);
-        toast({ variant: "destructive", title: "Cloud Error", description: "Échec upload Drive. Utilisation du stockage par défaut." });
+        console.error("Drive upload failed", e);
+      }
+    } else if (oneDrive?.isConnected && oneDrive.folderId && oneDrive.accessToken) {
+      try {
+        toast({ title: "OneDrive Upload...", description: "Envoi vers votre espace Microsoft." });
+        const msResult = await uploadFileToOneDrive(oneDrive.accessToken, oneDrive.folderId, analysisResult.name, currentFileUrl);
+        finalFileUrl = msResult.webViewLink;
+        driveFileId = msResult.id;
+        storageType = 'one_drive';
+      } catch (e) {
+        console.error("OneDrive upload failed", e);
       }
     }
 
@@ -275,7 +286,7 @@ export default function CategoryPage() {
             <div className="p-8 space-y-6">
               <div className="bg-primary/5 p-6 rounded-2xl border border-primary/20 text-center space-y-3">
                 <Sparkles className="w-10 h-10 text-primary mx-auto" />
-                <p className="text-sm font-medium">Lancer l'analyse OCR ? {company?.integrations?.googleDrive?.isConnected && <Badge variant="secondary" className="ml-2 font-bold">MODE DRIVE ACTIF</Badge>}</p>
+                <p className="text-sm font-medium">Lancer l'analyse OCR ? {(company?.integrations?.googleDrive?.isConnected || company?.integrations?.oneDrive?.isConnected) && <Badge variant="secondary" className="ml-2 font-bold uppercase">Cloud Actif</Badge>}</p>
               </div>
               <div className="flex gap-3">
                 <Button variant="outline" onClick={() => setImportStep('idle')} className="flex-1">Annuler</Button>

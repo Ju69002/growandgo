@@ -5,6 +5,7 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   GoogleAuthProvider,
+  OAuthProvider,
   signInWithPopup,
   sendPasswordResetEmail,
 } from 'firebase/auth';
@@ -41,6 +42,22 @@ export async function signInWithGoogleDrive(authInstance: Auth) {
   
   const result = await signInWithPopup(authInstance, provider);
   const credential = GoogleAuthProvider.credentialFromResult(result);
+  const token = credential?.accessToken;
+  
+  return { user: result.user, token };
+}
+
+/**
+ * Sign in with Microsoft pour OneDrive.
+ */
+export async function signInWithMicrosoftOneDrive(authInstance: Auth) {
+  const provider = new OAuthProvider('microsoft.com');
+  provider.addScope('Files.ReadWrite.All');
+  provider.addScope('User.Read');
+  provider.setCustomParameters({ prompt: 'select_account' });
+  
+  const result = await signInWithPopup(authInstance, provider);
+  const credential = OAuthProvider.credentialFromResult(result);
   const token = credential?.accessToken;
   
   return { user: result.user, token };

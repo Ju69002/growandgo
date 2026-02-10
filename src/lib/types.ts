@@ -29,6 +29,12 @@ export interface Company {
       accessToken: string;
       email?: string;
     };
+    oneDrive?: {
+      isConnected: boolean;
+      folderId: string;
+      accessToken: string;
+      email?: string;
+    };
   };
   modulesConfig?: {
     showRh: boolean;
@@ -91,7 +97,7 @@ export interface BusinessDocument {
   isBillingTask?: boolean;
   billingMonthId?: string;
   targetUserId?: string;
-  storageType?: 'firebase' | 'google_drive';
+  storageType?: 'firebase' | 'google_drive' | 'one_drive';
   driveFileId?: string;
 }
 
