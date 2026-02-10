@@ -289,8 +289,8 @@ export default function TeamPage() {
             <DialogDescription className="space-y-4 pt-4">
               <span className="block text-sm font-medium text-muted-foreground">Transmettez ces informations à votre nouveau collaborateur :</span>
               
-              <div className="grid gap-3">
-                <div className="p-4 bg-muted/50 rounded-2xl border-2 border-dashed border-primary/20 relative group">
+              <span className="block grid gap-3">
+                <span className="block p-4 bg-muted/50 rounded-2xl border-2 border-dashed border-primary/20 relative group">
                   <span className="block text-[10px] font-black uppercase opacity-40 mb-1">Identifiant</span>
                   <span className="block text-2xl font-black text-primary tracking-widest">{generatedCreds.loginId}</span>
                   <Button 
@@ -299,9 +299,9 @@ export default function TeamPage() {
                   >
                     <Copy className="w-4 h-4" />
                   </Button>
-                </div>
+                </span>
 
-                <div className="p-4 bg-muted/50 rounded-2xl border-2 border-dashed border-primary/20 relative group">
+                <span className="block p-4 bg-muted/50 rounded-2xl border-2 border-dashed border-primary/20 relative group">
                   <span className="block text-[10px] font-black uppercase opacity-40 mb-1">Mot de passe temporaire</span>
                   <span className="block text-2xl font-black text-primary tracking-widest">{generatedCreds.password}</span>
                   <Button 
@@ -310,8 +310,8 @@ export default function TeamPage() {
                   >
                     <Copy className="w-4 h-4" />
                   </Button>
-                </div>
-              </div>
+                </span>
+              </span>
 
               <span className="block text-[10px] text-rose-600 font-bold bg-rose-50 p-3 rounded-xl">
                 Note : Pour des raisons de sécurité, ces informations ne seront plus affichées. Copiez-les maintenant.
