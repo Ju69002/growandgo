@@ -2,9 +2,18 @@
 'use client';
 
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
-import { useUser, useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
+import { 
+  useUser, 
+  useFirestore, 
+  useDoc, 
+  useMemoFirebase, 
+  useCollection,
+  useStorage,
+  updateDocumentNonBlocking
+} from '@/firebase';
 import { firebaseConfig } from '@/firebase/config';
 import { doc, collection, query, where, getDocs, setDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
 import { User, UserRole } from '@/lib/types';
@@ -20,6 +29,8 @@ import {
   CheckCircle2,
   Copy,
   AlertCircle,
+  Camera,
+  User as UserIcon
 } from 'lucide-react';
 import { 
   Dialog, 
@@ -38,18 +49,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useState, useMemo } from 'react';
+import { useState, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 export default function TeamPage() {
   const { user: currentUser } = useUser();
   const db = useFirestore();
+  const storage = useStorage();
   const { toast } = useToast();
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [uploadingUserId, setUploadingUserId] = useState<string | null>(null);
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -57,6 +70,7 @@ export default function TeamPage() {
   const [selectedRole, setSelectedRole] = useState<UserRole>('employee');
 
   const [generatedCreds, setGeneratedCreds] = useState({ loginId: '', password: '' });
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !currentUser) return null;
@@ -80,7 +94,7 @@ export default function TeamPage() {
   const isAdmin = profile?.role === 'admin' || profile?.companyId === 'admin_global';
   const isFamily = profile?.role === 'family';
   const isPatron = profile?.role === 'patron';
-  const canAddMembers = isAdmin || isFamily || isPatron;
+  const canManageTeam = isAdmin || isFamily || isPatron;
 
   const generateTempPassword = () => {
     return `Grow-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
@@ -146,6 +160,35 @@ export default function TeamPage() {
     }
   };
 
+  const handleAvatarChange = async (event: React.ChangeEvent<HTMLInputElement>, targetUserId: string) => {
+    const file = event.target.files?.[0];
+    if (!file || !storage || !db) return;
+
+    // Permissions check: Self OR Admin/Patron/Family
+    const isSelf = currentUser?.uid === targetUserId;
+    if (!isSelf && !canManageTeam) {
+      toast({ variant: "destructive", title: "Permission refusée", description: "Vous ne pouvez pas modifier la photo d'un collègue." });
+      return;
+    }
+
+    setUploadingUserId(targetUserId);
+    try {
+      const storageRef = ref(storage, `avatars/${targetUserId}/profile.jpg`);
+      await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(storageRef);
+
+      const userRef = doc(db, 'users', targetUserId);
+      updateDocumentNonBlocking(userRef, { photoURL: downloadURL });
+
+      toast({ title: "Photo mise à jour", description: "Votre avatar a été enregistré sur le serveur." });
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Échec de l'upload", description: "Impossible d'enregistrer l'image." });
+    } finally {
+      setUploadingUserId(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     toast({ title: "Copié dans le presse-papier" });
@@ -177,7 +220,7 @@ export default function TeamPage() {
             <h1 className="text-5xl font-black tracking-tighter text-primary uppercase">Mon Équipe</h1>
             <p className="text-muted-foreground font-medium italic">Gérez les membres de votre studio Grow&Go.</p>
           </div>
-          {canAddMembers && (
+          {canManageTeam && (
             <Button 
               onClick={() => setIsAddModalOpen(true)}
               className="rounded-full h-14 px-10 font-bold bg-primary hover:bg-primary/90 shadow-2xl transition-all hover:scale-105 gap-3"
@@ -195,49 +238,87 @@ export default function TeamPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-            {teamMembers?.map((member) => (
-              <Card key={member.uid} className="border-none shadow-lg hover:shadow-2xl transition-all duration-300 rounded-[2.5rem] overflow-hidden bg-white group">
-                <CardContent className="p-8 flex flex-col items-center text-center space-y-6">
-                  <div className="relative">
-                    <Avatar className="w-24 h-24 border-4 border-primary/5 shadow-inner">
-                      <AvatarImage src={`https://picsum.photos/seed/${member.uid}/200/200`} />
-                      <AvatarFallback className="bg-primary/5 text-primary font-black text-2xl">
-                        {member.name?.charAt(0)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="absolute -bottom-2 left-1/2 -translate-x-1/2">
-                      <Badge className={cn("px-3 h-6 border-none text-[9px] font-black uppercase tracking-widest", getRoleColor(member.role))}>
-                        {getRoleLabel(member.role)}
-                      </Badge>
-                    </div>
-                  </div>
+            {teamMembers?.map((member) => {
+              const isMemberUploading = uploadingUserId === member.uid;
+              const canEditThisMember = currentUser?.uid === member.uid || canManageTeam;
 
-                  <div className="space-y-1 w-full">
-                    <h3 className="text-xl font-bold text-primary truncate px-2">{member.name}</h3>
-                    <div className="flex items-center justify-center gap-2 text-muted-foreground/60">
-                      <Mail className="w-3.5 h-3.5" />
-                      <span className="text-xs font-medium truncate max-w-[180px]">{member.email}</span>
-                    </div>
-                  </div>
+              return (
+                <Card key={member.uid} className="border-none shadow-lg hover:shadow-2xl transition-all duration-300 rounded-[2.5rem] overflow-hidden bg-white group">
+                  <CardContent className="p-8 flex flex-col items-center text-center space-y-6">
+                    <div className="relative">
+                      <div 
+                        className={cn(
+                          "relative rounded-full overflow-hidden group/avatar border-4 border-primary/5 shadow-inner",
+                          canEditThisMember && "cursor-pointer"
+                        )}
+                        onClick={() => canEditThisMember && fileInputRef.current?.click()}
+                      >
+                        <Avatar className="w-24 h-24">
+                          <AvatarImage src={member.photoURL} className="object-cover" />
+                          <AvatarFallback className="bg-primary/5 text-primary/40">
+                            <UserIcon className="w-10 h-10" />
+                          </AvatarFallback>
+                        </Avatar>
 
-                  <div className="w-full pt-4 border-t border-dashed flex items-center justify-between">
-                    <div className="flex flex-col items-start">
-                      <span className="text-[9px] font-black text-muted-foreground/40 uppercase tracking-tighter">Identifiant</span>
-                      <div className="flex items-center gap-1.5">
-                        <Fingerprint className="w-3 h-3 text-primary/30" />
-                        <span className="font-mono text-[11px] font-bold text-primary/70">{member.loginId}</span>
+                        {/* Hover Overlay */}
+                        {canEditThisMember && !isMemberUploading && (
+                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover/avatar:opacity-100 transition-opacity flex flex-col items-center justify-center text-white gap-1">
+                            <Camera className="w-6 h-6" />
+                            <span className="text-[8px] font-black uppercase tracking-widest">Modifier</span>
+                          </div>
+                        )}
+
+                        {/* Uploading Overlay */}
+                        {isMemberUploading && (
+                          <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
+                            <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Hidden Input for this member */}
+                      <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        className="hidden" 
+                        accept="image/*"
+                        onChange={(e) => handleAvatarChange(e, member.uid)}
+                      />
+
+                      <div className="absolute -bottom-2 left-1/2 -translate-x-1/2">
+                        <Badge className={cn("px-3 h-6 border-none text-[9px] font-black uppercase tracking-widest", getRoleColor(member.role))}>
+                          {getRoleLabel(member.role)}
+                        </Badge>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <span className="text-[9px] font-black text-muted-foreground/40 uppercase tracking-tighter">Arrivée</span>
-                      <p className="text-[10px] font-bold text-muted-foreground">
-                        {member.createdAt ? new Date(member.createdAt).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' }) : '---'}
-                      </p>
+
+                    <div className="space-y-1 w-full">
+                      <h3 className="text-xl font-bold text-primary truncate px-2">{member.name}</h3>
+                      <div className="flex items-center justify-center gap-2 text-muted-foreground/60">
+                        <Mail className="w-3.5 h-3.5" />
+                        <span className="text-xs font-medium truncate max-w-[180px]">{member.email}</span>
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+
+                    <div className="w-full pt-4 border-t border-dashed flex items-center justify-between">
+                      <div className="flex flex-col items-start">
+                        <span className="text-[9px] font-black text-muted-foreground/40 uppercase tracking-tighter">Identifiant</span>
+                        <div className="flex items-center gap-1.5">
+                          <Fingerprint className="w-3 h-3 text-primary/30" />
+                          <span className="font-mono text-[11px] font-bold text-primary/70">{member.loginId}</span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[9px] font-black text-muted-foreground/40 uppercase tracking-tighter">Arrivée</span>
+                        <p className="text-[10px] font-bold text-muted-foreground">
+                          {member.createdAt ? new Date(member.createdAt).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' }) : '---'}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>

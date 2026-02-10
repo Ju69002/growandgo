@@ -59,6 +59,7 @@ export interface User {
   createdAt?: string;
   googleEmail?: string;
   isProfile?: boolean;
+  photoURL?: string;
 }
 
 export interface Category {
