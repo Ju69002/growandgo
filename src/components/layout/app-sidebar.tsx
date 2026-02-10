@@ -21,6 +21,7 @@ import {
   CreditCard,
   KeyRound,
   UserCheck,
+  Cloud,
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -54,6 +55,7 @@ export function AppSidebar() {
 
   const isSuperAdmin = profile?.role === 'super_admin' || profile?.companyId === 'admin_global';
   const isPatron = profile?.role === 'admin';
+  const isBusiness = company?.subscription?.planType === 'business' || isSuperAdmin;
   
   const displayName = company?.name || profile?.companyName || "GROW&GO";
 
@@ -66,6 +68,10 @@ export function AppSidebar() {
     { title: 'Abonnement', icon: CreditCard, url: '/billing' },
     { title: 'Sécurité & Sync', icon: KeyRound, url: '/settings/security' },
   ];
+
+  if (isBusiness) {
+    configItems.push({ title: 'Intégrations Cloud', icon: Cloud, url: '/settings/integrations' });
+  }
 
   const isItemActive = (url: string) => pathname === url || (url !== '/' && pathname.startsWith(url));
 

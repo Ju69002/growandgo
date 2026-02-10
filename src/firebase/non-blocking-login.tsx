@@ -16,15 +16,27 @@ export async function initiateEmailSignIn(authInstance: Auth, email: string, pas
 
 /** 
  * Sign in with Google (Découplé).
- * Déclenché uniquement par action utilisateur.
+ * Utilisé pour Google Calendar.
  */
 export async function signInWithGoogleCalendar(authInstance: Auth) {
   const provider = new GoogleAuthProvider();
-  // Ajout des scopes Google Calendar
   provider.addScope('https://www.googleapis.com/auth/calendar.events');
   provider.addScope('https://www.googleapis.com/auth/calendar.readonly');
+  provider.setCustomParameters({ prompt: 'select_account' });
   
-  // Force l'affichage de la fenêtre de sélection de compte si nécessaire
+  const result = await signInWithPopup(authInstance, provider);
+  const credential = GoogleAuthProvider.credentialFromResult(result);
+  const token = credential?.accessToken;
+  
+  return { user: result.user, token };
+}
+
+/** 
+ * Sign in with Google pour Drive.
+ */
+export async function signInWithGoogleDrive(authInstance: Auth) {
+  const provider = new GoogleAuthProvider();
+  provider.addScope('https://www.googleapis.com/auth/drive.file');
   provider.setCustomParameters({ prompt: 'select_account' });
   
   const result = await signInWithPopup(authInstance, provider);

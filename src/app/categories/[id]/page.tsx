@@ -11,9 +11,10 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirestore, useDoc, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, useUser, useCollection } from '@/firebase';
 import { doc, collection, query } from 'firebase/firestore';
-import { Category, User } from '@/lib/types';
+import { Category, User, Company } from '@/lib/types';
 import { useState, useRef } from 'react';
 import { analyzeUploadedDocument, AnalyzeUploadedDocumentOutput } from '@/ai/flows/analyze-uploaded-document';
+import { uploadFileToDrive } from '@/services/drive-service';
 import {
   Dialog,
   DialogContent,
@@ -80,6 +81,13 @@ export default function CategoryPage() {
   const { data: profile } = useDoc<User>(userProfileRef);
   const companyId = profile?.companyId;
 
+  const companyRef = useMemoFirebase(() => {
+    if (!db || !companyId) return null;
+    return doc(db, 'companies', companyId);
+  }, [db, companyId]);
+
+  const { data: company } = useDoc<Company>(companyRef);
+
   const categoriesQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
     return query(collection(db, 'companies', companyId, 'categories'));
@@ -136,16 +144,39 @@ export default function CategoryPage() {
     }
   };
 
-  const finalizeImport = () => {
-    if (!db || !companyId || !analysisResult) return;
+  const finalizeImport = async () => {
+    if (!db || !companyId || !analysisResult || !currentFileUrl) return;
+    
+    let finalFileUrl = currentFileUrl;
+    let storageType: 'firebase' | 'google_drive' = 'firebase';
+    let driveFileId: string | undefined;
+
+    const drive = company?.integrations?.googleDrive;
+
+    // LOGIQUE SMART UPLOAD : Si Drive est connecté, on l'utilise
+    if (drive?.isConnected && drive.folderId && drive.accessToken) {
+      try {
+        toast({ title: "Cloud Upload...", description: "Envoi vers votre Google Drive." });
+        const driveResult = await uploadFileToDrive(drive.accessToken, drive.folderId, analysisResult.name, currentFileUrl);
+        finalFileUrl = driveResult.webViewLink;
+        driveFileId = driveResult.id;
+        storageType = 'google_drive';
+      } catch (e) {
+        console.error("Drive upload failed, falling back to Firebase Storage logic", e);
+        toast({ variant: "destructive", title: "Cloud Error", description: "Échec upload Drive. Utilisation du stockage par défaut." });
+      }
+    }
+
     const targetCategoryId = analysisResult.suggestedCategoryId;
     const targetSubCategory = analysisResult.suggestedSubCategory;
+    
     if (analysisResult.isNewSubCategory) {
       const targetCatRef = doc(db, 'companies', companyId, 'categories', targetCategoryId);
       const targetCatData = allCategories?.find(c => c.id === targetCategoryId);
       const updatedSubs = [...(targetCatData?.subCategories || []), targetSubCategory];
       updateDocumentNonBlocking(targetCatRef, { subCategories: updatedSubs });
     }
+
     const docsRef = collection(db, 'companies', companyId, 'documents');
     addDocumentNonBlocking(docsRef, {
       name: analysisResult.name,
@@ -154,10 +185,13 @@ export default function CategoryPage() {
       projectColumn: 'administrative',
       status: 'waiting_verification',
       extractedData: analysisResult.extractedData,
-      fileUrl: currentFileUrl,
+      fileUrl: finalFileUrl,
+      storageType,
+      driveFileId,
       createdAt: new Date().toLocaleDateString('fr-FR'),
       companyId: companyId
     });
+
     toast({ title: "Document classé !", description: `Rangé dans ${analysisResult.suggestedCategoryLabel} > ${targetSubCategory}` });
     setImportStep('idle');
     if (targetCategoryId !== categoryId) router.push(`/categories/${targetCategoryId}`);
@@ -197,7 +231,6 @@ export default function CategoryPage() {
           </div>
         ) : isAgenda ? (
           <div className="w-full bg-background min-h-[80vh]">
-            {/* L'agenda plein écran est forcé en vue mensuelle sans sélecteur */}
             <SharedCalendar 
               companyId={companyId} 
               defaultView="month" 
@@ -242,7 +275,7 @@ export default function CategoryPage() {
             <div className="p-8 space-y-6">
               <div className="bg-primary/5 p-6 rounded-2xl border border-primary/20 text-center space-y-3">
                 <Sparkles className="w-10 h-10 text-primary mx-auto" />
-                <p className="text-sm font-medium">Lancer l'analyse OCR ?</p>
+                <p className="text-sm font-medium">Lancer l'analyse OCR ? {company?.integrations?.googleDrive?.isConnected && <Badge variant="secondary" className="ml-2 font-bold">MODE DRIVE ACTIF</Badge>}</p>
               </div>
               <div className="flex gap-3">
                 <Button variant="outline" onClick={() => setImportStep('idle')} className="flex-1">Annuler</Button>

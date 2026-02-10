@@ -22,6 +22,14 @@ export interface Company {
     status: 'active' | 'overdue';
     nextBillingDate?: string;
   };
+  integrations?: {
+    googleDrive?: {
+      isConnected: boolean;
+      folderId: string;
+      accessToken: string;
+      email?: string;
+    };
+  };
   modulesConfig?: {
     showRh: boolean;
     showFinance: boolean;
@@ -83,6 +91,8 @@ export interface BusinessDocument {
   isBillingTask?: boolean;
   billingMonthId?: string;
   targetUserId?: string;
+  storageType?: 'firebase' | 'google_drive';
+  driveFileId?: string;
 }
 
 export interface CalendarEvent {
