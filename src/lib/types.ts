@@ -46,7 +46,6 @@ export interface Company {
 export interface User {
   uid: string;
   companyId: string;
-  enterpriseId?: string; 
   companyName: string; 
   role: UserRole;
   adminMode: boolean;
