@@ -57,10 +57,12 @@ export function Header() {
   const role = profile?.role;
   const isAdmin = role === 'admin' || profile?.companyId === 'admin_global';
   const isPatron = role === 'patron';
+  const isFamily = role === 'family';
   
   let roleLabel = "COLLABORATEUR";
   if (isAdmin) roleLabel = "ADMINISTRATEUR";
   else if (isPatron) roleLabel = "DIRIGEANT";
+  else if (isFamily) roleLabel = "FAMILLE";
 
   return (
     <header className="h-16 border-b bg-card px-4 flex items-center justify-between sticky top-0 z-30 shadow-sm">

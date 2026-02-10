@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { FirebaseClientProvider } from '@/firebase';
 import { useFirestore, useDoc, useUser, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
-import { User, Company } from '@/types';
+import { User, Company } from '@/lib/types';
 import { Toaster } from '@/components/ui/toaster';
 import { Ban, ShieldAlert, LogOut, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -56,7 +56,9 @@ function ThemeInjector({ children }: { children: React.ReactNode }) {
   }
 
   const isGlobalAdmin = profile?.companyId === 'admin_global';
-  const isInactive = profile?.subscriptionStatus === 'inactive' && !isGlobalAdmin;
+  const isFamily = profile?.role === 'family';
+  // Le rôle Family est immunisé contre la suspension (Lifetime)
+  const isInactive = profile?.subscriptionStatus === 'inactive' && !isGlobalAdmin && !isFamily;
 
   const handleLogout = async () => {
     const { getAuth } = await import('firebase/auth');

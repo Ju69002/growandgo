@@ -4,38 +4,22 @@
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { useUser, useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
 import { firebaseConfig } from '@/firebase/config';
-import { doc, collection, query, where, getDocs, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, collection, query, where, getDocs, setDoc } from 'firebase/firestore';
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
-import { User, Company } from '@/lib/types';
-import { 
-  Card, 
-  CardContent, 
-  CardHeader, 
-  CardTitle 
-} from '@/components/ui/card';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from '@/components/ui/table';
+import { User, UserRole } from '@/lib/types';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
   Loader2, 
   UserPlus, 
-  Users, 
   Mail, 
   Fingerprint, 
-  Calendar,
   CheckCircle2,
   Copy,
   AlertCircle,
-  Zap,
-  ArrowUpCircle
 } from 'lucide-react';
 import { 
   Dialog, 
@@ -47,10 +31,16 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useState } from 'react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useState, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { updateSubscriptionData } from '@/services/billing-sync';
 
 export default function TeamPage() {
   const { user: currentUser } = useUser();
@@ -58,14 +48,13 @@ export default function TeamPage() {
   const { toast } = useToast();
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isUpgrading, setIsUpgrading] = useState(false);
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
+  const [selectedRole, setSelectedRole] = useState<UserRole>('employee');
 
   const [generatedCreds, setGeneratedCreds] = useState({ loginId: '', password: '' });
 
@@ -76,13 +65,6 @@ export default function TeamPage() {
 
   const { data: profile } = useDoc<User>(userProfileRef);
   const companyId = profile?.companyId;
-
-  const companyRef = useMemoFirebase(() => {
-    if (!db || !companyId) return null;
-    return doc(db, 'companies', companyId);
-  }, [db, companyId]);
-
-  const { data: company } = useDoc<Company>(companyRef);
 
   const teamQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
@@ -95,37 +77,10 @@ export default function TeamPage() {
 
   const { data: teamMembers, isLoading: isTeamLoading } = useCollection<User>(teamQuery);
 
-  const planType = company?.subscription?.planType || 'individual';
-  const isIndividual = planType === 'individual';
-
-  const handleOpenAddMember = () => {
-    if (isIndividual && companyId !== 'admin_global') {
-      setIsUpgradeModalOpen(true);
-    } else {
-      setIsAddModalOpen(true);
-    }
-  };
-
-  const handleUpgradeToBusiness = async () => {
-    if (!db || !companyId) return;
-    setIsUpgrading(true);
-    try {
-      const ref = doc(db, 'companies', companyId);
-      await updateDoc(ref, {
-        'subscription.planType': 'business',
-        'subscription.basePrice': 199.99,
-        'subscription.pricePerUser': 14.99
-      });
-      await updateSubscriptionData(db, companyId, teamMembers?.length || 1, 'business');
-      setIsUpgradeModalOpen(false);
-      setIsAddModalOpen(true);
-      toast({ title: "Forfait Business activé !" });
-    } catch (e) {
-      toast({ variant: "destructive", title: "Échec de l'upgrade" });
-    } finally {
-      setIsUpgrading(false);
-    }
-  };
+  const isAdmin = profile?.role === 'admin' || profile?.companyId === 'admin_global';
+  const isFamily = profile?.role === 'family';
+  const isPatron = profile?.role === 'patron';
+  const canAddMembers = isAdmin || isFamily || isPatron;
 
   const generateTempPassword = () => {
     return `Grow-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
@@ -159,7 +114,7 @@ export default function TeamPage() {
         uid: uid,
         companyId: companyId,
         companyName: profile.companyName,
-        role: 'employee',
+        role: selectedRole,
         name: `${firstName.trim()} ${lastName.trim()}`,
         loginId: loginId,
         loginId_lower: loginId.toLowerCase(),
@@ -167,13 +122,12 @@ export default function TeamPage() {
         email: email.trim(),
         isProfile: true,
         createdAt: new Date().toISOString(),
-        adminMode: false,
-        isCategoryModifier: false,
+        adminMode: selectedRole !== 'employee',
+        isCategoryModifier: selectedRole !== 'employee',
         subscriptionStatus: 'active'
       };
 
       await setDoc(doc(db, 'users', uid), newUser);
-      await updateSubscriptionData(db, companyId, (teamMembers?.length || 0) + 1, planType);
 
       setGeneratedCreds({ loginId, password: tempPassword });
       setIsAddModalOpen(false);
@@ -182,6 +136,7 @@ export default function TeamPage() {
       setFirstName('');
       setLastName('');
       setEmail('');
+      setSelectedRole('employee');
       
       toast({ title: "Membre ajouté avec succès" });
     } catch (error: any) {
@@ -196,163 +151,146 @@ export default function TeamPage() {
     toast({ title: "Copié dans le presse-papier" });
   };
 
-  const role = profile?.role;
-  const isPatronOrAdmin = role === 'patron' || role === 'admin' || profile?.companyId === 'admin_global';
+  const getRoleLabel = (role: UserRole) => {
+    switch(role) {
+      case 'admin': return 'ADMINISTRATEUR';
+      case 'patron': return 'DIRIGEANT';
+      case 'family': return 'FAMILLE';
+      default: return 'COLLABORATEUR';
+    }
+  };
+
+  const getRoleColor = (role: UserRole) => {
+    switch(role) {
+      case 'admin': return 'bg-rose-950 text-white';
+      case 'patron': return 'bg-primary text-white';
+      case 'family': return 'bg-amber-500 text-white shadow-[0_0_10px_rgba(245,158,11,0.3)]';
+      default: return 'bg-muted text-muted-foreground';
+    }
+  };
 
   return (
     <DashboardLayout>
-      <div className="max-w-7xl mx-auto py-10 px-6 space-y-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="max-w-7xl mx-auto py-12 px-6 space-y-12">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-1">
-            <h1 className="text-4xl font-black tracking-tighter text-primary uppercase flex items-center gap-3">
-              <Users className="w-8 h-8" />
-              Mon Équipe
-            </h1>
-            <div className="flex items-center gap-3">
-              <Badge variant="outline" className="font-black uppercase text-[10px] border-primary/20 bg-primary/5 text-primary">
-                Forfait {planType}
-              </Badge>
-              <p className="text-muted-foreground text-sm font-medium">
-                {isIndividual ? "Solo - Limité à 1 utilisateur" : `${teamMembers?.length || 1} membres actifs`}
-              </p>
-            </div>
+            <h1 className="text-5xl font-black tracking-tighter text-primary uppercase">Mon Équipe</h1>
+            <p className="text-muted-foreground font-medium italic">Gérez les membres de votre studio Grow&Go.</p>
           </div>
-          {isPatronOrAdmin && (
-            <div className="flex flex-col items-end gap-2">
-              <Button 
-                onClick={handleOpenAddMember}
-                className="rounded-full h-12 px-8 font-bold bg-primary shadow-lg gap-2"
-              >
-                <UserPlus className="w-5 h-5" />
-                Ajouter un membre
-              </Button>
-              {isIndividual && companyId !== 'admin_global' && (
-                <p className="text-[10px] font-black uppercase text-muted-foreground mr-4">+14,99€ / employé (Forfait Business)</p>
-              )}
-            </div>
+          {canAddMembers && (
+            <Button 
+              onClick={() => setIsAddModalOpen(true)}
+              className="rounded-full h-14 px-10 font-bold bg-primary hover:bg-primary/90 shadow-2xl transition-all hover:scale-105 gap-3"
+            >
+              <UserPlus className="w-6 h-6" />
+              Inviter un membre
+            </Button>
           )}
         </div>
 
-        <Card className="border-none shadow-xl rounded-[2.5rem] overflow-hidden bg-white">
-          <CardContent className="p-0">
-            {isTeamLoading ? (
-              <div className="p-20 flex flex-col items-center gap-4">
-                <Loader2 className="w-10 h-10 animate-spin text-primary opacity-20" />
-                <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Récupération de l'équipe...</p>
-              </div>
-            ) : (
-              <Table>
-                <TableHeader className="bg-muted/30">
-                  <TableRow className="border-none">
-                    <TableHead className="pl-8 py-6 text-[10px] font-black uppercase tracking-widest">Collaborateur</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase tracking-widest">Identifiant</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase tracking-widest">Email</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-center">Rôle</TableHead>
-                    <TableHead className="text-right pr-8 text-[10px] font-black uppercase tracking-widest">Date d'arrivée</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {teamMembers?.map((member) => (
-                    <TableRow key={member.uid} className="hover:bg-primary/5 transition-colors group">
-                      <TableCell className="pl-8 py-4 font-bold text-primary">{member.name}</TableCell>
-                      <TableCell className="py-4">
-                        <div className="flex items-center gap-2">
-                          <Fingerprint className="w-3.5 h-3.5 text-muted-foreground" />
-                          <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded border">{member.loginId}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="py-4">
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Mail className="w-3.5 h-3.5" />
-                          {member.email}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center py-4">
-                        <Badge className={cn(
-                          "text-[9px] font-black uppercase px-2.5 h-6 border-none",
-                          member.role === 'admin' ? "bg-rose-950 text-white" : (member.role === 'patron' ? "bg-primary text-white" : "bg-muted text-muted-foreground")
-                        )}>
-                          {member.role === 'admin' ? 'ADMINISTRATEUR' : (member.role === 'patron' ? 'DIRIGEANT' : 'COLLABORATEUR')}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right pr-8 py-4">
-                        <div className="flex items-center justify-end gap-2 text-[10px] font-medium text-muted-foreground">
-                          <Calendar className="w-3 h-3" />
-                          {member.createdAt ? new Date(member.createdAt).toLocaleDateString('fr-FR') : '---'}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+        {isTeamLoading ? (
+          <div className="flex flex-col items-center justify-center p-24 gap-4">
+            <Loader2 className="w-12 h-12 animate-spin text-primary opacity-20" />
+            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Chargement des profils...</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+            {teamMembers?.map((member) => (
+              <Card key={member.uid} className="border-none shadow-lg hover:shadow-2xl transition-all duration-300 rounded-[2.5rem] overflow-hidden bg-white group">
+                <CardContent className="p-8 flex flex-col items-center text-center space-y-6">
+                  <div className="relative">
+                    <Avatar className="w-24 h-24 border-4 border-primary/5 shadow-inner">
+                      <AvatarImage src={`https://picsum.photos/seed/${member.uid}/200/200`} />
+                      <AvatarFallback className="bg-primary/5 text-primary font-black text-2xl">
+                        {member.name?.charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="absolute -bottom-2 left-1/2 -translate-x-1/2">
+                      <Badge className={cn("px-3 h-6 border-none text-[9px] font-black uppercase tracking-widest", getRoleColor(member.role))}>
+                        {getRoleLabel(member.role)}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1 w-full">
+                    <h3 className="text-xl font-bold text-primary truncate px-2">{member.name}</h3>
+                    <div className="flex items-center justify-center gap-2 text-muted-foreground/60">
+                      <Mail className="w-3.5 h-3.5" />
+                      <span className="text-xs font-medium truncate max-w-[180px]">{member.email}</span>
+                    </div>
+                  </div>
+
+                  <div className="w-full pt-4 border-t border-dashed flex items-center justify-between">
+                    <div className="flex flex-col items-start">
+                      <span className="text-[9px] font-black text-muted-foreground/40 uppercase tracking-tighter">Identifiant</span>
+                      <div className="flex items-center gap-1.5">
+                        <Fingerprint className="w-3 h-3 text-primary/30" />
+                        <span className="font-mono text-[11px] font-bold text-primary/70">{member.loginId}</span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[9px] font-black text-muted-foreground/40 uppercase tracking-tighter">Arrivée</span>
+                      <p className="text-[10px] font-bold text-muted-foreground">
+                        {member.createdAt ? new Date(member.createdAt).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' }) : '---'}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
 
-      <Dialog open={isUpgradeModalOpen} onOpenChange={setIsUpgradeModalOpen}>
-        <DialogContent className="rounded-[2.5rem] sm:max-w-md p-8 text-center">
-          <div className="w-20 h-20 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
-            <Zap className="w-10 h-10" />
-          </div>
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-black uppercase text-primary tracking-tighter">Passez au Forfait Business</DialogTitle>
-            <DialogDescription asChild>
-              <span className="block pt-4 space-y-4">
-                <span className="block text-base font-medium text-muted-foreground">
-                  L'offre Individuel est limitée à 1 utilisateur. Débloquez la puissance de votre équipe.
-                </span>
-                <span className="block p-6 bg-muted/50 rounded-3xl border-2 border-dashed border-primary/20">
-                  <span className="block text-3xl font-black text-primary">199,99€ <span className="text-sm">/ mois</span></span>
-                  <span className="block text-xs font-bold text-muted-foreground mt-1 uppercase tracking-widest">+ 14,99€ par employé supplémentaire</span>
-                </span>
-              </span>
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="mt-8 flex flex-col gap-3">
-            <Button 
-              onClick={handleUpgradeToBusiness} 
-              disabled={isUpgrading}
-              className="w-full h-14 bg-primary rounded-2xl font-bold text-lg shadow-xl gap-2"
-            >
-              {isUpgrading ? <Loader2 className="animate-spin" /> : <ArrowUpCircle className="w-5 h-5" />}
-              Activer mon offre Business
-            </Button>
-            <Button variant="ghost" onClick={() => setIsUpgradeModalOpen(false)} className="font-bold text-muted-foreground uppercase text-[10px] tracking-widest">Plus tard</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-        <DialogContent className="rounded-[2.5rem] sm:max-w-md">
+        <DialogContent className="rounded-[2.5rem] sm:max-w-md p-8">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-black uppercase tracking-tighter text-primary">Inviter un membre</DialogTitle>
-            <DialogDescription>Remplissez les informations pour générer ses accès.</DialogDescription>
+            <DialogTitle className="text-3xl font-black uppercase tracking-tighter text-primary">Nouveau membre</DialogTitle>
+            <DialogDescription>Créez les accès pour votre nouveau collaborateur.</DialogDescription>
           </DialogHeader>
           <form onSubmit={(e) => { e.preventDefault(); handleAddMember(e); }} className="space-y-6 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="fname" className="text-[10px] font-black uppercase tracking-widest ml-1">Prénom</Label>
-                <Input id="fname" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="Jean" className="rounded-xl font-bold h-12" required />
+                <Label className="text-[10px] font-black uppercase tracking-widest ml-1">Prénom</Label>
+                <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="Jean" className="rounded-xl font-bold h-12 border-primary/10" required />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="lname" className="text-[10px] font-black uppercase tracking-widest ml-1">Nom</Label>
-                <Input id="lname" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Dupont" className="rounded-xl font-bold h-12" required />
+                <Label className="text-[10px] font-black uppercase tracking-widest ml-1">Nom</Label>
+                <Input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Dupont" className="rounded-xl font-bold h-12 border-primary/10" required />
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-[10px] font-black uppercase tracking-widest ml-1">Email de contact</Label>
-              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="jean.dupont@email.com" className="rounded-xl font-bold h-12" required />
+              <Label className="text-[10px] font-black uppercase tracking-widest ml-1">Email de contact</Label>
+              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="jean.dupont@email.com" className="rounded-xl font-bold h-12 border-primary/10" required />
             </div>
-            <div className="p-3 bg-amber-50 border border-amber-100 rounded-xl flex items-start gap-3">
-              <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
-              <p className="text-[10px] leading-tight text-amber-900 font-medium">
-                Un compte de sécurité sera créé. Vous recevrez son identifiant et un mot de passe temporaire à la fin de l'opération.
+
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase tracking-widest ml-1">Rôle attribué</Label>
+              <Select value={selectedRole} onValueChange={(v) => setSelectedRole(v as UserRole)}>
+                <SelectTrigger className="rounded-xl h-12 font-bold border-primary/10">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="employee">Collaborateur (Employé)</SelectItem>
+                  {isAdmin && (
+                    <>
+                      <SelectItem value="family">Famille (Admin Lifetime)</SelectItem>
+                      <SelectItem value="patron">Dirigeant (Patron)</SelectItem>
+                    </>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+              <p className="text-[10px] leading-relaxed text-amber-900 font-bold">
+                Un compte de sécurité sera généré. Notez bien les identifiants qui s'afficheront sur l'écran suivant pour les transmettre.
               </p>
             </div>
             <DialogFooter>
-              <Button type="submit" disabled={isLoading} className="w-full h-14 bg-primary rounded-2xl font-bold text-lg shadow-lg">
-                {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : "Générer les accès"}
+              <Button type="submit" disabled={isLoading} className="w-full h-14 bg-primary rounded-2xl font-black uppercase text-sm shadow-xl tracking-widest">
+                {isLoading ? <Loader2 className="w-6 h-6 animate-spin mr-2" /> : "Générer les accès"}
               </Button>
             </DialogFooter>
           </form>
@@ -360,33 +298,33 @@ export default function TeamPage() {
       </Dialog>
 
       <Dialog open={isSuccessModalOpen} onOpenChange={setIsSuccessModalOpen}>
-        <DialogContent className="rounded-[3rem] p-8 text-center sm:max-w-md border-none shadow-2xl">
+        <DialogContent className="rounded-[3rem] p-10 text-center sm:max-w-md border-none shadow-2xl">
           <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
             <CheckCircle2 className="w-10 h-10" />
           </div>
           <DialogHeader>
-            <DialogTitle className="text-2xl font-black uppercase text-primary">Accès Générés !</DialogTitle>
+            <DialogTitle className="text-2xl font-black uppercase text-primary">Accès Prêts !</DialogTitle>
             <DialogDescription asChild>
-              <span className="block space-y-4 pt-4">
-                <span className="block text-sm font-medium text-muted-foreground text-center">Transmettez ces informations à votre nouveau collaborateur :</span>
+              <span className="block space-y-6 pt-4">
+                <span className="block text-sm font-medium text-muted-foreground text-center">Transmettez ces informations au collaborateur :</span>
                 
-                <span className="grid gap-3">
-                  <span className="block p-4 bg-muted/50 rounded-2xl border-2 border-dashed border-primary/20 relative group">
+                <span className="grid gap-4">
+                  <span className="block p-5 bg-muted/50 rounded-[2rem] border-2 border-dashed border-primary/20 relative group">
                     <span className="block text-[10px] font-black uppercase opacity-40 mb-1 text-center">Identifiant</span>
-                    <span className="block text-2xl font-black text-primary tracking-widest text-center">{generatedCreds.loginId}</span>
+                    <span className="block text-3xl font-black text-primary tracking-widest text-center">{generatedCreds.loginId}</span>
                     <Button 
-                      variant="ghost" size="icon" className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                      variant="ghost" size="icon" className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity"
                       onClick={() => copyToClipboard(generatedCreds.loginId)}
                     >
                       <Copy className="w-4 h-4" />
                     </Button>
                   </span>
 
-                  <span className="block p-4 bg-muted/50 rounded-2xl border-2 border-dashed border-primary/20 relative group">
+                  <span className="block p-5 bg-muted/50 rounded-[2rem] border-2 border-dashed border-primary/20 relative group">
                     <span className="block text-[10px] font-black uppercase opacity-40 mb-1 text-center">Mot de passe temporaire</span>
                     <span className="block text-2xl font-black text-primary tracking-widest text-center">{generatedCreds.password}</span>
                     <Button 
-                      variant="ghost" size="icon" className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                      variant="ghost" size="icon" className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity"
                       onClick={() => copyToClipboard(generatedCreds.password)}
                     >
                       <Copy className="w-4 h-4" />
@@ -394,15 +332,15 @@ export default function TeamPage() {
                   </span>
                 </span>
 
-                <span className="block text-[10px] text-rose-600 font-bold bg-rose-50 p-3 rounded-xl text-center">
-                  Note : Pour des raisons de sécurité, ces informations ne seront plus affichées. Copiez-les maintenant.
+                <span className="block text-[10px] text-rose-600 font-black uppercase tracking-widest bg-rose-50 p-4 rounded-2xl text-center leading-tight">
+                  Attention : Ces codes ne seront plus affichés après fermeture.
                 </span>
               </span>
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="mt-6">
-            <Button onClick={() => setIsSuccessModalOpen(false)} className="w-full h-12 rounded-full font-bold bg-primary shadow-lg">
-              Terminer
+          <DialogFooter className="mt-8">
+            <Button onClick={() => setIsSuccessModalOpen(false)} className="w-full h-12 rounded-full font-black uppercase tracking-widest text-xs bg-primary shadow-lg">
+              J'ai copié les accès
             </Button>
           </DialogFooter>
         </DialogContent>

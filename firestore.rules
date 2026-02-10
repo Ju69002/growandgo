@@ -11,17 +11,27 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
     function isGlobalAdmin() {
       return isSignedIn() && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == 'admin_global' ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.loginId_lower == 'jsecchi'
+        getUserData().companyId == 'admin_global' ||
+        getUserData().role == 'admin'
+      );
+    }
+
+    function isPatronOrFamily() {
+      return isSignedIn() && (
+        getUserData().role == 'patron' || 
+        getUserData().role == 'family'
       );
     }
 
     // Gestion des profils utilisateurs
     match /users/{userId} {
-      allow read: if true; 
+      allow read: if isSignedIn(); 
       allow write: if isSignedIn() || isGlobalAdmin(); 
       
       match /received_invoices/{invoiceId} {
@@ -37,21 +47,21 @@ service cloud.firestore {
 
       match /events/{eventId} {
         allow read: if isSignedIn();
-        allow write: if isSignedIn() || isGlobalAdmin();
+        allow write: if isSignedIn() || isGlobalAdmin() || isPatronOrFamily();
       }
 
       match /documents/{docId} {
         allow read: if isSignedIn();
-        allow write: if isSignedIn() || isGlobalAdmin();
+        allow write: if isSignedIn() || isGlobalAdmin() || isPatronOrFamily();
       }
 
       match /categories/{catId} {
         allow read: if isSignedIn();
-        allow write: if isSignedIn() || isGlobalAdmin();
+        allow write: if isSignedIn() || isGlobalAdmin() || isPatronOrFamily();
       }
 
       match /{allSubcollections=**} {
-        allow read, write: if isSignedIn() || isGlobalAdmin();
+        allow read, write: if isSignedIn() || isGlobalAdmin() || isPatronOrFamily();
       }
     }
 

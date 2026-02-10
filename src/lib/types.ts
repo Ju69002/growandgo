@@ -1,5 +1,5 @@
 
-export type UserRole = 'admin' | 'patron' | 'employee';
+export type UserRole = 'admin' | 'patron' | 'family' | 'employee';
 export type DocumentStatus = 'pending_analysis' | 'waiting_verification' | 'waiting_validation' | 'archived';
 export type CategoryType = 'standard' | 'custom';
 export type SubscriptionStatus = 'active' | 'inactive';

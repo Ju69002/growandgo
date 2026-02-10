@@ -56,7 +56,8 @@ export function AppSidebar() {
   const role = profile?.role;
   const isAdmin = role === 'admin' || profile?.companyId === 'admin_global';
   const isPatron = role === 'patron';
-  const isBusiness = company?.subscription?.planType === 'business' || isAdmin;
+  const isFamily = role === 'family';
+  const isBusiness = company?.subscription?.planType === 'business' || isAdmin || isFamily;
   
   const displayName = company?.name || profile?.companyName || "GROW&GO";
 
@@ -79,6 +80,7 @@ export function AppSidebar() {
   let roleLabel = "COLLABORATEUR";
   if (isAdmin) roleLabel = "ADMINISTRATEUR";
   else if (isPatron) roleLabel = "DIRIGEANT";
+  else if (isFamily) roleLabel = "FAMILLE";
 
   return (
     <Sidebar collapsible="icon" className="border-r-0 z-50">
