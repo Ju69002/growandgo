@@ -145,11 +145,11 @@ export function CategoryTiles({ profile }: CategoryTilesProps) {
     );
   }
 
-  const isAdminOrSuper = profile.role === 'admin' || profile.companyId === 'admin_global' || profile.role === 'super_admin';
+  const isAdminOrPatron = profile.role === 'admin' || profile.companyId === 'admin_global' || profile.role === 'patron';
 
   const displayableCategories = (categories || []).filter(cat => {
     if (cat.id === 'agenda') return false; 
-    if (!isAdminOrSuper) {
+    if (!isAdminOrPatron) {
       return cat.visibleToEmployees === true;
     }
     return true;
@@ -161,7 +161,7 @@ export function CategoryTiles({ profile }: CategoryTilesProps) {
     return a.label.localeCompare(b.label);
   });
 
-  const isStudioIncomplete = isAdminOrSuper && sortedCategories.length < 3;
+  const isStudioIncomplete = isAdminOrPatron && sortedCategories.length < 3;
 
   return (
     <div className="space-y-8">
@@ -196,15 +196,15 @@ export function CategoryTiles({ profile }: CategoryTilesProps) {
               icon={Icon}
               badgeCount={category.badgeCount || 0}
               isVisible={category.visibleToEmployees === true}
-              isAdminMode={isAdminOrSuper}
-              canModify={isAdminOrSuper}
+              isAdminMode={isAdminOrPatron}
+              canModify={isAdminOrPatron}
               colorClass={COLOR_MAP[category.id] || COLOR_MAP[iconKey] || COLOR_MAP.default}
               companyId={companyId}
             />
           );
         })}
         
-        {isAdminOrSuper && (
+        {isAdminOrPatron && (
           <button 
             onClick={() => {
               window.dispatchEvent(new CustomEvent('open-chat-category-creation'));

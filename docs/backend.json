@@ -30,7 +30,7 @@
       "properties": {
         "uid": { "type": "string" },
         "companyId": { "type": "string" },
-        "role": { "type": "string", "enum": ["super_admin", "admin", "employee"] },
+        "role": { "type": "string", "enum": ["admin", "patron", "employee"] },
         "name": { "type": "string" }
       },
       "required": ["uid", "companyId", "role"]

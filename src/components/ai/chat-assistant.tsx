@@ -39,12 +39,12 @@ export function ChatAssistant() {
 
   const { data: profile } = useDoc<User>(userProfileRef);
   const companyId = profile?.companyId ? normalizeId(profile.companyId) : null;
-  const isPatron = profile?.role === 'admin' || profile?.role === 'super_admin';
+  const isAdminOrPatron = profile?.role === 'admin' || profile?.role === 'patron';
 
   React.useEffect(() => {
     const handleOpenChat = () => {
       setIsOpen(true);
-      if (isPatron) {
+      if (isAdminOrPatron) {
         setMessages(prev => [
           ...prev,
           { role: 'assistant', content: "Prêt ! Quel dossier souhaitez-vous configurer dans votre espace ?" }
@@ -52,14 +52,14 @@ export function ChatAssistant() {
       } else {
         setMessages(prev => [
           ...prev,
-          { role: 'assistant', content: "Désolé, seul l'administrateur peut modifier la structure de l'espace." }
+          { role: 'assistant', content: "Désolé, seul l'administrateur ou le dirigeant peut modifier la structure de l'espace." }
         ]);
       }
     };
 
     window.addEventListener('open-chat-category-creation', handleOpenChat);
     return () => window.removeEventListener('open-chat-category-creation', handleOpenChat);
-  }, [isPatron]);
+  }, [isAdminOrPatron]);
 
   const handleAddSubCat = () => {
     if (!newSubCat.trim() || !pendingAction) return;
@@ -82,7 +82,7 @@ export function ChatAssistant() {
   };
 
   const executeAction = (action: any) => {
-    if (!db || !companyId || !isPatron) return;
+    if (!db || !companyId || !isAdminOrPatron) return;
 
     const { type, categoryId, label, icon, subCategories } = action;
     const targetId = normalizeId(label || categoryId || '');
@@ -125,8 +125,8 @@ export function ChatAssistant() {
   const handleSend = async () => {
     if (!input.trim() || isLoading || !db || !companyId) return;
 
-    if (!isPatron) {
-      setMessages(prev => [...prev, { role: 'assistant', content: "Action réservée à l'administrateur de l'espace." }]);
+    if (!isAdminOrPatron) {
+      setMessages(prev => [...prev, { role: 'assistant', content: "Action réservée à l'administrateur ou au dirigeant de l'espace." }]);
       setInput('');
       return;
     }
@@ -248,14 +248,14 @@ export function ChatAssistant() {
           <CardFooter className="p-4 border-t rounded-b-[2rem] bg-white">
             <div className="flex w-full items-center gap-2">
               <Input
-                placeholder={!isPatron ? "Accès administrateur uniquement" : (pendingAction ? "Ajustez vos dossiers..." : "Ex: Nouveau dossier Technique")}
+                placeholder={!isAdminOrPatron ? "Accès restreint" : (pendingAction ? "Ajustez vos dossiers..." : "Ex: Nouveau dossier Technique")}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                disabled={isLoading || !!pendingAction || !isPatron}
+                disabled={isLoading || !!pendingAction || !isAdminOrPatron}
                 className="flex-1 rounded-xl h-11 bg-muted/30 border-none font-medium"
               />
-              <Button size="icon" className="rounded-xl h-11 w-11 bg-primary" onClick={handleSend} disabled={isLoading || !input.trim() || !!pendingAction || !isPatron}>
+              <Button size="icon" className="rounded-xl h-11 w-11 bg-primary" onClick={handleSend} disabled={isLoading || !input.trim() || !!pendingAction || !isAdminOrPatron}>
                 <Send className="h-4 w-4" />
               </Button>
             </div>

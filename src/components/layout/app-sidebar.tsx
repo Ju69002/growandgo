@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -53,9 +54,9 @@ export function AppSidebar() {
   const { data: company } = useDoc<Company>(companyRef);
 
   const role = profile?.role;
-  const isSuperAdmin = role === 'super_admin' || role === 'admin' || profile?.companyId === 'admin_global';
+  const isAdmin = role === 'admin' || profile?.companyId === 'admin_global';
   const isPatron = role === 'patron';
-  const isBusiness = company?.subscription?.planType === 'business' || isSuperAdmin;
+  const isBusiness = company?.subscription?.planType === 'business' || isAdmin;
   
   const displayName = company?.name || profile?.companyName || "GROW&GO";
 
@@ -75,7 +76,9 @@ export function AppSidebar() {
 
   const isItemActive = (url: string) => pathname === url || (url !== '/' && pathname.startsWith(url));
 
-  const roleLabel = isSuperAdmin ? "ADMINISTRATEUR" : isPatron ? "DIRIGEANT" : "COLLABORATEUR";
+  let roleLabel = "COLLABORATEUR";
+  if (isAdmin) roleLabel = "ADMINISTRATEUR";
+  else if (isPatron) roleLabel = "DIRIGEANT";
 
   return (
     <Sidebar collapsible="icon" className="border-r-0 z-50">
@@ -126,7 +129,7 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {isSuperAdmin && (
+        {isAdmin && (
           <SidebarGroup>
             <SidebarGroupLabel className="text-white/50 font-bold uppercase text-[10px] tracking-widest px-4 mb-2 group-data-[collapsible=icon]:hidden">Admin</SidebarGroupLabel>
             <SidebarGroupContent>

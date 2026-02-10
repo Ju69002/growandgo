@@ -70,15 +70,15 @@ export default function CompanyPage() {
     }, 500);
   };
 
-  const isPatron = profile?.role === 'admin' || profile?.role === 'super_admin';
+  const isPatronOrAdmin = profile?.role === 'admin' || profile?.role === 'patron';
 
-  if (!isPatron && !isLoading) {
+  if (!isPatronOrAdmin && !isLoading) {
     return (
       <DashboardLayout>
         <div className="max-w-7xl mx-auto py-20 px-6 text-center space-y-4">
           <Building2 className="w-20 h-20 text-muted-foreground opacity-20 mx-auto" />
           <h1 className="text-2xl font-black uppercase">Accès Réservé</h1>
-          <p className="text-muted-foreground">Seul le Patron peut modifier l'identité du studio.</p>
+          <p className="text-muted-foreground">Seul l'administrateur ou le dirigeant peut modifier l'identité du studio.</p>
         </div>
       </DashboardLayout>
     );

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Search, Bell, UserCircle, LogOut, Clock } from 'lucide-react';
@@ -54,9 +55,12 @@ export function Header() {
   };
 
   const role = profile?.role;
-  const isSuperAdmin = role === 'super_admin' || role === 'admin' || profile?.companyId === 'admin_global';
+  const isAdmin = role === 'admin' || profile?.companyId === 'admin_global';
   const isPatron = role === 'patron';
-  const roleLabel = isSuperAdmin ? "ADMINISTRATEUR" : isPatron ? "DIRIGEANT" : "COLLABORATEUR";
+  
+  let roleLabel = "COLLABORATEUR";
+  if (isAdmin) roleLabel = "ADMINISTRATEUR";
+  else if (isPatron) roleLabel = "DIRIGEANT";
 
   return (
     <header className="h-16 border-b bg-card px-4 flex items-center justify-between sticky top-0 z-30 shadow-sm">

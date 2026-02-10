@@ -1,3 +1,4 @@
+
 'use client';
 
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
@@ -92,7 +93,7 @@ export default function AccountsPage() {
   }, [db, currentUser]);
 
   const { data: myProfile, isLoading: isProfileLoading } = useDoc<User>(userProfileRef);
-  const isGlobalAdmin = myProfile?.companyId === 'admin_global' || myProfile?.role === 'super_admin' || myProfile?.role === 'admin';
+  const isGlobalAdmin = myProfile?.companyId === 'admin_global' || myProfile?.role === 'admin';
 
   const profilesQuery = useMemoFirebase(() => {
     if (!db || !isGlobalAdmin) return null;
@@ -121,7 +122,7 @@ export default function AccountsPage() {
       const cId = u.companyId?.toLowerCase().trim();
       const userCount = companyCounts.get(cId) || 0;
       const patronName = companyPatrons.get(cId) || "son dirigeant";
-      const isInternalAdmin = u.companyId === 'admin_global' || u.role === 'admin' || u.role === 'super_admin';
+      const isInternalAdmin = u.companyId === 'admin_global' || u.role === 'admin';
       
       const totalAmount = isInternalAdmin ? 0 : (userCount * 39.99);
 
@@ -245,7 +246,7 @@ export default function AccountsPage() {
                       </div>
                     </TableCell>
                     <TableCell className="py-4">
-                      {u.companyId === 'admin_global' || u.role === 'admin' || u.role === 'super_admin' ? (
+                      {u.companyId === 'admin_global' || u.role === 'admin' ? (
                         <Badge variant="secondary" className="bg-rose-950 text-white font-bold text-[9px] border-none uppercase">Offert (Plateforme)</Badge>
                       ) : u.role === 'patron' ? (
                         <div className="flex flex-col">
@@ -272,9 +273,9 @@ export default function AccountsPage() {
                     <TableCell className="text-center py-4">
                       <Badge className={cn(
                         "text-[10px] font-black uppercase px-3 h-6 border-none",
-                        u.companyId === 'admin_global' || u.role === 'admin' || u.role === 'super_admin' ? "bg-rose-950 text-white" : (u.role === 'patron' ? "bg-primary text-white" : "bg-muted text-muted-foreground")
+                        u.companyId === 'admin_global' || u.role === 'admin' ? "bg-rose-950 text-white" : (u.role === 'patron' ? "bg-primary text-white" : "bg-muted text-muted-foreground")
                       )}>
-                        {u.companyId === 'admin_global' || u.role === 'admin' || u.role === 'super_admin' ? 'ADMINISTRATEUR' : (u.role === 'patron' ? 'DIRIGEANT' : 'COLLABORATEUR')}
+                        {u.companyId === 'admin_global' || u.role === 'admin' ? 'ADMINISTRATEUR' : (u.role === 'patron' ? 'DIRIGEANT' : 'COLLABORATEUR')}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right pr-8 py-4">

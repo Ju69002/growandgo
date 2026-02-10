@@ -52,19 +52,19 @@ export default function Home() {
 
   const { data: profile } = useDoc<User>(userRef);
   
-  const isSuperAdmin = profile?.companyId === 'admin_global' || profile?.role === 'super_admin';
+  const isAdmin = profile?.companyId === 'admin_global' || profile?.role === 'admin';
   const companyId = profile?.companyId || null;
 
   const allUsersQuery = useMemoFirebase(() => {
-    if (!db || !isSuperAdmin) return null;
+    if (!db || !isAdmin) return null;
     return query(collection(db, 'users'), where('isProfile', '==', true));
-  }, [db, isSuperAdmin]);
+  }, [db, isAdmin]);
 
   const { data: allUsers } = useCollection<User>(allUsersQuery);
 
   useEffect(() => {
     const handleSync = async () => {
-      if (db && user && isSuperAdmin && allUsers && !syncLockRef.current) {
+      if (db && user && isAdmin && allUsers && !syncLockRef.current) {
         syncLockRef.current = true;
         try {
           await syncBillingTasks(db, user.uid, allUsers);
@@ -74,7 +74,7 @@ export default function Home() {
       }
     };
     handleSync();
-  }, [db, user, isSuperAdmin, allUsers]);
+  }, [db, user, isAdmin, allUsers]);
 
   const eventsQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;

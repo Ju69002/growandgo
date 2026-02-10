@@ -1,3 +1,4 @@
+
 'use client';
 
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
@@ -196,7 +197,7 @@ export default function TeamPage() {
   };
 
   const role = profile?.role;
-  const isPatron = role === 'patron' || role === 'admin' || role === 'super_admin' || profile?.companyId === 'admin_global';
+  const isPatronOrAdmin = role === 'patron' || role === 'admin' || profile?.companyId === 'admin_global';
 
   return (
     <DashboardLayout>
@@ -216,7 +217,7 @@ export default function TeamPage() {
               </p>
             </div>
           </div>
-          {isPatron && (
+          {isPatronOrAdmin && (
             <div className="flex flex-col items-end gap-2">
               <Button 
                 onClick={handleOpenAddMember}
@@ -269,9 +270,9 @@ export default function TeamPage() {
                       <TableCell className="text-center py-4">
                         <Badge className={cn(
                           "text-[9px] font-black uppercase px-2.5 h-6 border-none",
-                          member.role === 'admin' || member.role === 'super_admin' ? "bg-rose-950 text-white" : (member.role === 'patron' ? "bg-primary text-white" : "bg-muted text-muted-foreground")
+                          member.role === 'admin' ? "bg-rose-950 text-white" : (member.role === 'patron' ? "bg-primary text-white" : "bg-muted text-muted-foreground")
                         )}>
-                          {member.role === 'admin' || member.role === 'super_admin' ? 'ADMIN' : (member.role === 'patron' ? 'DIRIGEANT' : 'COLLABORATEUR')}
+                          {member.role === 'admin' ? 'ADMINISTRATEUR' : (member.role === 'patron' ? 'DIRIGEANT' : 'COLLABORATEUR')}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right pr-8 py-4">
