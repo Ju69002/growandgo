@@ -53,9 +53,10 @@ export function Header() {
     }
   };
 
-  const isSuperAdmin = profile?.role === 'super_admin' || profile?.companyId === 'admin_global';
-  const isPatron = profile?.role === 'admin';
-  const roleLabel = isSuperAdmin ? "Administrateur" : isPatron ? "Dirigeant" : "Collaborateur";
+  const role = profile?.role;
+  const isSuperAdmin = role === 'super_admin' || role === 'admin' || profile?.companyId === 'admin_global';
+  const isPatron = role === 'patron';
+  const roleLabel = isSuperAdmin ? "ADMINISTRATEUR" : isPatron ? "DIRIGEANT" : "COLLABORATEUR";
 
   return (
     <header className="h-16 border-b bg-card px-4 flex items-center justify-between sticky top-0 z-30 shadow-sm">

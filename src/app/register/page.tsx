@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -91,7 +90,7 @@ export default function RegisterPage() {
         isProfile: true,
         companyId: finalCompanyId,
         companyName: companyName.trim(),
-        role: 'admin', 
+        role: 'patron', 
         adminMode: true,
         isCategoryModifier: true,
         name: name.trim(),
@@ -124,7 +123,7 @@ export default function RegisterPage() {
               <Image src={logo?.imageUrl || "https://picsum.photos/seed/growgo/100/100"} alt="Logo" fill className="object-cover p-2" />
             </div>
             <div>
-              <CardTitle className="text-3xl font-black text-primary uppercase tracking-tighter">INSCRIPTION PATRON</CardTitle>
+              <CardTitle className="text-3xl font-black text-primary uppercase tracking-tighter">INSCRIPTION DIRIGEANT</CardTitle>
               <CardDescription className="text-primary/60 font-medium italic">
                 Créez votre espace Grow&Go en quelques secondes.
               </CardDescription>
@@ -210,13 +209,15 @@ export default function RegisterPage() {
           </div>
           <DialogHeader>
             <DialogTitle className="text-2xl font-black uppercase text-primary">Inscription Réussie !</DialogTitle>
-            <DialogDescription className="text-lg font-medium py-4">
-              <span className="block mb-2">Votre identifiant de connexion est :</span>
-              <span className="block my-4 p-4 bg-primary/5 rounded-2xl border-2 border-dashed border-primary/20 text-3xl font-black text-primary tracking-widest">
-                {successId}
-              </span>
-              <span className="block text-sm text-muted-foreground mt-2">
-                Notez-le bien, il vous servira à vous connecter à votre espace Grow&Go.
+            <DialogDescription asChild>
+              <span className="block space-y-4 pt-4">
+                <span className="block text-sm font-medium text-muted-foreground text-center">Votre identifiant de connexion est :</span>
+                <span className="block my-4 p-4 bg-primary/5 rounded-2xl border-2 border-dashed border-primary/20 text-3xl font-black text-primary tracking-widest text-center">
+                  {successId}
+                </span>
+                <span className="block text-sm text-muted-foreground mt-2 text-center">
+                  Notez-le bien, il vous servira à vous connecter à votre espace Grow&Go.
+                </span>
               </span>
             </DialogDescription>
           </DialogHeader>

@@ -139,7 +139,6 @@ export default function TeamPage() {
   };
 
   const handleAddMember = async (e: React.FormEvent) => {
-    e.preventDefault();
     if (!db || !companyId || !profile) return;
     setIsLoading(true);
 
@@ -196,7 +195,8 @@ export default function TeamPage() {
     toast({ title: "Copié dans le presse-papier" });
   };
 
-  const isPatron = profile?.role === 'admin' || profile?.companyId === 'admin_global';
+  const role = profile?.role;
+  const isPatron = role === 'patron' || role === 'admin' || role === 'super_admin' || profile?.companyId === 'admin_global';
 
   return (
     <DashboardLayout>
@@ -269,9 +269,9 @@ export default function TeamPage() {
                       <TableCell className="text-center py-4">
                         <Badge className={cn(
                           "text-[9px] font-black uppercase px-2.5 h-6 border-none",
-                          member.role === 'admin' ? "bg-primary text-white" : "bg-muted text-muted-foreground"
+                          member.role === 'admin' || member.role === 'super_admin' ? "bg-rose-950 text-white" : (member.role === 'patron' ? "bg-primary text-white" : "bg-muted text-muted-foreground")
                         )}>
-                          {member.role === 'admin' ? 'PATRON' : 'EMPLOYÉ'}
+                          {member.role === 'admin' || member.role === 'super_admin' ? 'ADMIN' : (member.role === 'patron' ? 'DIRIGEANT' : 'COLLABORATEUR')}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right pr-8 py-4">
@@ -328,7 +328,7 @@ export default function TeamPage() {
             <DialogTitle className="text-2xl font-black uppercase tracking-tighter text-primary">Inviter un membre</DialogTitle>
             <DialogDescription>Remplissez les informations pour générer ses accès.</DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleAddMember} className="space-y-6 py-4">
+          <form onSubmit={(e) => { e.preventDefault(); handleAddMember(e); }} className="space-y-6 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="fname" className="text-[10px] font-black uppercase tracking-widest ml-1">Prénom</Label>
@@ -367,12 +367,12 @@ export default function TeamPage() {
             <DialogTitle className="text-2xl font-black uppercase text-primary">Accès Générés !</DialogTitle>
             <DialogDescription asChild>
               <span className="block space-y-4 pt-4">
-                <span className="block text-sm font-medium text-muted-foreground">Transmettez ces informations à votre nouveau collaborateur :</span>
+                <span className="block text-sm font-medium text-muted-foreground text-center">Transmettez ces informations à votre nouveau collaborateur :</span>
                 
                 <span className="grid gap-3">
                   <span className="block p-4 bg-muted/50 rounded-2xl border-2 border-dashed border-primary/20 relative group">
-                    <span className="block text-[10px] font-black uppercase opacity-40 mb-1">Identifiant</span>
-                    <span className="block text-2xl font-black text-primary tracking-widest">{generatedCreds.loginId}</span>
+                    <span className="block text-[10px] font-black uppercase opacity-40 mb-1 text-center">Identifiant</span>
+                    <span className="block text-2xl font-black text-primary tracking-widest text-center">{generatedCreds.loginId}</span>
                     <Button 
                       variant="ghost" size="icon" className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity"
                       onClick={() => copyToClipboard(generatedCreds.loginId)}
@@ -382,8 +382,8 @@ export default function TeamPage() {
                   </span>
 
                   <span className="block p-4 bg-muted/50 rounded-2xl border-2 border-dashed border-primary/20 relative group">
-                    <span className="block text-[10px] font-black uppercase opacity-40 mb-1">Mot de passe temporaire</span>
-                    <span className="block text-2xl font-black text-primary tracking-widest">{generatedCreds.password}</span>
+                    <span className="block text-[10px] font-black uppercase opacity-40 mb-1 text-center">Mot de passe temporaire</span>
+                    <span className="block text-2xl font-black text-primary tracking-widest text-center">{generatedCreds.password}</span>
                     <Button 
                       variant="ghost" size="icon" className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity"
                       onClick={() => copyToClipboard(generatedCreds.password)}
@@ -393,7 +393,7 @@ export default function TeamPage() {
                   </span>
                 </span>
 
-                <span className="block text-[10px] text-rose-600 font-bold bg-rose-50 p-3 rounded-xl">
+                <span className="block text-[10px] text-rose-600 font-bold bg-rose-50 p-3 rounded-xl text-center">
                   Note : Pour des raisons de sécurité, ces informations ne seront plus affichées. Copiez-les maintenant.
                 </span>
               </span>

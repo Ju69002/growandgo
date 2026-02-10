@@ -1,4 +1,4 @@
-export type UserRole = 'super_admin' | 'admin' | 'employee' | 'individuel';
+export type UserRole = 'super_admin' | 'admin' | 'employee' | 'individuel' | 'patron';
 export type DocumentStatus = 'pending_analysis' | 'waiting_verification' | 'waiting_validation' | 'archived';
 export type CategoryType = 'standard' | 'custom';
 export type SubscriptionStatus = 'active' | 'inactive';

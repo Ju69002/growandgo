@@ -1,4 +1,3 @@
-
 'use client';
 
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
@@ -93,9 +92,8 @@ export default function AccountsPage() {
   }, [db, currentUser]);
 
   const { data: myProfile, isLoading: isProfileLoading } = useDoc<User>(userProfileRef);
-  const isGlobalAdmin = myProfile?.companyId === 'admin_global' || myProfile?.role === 'super_admin';
+  const isGlobalAdmin = myProfile?.companyId === 'admin_global' || myProfile?.role === 'super_admin' || myProfile?.role === 'admin';
 
-  // RÉGLAGE CRITIQUE : Seuls les profils officiels (isProfile: true) sont récupérés
   const profilesQuery = useMemoFirebase(() => {
     if (!db || !isGlobalAdmin) return null;
     return query(collection(db, 'users'), where('isProfile', '==', true));
@@ -109,12 +107,11 @@ export default function AccountsPage() {
     const companyCounts = new Map<string, number>();
     const companyPatrons = new Map<string, string>();
 
-    // Comptage par entreprise (insensible à la casse et filtré isProfile: true)
     allProfiles.forEach(u => {
       const cId = u.companyId?.toLowerCase().trim();
       if (cId) {
         companyCounts.set(cId, (companyCounts.get(cId) || 0) + 1);
-        if (u.role === 'admin') {
+        if (u.role === 'patron') {
           companyPatrons.set(cId, u.name || u.loginId);
         }
       }
@@ -123,14 +120,14 @@ export default function AccountsPage() {
     return allProfiles.map(u => {
       const cId = u.companyId?.toLowerCase().trim();
       const userCount = companyCounts.get(cId) || 0;
-      const patronName = companyPatrons.get(cId) || "son patron";
-      const isInternalAdmin = u.companyId === 'admin_global';
+      const patronName = companyPatrons.get(cId) || "son dirigeant";
+      const isInternalAdmin = u.companyId === 'admin_global' || u.role === 'admin' || u.role === 'super_admin';
       
       const totalAmount = isInternalAdmin ? 0 : (userCount * 39.99);
 
       return { 
         ...u, 
-        companyName: isInternalAdmin ? "Grow&Go Admin" : (u.companyName || u.companyId),
+        companyName: isInternalAdmin ? "Grow&Go Platform" : (u.companyName || u.companyId),
         displaySubscription: {
           totalAmount: totalAmount,
           activeUsers: userCount,
@@ -175,8 +172,8 @@ export default function AccountsPage() {
     if (!db || !editingRoleUser) return;
     updateDocumentNonBlocking(doc(db, 'users', editingRoleUser.id), { 
       role: newRole,
-      adminMode: newRole === 'admin',
-      isCategoryModifier: newRole === 'admin'
+      adminMode: newRole === 'patron' || newRole === 'admin',
+      isCategoryModifier: newRole === 'patron' || newRole === 'admin'
     });
     toast({ title: "Rôle mis à jour" });
     setEditingRoleUser(null);
@@ -204,7 +201,7 @@ export default function AccountsPage() {
           <div className="space-y-1">
             <h1 className="text-3xl font-black tracking-tighter text-primary uppercase flex items-center gap-3">
               <UserCog className="w-8 h-8" />
-              Répertoire Officiel
+              Répertoire Plateforme
             </h1>
             <p className="text-muted-foreground font-medium text-sm italic">Affichage strict des profils réels (isProfile: true).</p>
           </div>
@@ -248,9 +245,9 @@ export default function AccountsPage() {
                       </div>
                     </TableCell>
                     <TableCell className="py-4">
-                      {u.companyId === 'admin_global' ? (
-                        <Badge variant="secondary" className="bg-rose-950 text-white font-bold text-[9px] border-none">OFFERT (ADMIN)</Badge>
-                      ) : u.role === 'admin' ? (
+                      {u.companyId === 'admin_global' || u.role === 'admin' || u.role === 'super_admin' ? (
+                        <Badge variant="secondary" className="bg-rose-950 text-white font-bold text-[9px] border-none uppercase">Offert (Plateforme)</Badge>
+                      ) : u.role === 'patron' ? (
                         <div className="flex flex-col">
                           <span className="text-xs font-black text-primary">{(u.displaySubscription.totalAmount).toFixed(2)}€ / mois</span>
                           <span className="text-[9px] text-muted-foreground font-bold">39,99€ × {u.displaySubscription.activeUsers} collaborateurs</span>
@@ -275,9 +272,9 @@ export default function AccountsPage() {
                     <TableCell className="text-center py-4">
                       <Badge className={cn(
                         "text-[10px] font-black uppercase px-3 h-6 border-none",
-                        u.companyId === 'admin_global' ? "bg-rose-950 text-white" : (u.role === 'admin' ? "bg-primary text-white" : "bg-muted text-muted-foreground")
+                        u.companyId === 'admin_global' || u.role === 'admin' || u.role === 'super_admin' ? "bg-rose-950 text-white" : (u.role === 'patron' ? "bg-primary text-white" : "bg-muted text-muted-foreground")
                       )}>
-                        {u.companyId === 'admin_global' ? 'ADMIN' : (u.role === 'admin' ? 'PATRON' : 'EMPLOYÉ')}
+                        {u.companyId === 'admin_global' || u.role === 'admin' || u.role === 'super_admin' ? 'ADMINISTRATEUR' : (u.role === 'patron' ? 'DIRIGEANT' : 'COLLABORATEUR')}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right pr-8 py-4">
@@ -318,8 +315,9 @@ export default function AccountsPage() {
             <Select value={newRole} onValueChange={(v) => setNewRole(v as UserRole)}>
               <SelectTrigger className="rounded-xl h-12 font-bold"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="admin">Patron</SelectItem>
-                <SelectItem value="employee">Employé</SelectItem>
+                <SelectItem value="patron">Dirigeant (Patron)</SelectItem>
+                <SelectItem value="employee">Collaborateur (Employé)</SelectItem>
+                <SelectItem value="admin">Administrateur (Plateforme)</SelectItem>
               </SelectContent>
             </Select>
           </div>

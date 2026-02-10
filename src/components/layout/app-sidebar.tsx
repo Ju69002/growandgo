@@ -52,8 +52,9 @@ export function AppSidebar() {
 
   const { data: company } = useDoc<Company>(companyRef);
 
-  const isSuperAdmin = profile?.role === 'super_admin' || profile?.companyId === 'admin_global';
-  const isPatron = profile?.role === 'admin';
+  const role = profile?.role;
+  const isSuperAdmin = role === 'super_admin' || role === 'admin' || profile?.companyId === 'admin_global';
+  const isPatron = role === 'patron';
   const isBusiness = company?.subscription?.planType === 'business' || isSuperAdmin;
   
   const displayName = company?.name || profile?.companyName || "GROW&GO";
@@ -74,6 +75,8 @@ export function AppSidebar() {
 
   const isItemActive = (url: string) => pathname === url || (url !== '/' && pathname.startsWith(url));
 
+  const roleLabel = isSuperAdmin ? "ADMINISTRATEUR" : isPatron ? "DIRIGEANT" : "COLLABORATEUR";
+
   return (
     <Sidebar collapsible="icon" className="border-r-0 z-50">
       <SidebarHeader className="h-20 flex items-center justify-center p-4 bg-sidebar">
@@ -91,7 +94,7 @@ export function AppSidebar() {
               {displayName}
             </span>
             <span className="text-[9px] uppercase tracking-widest opacity-50 font-black text-white">
-              {isSuperAdmin ? "Administrateur" : isPatron ? "Dirigeant" : "Collaborateur"}
+              {roleLabel}
             </span>
           </div>
         </div>
