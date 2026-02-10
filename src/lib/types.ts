@@ -103,7 +103,9 @@ export interface CalendarEvent {
   id: string;
   id_externe: string;
   companyId: string;
-  userId: string;
+  userId: string; // Creator ID (Owner)
+  assignedTo?: string; // Assigned User ID
+  assignedToName?: string; // Cache for display
   titre: string;
   description?: string;
   debut: string; 

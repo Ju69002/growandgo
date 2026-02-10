@@ -1,7 +1,6 @@
-
 'use client';
 
-import { Search, Bell, UserCircle, LogOut, Clock, AlertCircle } from 'lucide-react';
+import { Search, Bell, UserCircle, LogOut, Clock } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { SidebarTrigger } from '@/components/ui/sidebar';
@@ -54,6 +53,10 @@ export function Header() {
     }
   };
 
+  const isSuperAdmin = profile?.role === 'super_admin' || profile?.companyId === 'admin_global';
+  const isPatron = profile?.role === 'admin';
+  const roleLabel = isSuperAdmin ? "Administrateur" : isPatron ? "Dirigeant" : "Collaborateur";
+
   return (
     <header className="h-16 border-b bg-card px-4 flex items-center justify-between sticky top-0 z-30 shadow-sm">
       <div className="flex items-center gap-4 flex-1">
@@ -64,6 +67,11 @@ export function Header() {
         </div>
       </div>
       <div className="flex items-center gap-6">
+        <div className="hidden lg:flex flex-col items-end mr-2">
+          <span className="text-[10px] font-black uppercase text-primary/40 tracking-widest leading-none">{roleLabel}</span>
+          <span className="text-xs font-bold text-primary">{profile?.name}</span>
+        </div>
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="relative h-9 w-9">

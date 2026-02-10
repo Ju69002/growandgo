@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -92,7 +91,7 @@ export function AppSidebar() {
               {displayName}
             </span>
             <span className="text-[9px] uppercase tracking-widest opacity-50 font-black text-white">
-              {isSuperAdmin ? "Administration" : isPatron ? "Patron" : "Employé"}
+              {isSuperAdmin ? "Administrateur" : isPatron ? "Dirigeant" : "Collaborateur"}
             </span>
           </div>
         </div>
