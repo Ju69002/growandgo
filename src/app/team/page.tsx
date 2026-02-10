@@ -63,6 +63,7 @@ export default function TeamPage() {
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [uploadingUserId, setUploadingUserId] = useState<string | null>(null);
+  const [uploadTargetId, setUploadTargetId] = useState<string | null>(null);
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -164,7 +165,6 @@ export default function TeamPage() {
     const file = event.target.files?.[0];
     if (!file || !storage || !db) return;
 
-    // Permissions check: Self OR Admin/Patron/Family
     const isSelf = currentUser?.uid === targetUserId;
     if (!isSelf && !canManageTeam) {
       toast({ variant: "destructive", title: "Permission refusée", description: "Vous ne pouvez pas modifier la photo d'un collègue." });
@@ -185,8 +185,14 @@ export default function TeamPage() {
       toast({ variant: "destructive", title: "Échec de l'upload", description: "Impossible d'enregistrer l'image." });
     } finally {
       setUploadingUserId(null);
+      setUploadTargetId(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
+  };
+
+  const triggerAvatarUpload = (targetId: string) => {
+    setUploadTargetId(targetId);
+    fileInputRef.current?.click();
   };
 
   const copyToClipboard = (text: string) => {
@@ -214,6 +220,15 @@ export default function TeamPage() {
 
   return (
     <DashboardLayout>
+      {/* Unique hidden input to avoid ref collisions */}
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        className="hidden" 
+        accept="image/*"
+        onChange={(e) => uploadTargetId && handleAvatarChange(e, uploadTargetId)}
+      />
+
       <div className="max-w-7xl mx-auto py-12 px-6 space-y-12">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-1">
@@ -251,7 +266,7 @@ export default function TeamPage() {
                           "relative rounded-full overflow-hidden group/avatar border-4 border-primary/5 shadow-inner",
                           canEditThisMember && "cursor-pointer"
                         )}
-                        onClick={() => canEditThisMember && fileInputRef.current?.click()}
+                        onClick={() => canEditThisMember && triggerAvatarUpload(member.uid)}
                       >
                         <Avatar className="w-24 h-24">
                           <AvatarImage src={member.photoURL} className="object-cover" />
@@ -260,7 +275,6 @@ export default function TeamPage() {
                           </AvatarFallback>
                         </Avatar>
 
-                        {/* Hover Overlay */}
                         {canEditThisMember && !isMemberUploading && (
                           <div className="absolute inset-0 bg-black/50 opacity-0 group-hover/avatar:opacity-100 transition-opacity flex flex-col items-center justify-center text-white gap-1">
                             <Camera className="w-6 h-6" />
@@ -268,22 +282,12 @@ export default function TeamPage() {
                           </div>
                         )}
 
-                        {/* Uploading Overlay */}
                         {isMemberUploading && (
                           <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
                             <Loader2 className="w-6 h-6 animate-spin text-primary" />
                           </div>
                         )}
                       </div>
-
-                      {/* Hidden Input for this member */}
-                      <input 
-                        type="file" 
-                        ref={fileInputRef} 
-                        className="hidden" 
-                        accept="image/*"
-                        onChange={(e) => handleAvatarChange(e, member.uid)}
-                      />
 
                       <div className="absolute -bottom-2 left-1/2 -translate-x-1/2">
                         <Badge className={cn("px-3 h-6 border-none text-[9px] font-black uppercase tracking-widest", getRoleColor(member.role))}>
