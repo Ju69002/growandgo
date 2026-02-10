@@ -70,7 +70,6 @@ export default function RegisterPage() {
       const finalCompanyId = normalizeId(companyName);
       const companyRef = doc(db, 'companies', finalCompanyId);
       
-      // Initialisation avec le forfait INDIVIDUAL par défaut
       await setDoc(companyRef, {
         id: finalCompanyId,
         name: companyName.trim(),

@@ -56,10 +56,9 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
   }, [db, user]);
 
   const { data: profile } = useDoc<User>(userProfileRef);
-  const companyId = profile?.companyId; // Valeur nulle ou undefined par défaut tant que pas chargée
+  const companyId = profile?.companyId; 
 
   const docsQuery = useMemoFirebase(() => {
-    // Sécurité CRITIQUE : on attend d'avoir un companyId valide pour lancer la requête
     if (!db || !companyId) return null;
     
     let q = query(

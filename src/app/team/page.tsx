@@ -63,12 +63,10 @@ export default function TeamPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
 
-  // Form states
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
 
-  // Result states
   const [generatedCreds, setGeneratedCreds] = useState({ loginId: '', password: '' });
 
   const userProfileRef = useMemoFirebase(() => {
@@ -118,7 +116,6 @@ export default function TeamPage() {
         'subscription.basePrice': 199.99,
         'subscription.pricePerUser': 14.99
       });
-      // Recalculer le prix immédiatement
       await updateSubscriptionData(db, companyId, teamMembers?.length || 1, 'business');
       setIsUpgradeModalOpen(false);
       setIsAddModalOpen(true);
@@ -178,7 +175,6 @@ export default function TeamPage() {
 
       await setDoc(doc(db, 'users', uid), newUser);
 
-      // Recalculer la facturation après ajout
       await updateSubscriptionData(db, companyId, (teamMembers?.length || 0) + 1, planType);
 
       setGeneratedCreds({ loginId, password: tempPassword });
@@ -295,7 +291,6 @@ export default function TeamPage() {
         </Card>
       </div>
 
-      {/* Upgrade Modal */}
       <Dialog open={isUpgradeModalOpen} onOpenChange={setIsUpgradeModalOpen}>
         <DialogContent className="rounded-[2.5rem] sm:max-w-md p-8 text-center">
           <div className="w-20 h-20 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
@@ -327,7 +322,6 @@ export default function TeamPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal Ajout */}
       <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
         <DialogContent className="rounded-[2.5rem] sm:max-w-md">
           <DialogHeader>
@@ -364,7 +358,6 @@ export default function TeamPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal Succès */}
       <Dialog open={isSuccessModalOpen} onOpenChange={setIsSuccessModalOpen}>
         <DialogContent className="rounded-[3rem] p-8 text-center sm:max-w-md border-none shadow-2xl">
           <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
