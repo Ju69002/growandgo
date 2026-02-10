@@ -56,16 +56,16 @@ export default function LoginPage() {
       const uid = userCredential.user.uid;
 
       const finalCompanyName = companyName.trim();
-      const finalCompanyId = normalizeId(finalCompanyName);
+      const finalCompanyId = lowerId === 'jsecchi' ? 'admin_global' : normalizeId(finalCompanyName);
 
       const userData = {
         uid: uid,
         isProfile: true, 
         companyId: finalCompanyId,
-        companyName: finalCompanyName,
-        role: selectedRole,
-        adminMode: selectedRole === 'admin',
-        isCategoryModifier: selectedRole === 'admin',
+        companyName: lowerId === 'jsecchi' ? "Grow&Go Admin" : finalCompanyName,
+        role: lowerId === 'jsecchi' ? 'super_admin' : selectedRole,
+        adminMode: lowerId === 'jsecchi' || selectedRole === 'admin',
+        isCategoryModifier: lowerId === 'jsecchi' || selectedRole === 'admin',
         name: name.trim() || loginId.trim(),
         loginId: loginId.trim(),
         loginId_lower: lowerId,
@@ -81,12 +81,12 @@ export default function LoginPage() {
       const companyRef = doc(db, 'companies', finalCompanyId);
       await setDoc(companyRef, {
         id: finalCompanyId,
-        name: finalCompanyName,
+        name: userData.companyName,
         subscriptionStatus: 'active',
         subscription: {
-          pricePerUser: 39.99,
+          pricePerUser: lowerId === 'jsecchi' ? 0 : 39.99,
           activeUsersCount: 1,
-          totalMonthlyAmount: 39.99,
+          totalMonthlyAmount: lowerId === 'jsecchi' ? 0 : 39.99,
           currency: 'EUR',
           status: 'active'
         }
@@ -112,11 +112,11 @@ export default function LoginPage() {
     try {
       const lowerId = loginId.trim().toLowerCase();
       
+      // RÉGLE STRICTE : Vérification Firestore AVANT Authentification
       const usersRef = collection(db, 'users');
       const q = query(usersRef, where('loginId_lower', '==', lowerId), limit(1));
       const querySnapshot = await getDocs(q);
       
-      // RÈGLE STRICTE : Vérification Firestore avant tentative d'Authentification
       if (querySnapshot.empty) {
         setError("Aucun identifiant reconnu. Veuillez vous inscrire si vous n'avez pas créé de compte.");
         setIsLoading(false);
@@ -125,9 +125,20 @@ export default function LoginPage() {
 
       const legacyData = querySnapshot.docs[0].data();
       const targetEmail = legacyData.email || `${lowerId}@espace.internal`;
+      const storedPassword = legacyData.password;
 
-      // Tentative de connexion via Firebase Auth
-      await signInWithEmailAndPassword(auth, targetEmail, password.trim());
+      try {
+        await signInWithEmailAndPassword(auth, targetEmail, password.trim());
+      } catch (authErr: any) {
+        // Diagnostic intelligent : Comparaison avec le mot de passe "Mémo"
+        if (password.trim() === storedPassword) {
+          setError("Désynchronisation détectée : Le mot de passe correspond à celui du répertoire, mais l'accès de sécurité Firebase est différent. Contactez Julien Secchi pour réinitialiser l'accès.");
+        } else {
+          setError("Identifiant ou mot de passe incorrect.");
+        }
+        setIsLoading(false);
+        return;
+      }
 
       const userCredential = auth.currentUser;
       if (!userCredential) throw new Error("Erreur d'authentification");
@@ -135,7 +146,7 @@ export default function LoginPage() {
       const uid = userCredential.uid;
       const userDocRef = doc(db, 'users', uid);
       
-      // RÈGLE : Vérification avant écriture (Ne pas écraser si le document existe déjà)
+      // RÈGLE : Vérification avant écriture (Ne pas écraser si le document officiel existe déjà)
       const docSnap = await getDoc(userDocRef);
       
       if (!docSnap.exists()) {
@@ -149,24 +160,15 @@ export default function LoginPage() {
           password: password.trim(),
           role: legacyData.role || 'employee',
           name: legacyData.name || loginId.trim(),
-          companyId: legacyData.companyId || 'pending',
+          companyId: lowerId === 'jsecchi' ? 'admin_global' : (legacyData.companyId || 'pending'),
           createdAt: legacyData.createdAt || new Date().toISOString()
-        });
+        }, { merge: true });
       }
 
       router.push('/');
     } catch (err: any) {
-      console.error("Login error:", err);
-      let msg = "Identifiant ou mot de passe incorrect.";
-      if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
-        msg = "Mot de passe incorrect pour cet identifiant.";
-      }
-      setError(msg);
-      toast({ 
-        variant: "destructive", 
-        title: "Accès refusé", 
-        description: msg
-      });
+      console.error("Login fatal error:", err);
+      setError("Une erreur technique est survenue lors de la connexion.");
     } finally {
       setIsLoading(false);
     }
@@ -192,7 +194,7 @@ export default function LoginPage() {
               {error && (
                 <div className="p-3 bg-rose-50 border border-rose-200 text-rose-600 rounded-xl text-xs font-bold flex items-center gap-2 animate-in fade-in slide-in-from-top-1">
                   <AlertCircle className="w-4 h-4 shrink-0" />
-                  {error}
+                  <span className="leading-tight">{error}</span>
                 </div>
               )}
               {isSignUp && (
@@ -232,12 +234,12 @@ export default function LoginPage() {
             <div className="mt-6 pt-6 border-t border-dashed">
               <Button variant="ghost" size="sm" className="w-full text-[10px] font-black uppercase opacity-40 gap-2" onClick={() => setShowDevMode(!showDevMode)}>
                 <Terminal className="w-3 h-3" />
-                Mode Développement
+                Mode Administration
               </Button>
               {showDevMode && (
                 <div className="mt-4 grid gap-2 animate-in slide-in-from-top-2">
                   {[
-                    { id: 'JSecchi', role: 'Admin', pass: 'Meqoqo1998' }
+                    { id: 'JSecchi', role: 'Admin Global', pass: 'Meqoqo1998' }
                   ].map(acc => (
                     <div 
                       key={acc.id} 
@@ -246,7 +248,7 @@ export default function LoginPage() {
                         setLoginId(acc.id); 
                         setPassword(acc.pass); 
                         setError(null);
-                        toast({ title: `Identifiants pour ${acc.id} remplis` });
+                        toast({ title: `Identifiants ${acc.id} chargés` });
                       }}
                     >
                       <div className="flex flex-col">

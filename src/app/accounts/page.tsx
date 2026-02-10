@@ -109,7 +109,7 @@ export default function AccountsPage() {
     const companyCounts = new Map<string, number>();
     const companyPatrons = new Map<string, string>();
 
-    // Comptage par entreprise (insensible à la casse)
+    // Comptage par entreprise (insensible à la casse et filtré isProfile: true)
     allProfiles.forEach(u => {
       const cId = u.companyId?.toLowerCase().trim();
       if (cId) {
@@ -158,9 +158,9 @@ export default function AccountsPage() {
     if (!auth || !email) return;
     try {
       await sendPasswordResetEmail(auth, email);
-      toast({ title: "E-mail envoyé", description: `Lien envoyé à ${email}.` });
+      toast({ title: "E-mail envoyé", description: `Lien de reset envoyé à ${email}.` });
     } catch (e: any) {
-      toast({ variant: "destructive", title: "Erreur", description: "L'utilisateur doit d'abord synchroniser son e-mail." });
+      toast({ variant: "destructive", title: "Erreur", description: "Impossible d'envoyer le mail de sécurité." });
     }
   };
 
@@ -187,7 +187,7 @@ export default function AccountsPage() {
     updateDocumentNonBlocking(doc(db, 'users', editingPassUser.id), { 
       password: newPassword.trim()
     });
-    toast({ title: "Mot de passe mis à jour" });
+    toast({ title: "Mémo mot de passe mis à jour" });
     setEditingPassUser(null);
   };
 
@@ -206,12 +206,12 @@ export default function AccountsPage() {
               <UserCog className="w-8 h-8" />
               Répertoire Officiel
             </h1>
-            <p className="text-muted-foreground font-medium text-sm italic">Gestion exclusive des profils réels (isProfile: true).</p>
+            <p className="text-muted-foreground font-medium text-sm italic">Affichage strict des profils réels (isProfile: true).</p>
           </div>
           <div className="relative">
             <Search className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
             <Input 
-              placeholder="Rechercher..." 
+              placeholder="Rechercher un profil..." 
               className="pl-9 h-10 w-64 rounded-full bg-white border-primary/10 shadow-sm"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -238,7 +238,7 @@ export default function AccountsPage() {
                     <TableCell className="pl-8 py-4">
                       <div className="flex flex-col">
                         <span className="font-bold text-sm text-primary">{u.name || u.loginId}</span>
-                        <span className="text-[10px] text-muted-foreground font-mono">ID: {u.loginId}</span>
+                        <span className="text-[10px] text-muted-foreground font-mono">UID: {u.id}</span>
                       </div>
                     </TableCell>
                     <TableCell className="py-4">
@@ -253,7 +253,7 @@ export default function AccountsPage() {
                       ) : u.role === 'admin' ? (
                         <div className="flex flex-col">
                           <span className="text-xs font-black text-primary">{(u.displaySubscription.totalAmount).toFixed(2)}€ / mois</span>
-                          <span className="text-[9px] text-muted-foreground font-bold">39,99€ × {u.displaySubscription.activeUsers} pers.</span>
+                          <span className="text-[9px] text-muted-foreground font-bold">39,99€ × {u.displaySubscription.activeUsers} collaborateurs</span>
                         </div>
                       ) : (
                         <div className="flex flex-col">
@@ -298,12 +298,14 @@ export default function AccountsPage() {
 
       <Dialog open={!!editingPassUser} onOpenChange={(open) => !open && setEditingPassUser(null)}>
         <DialogContent className="rounded-[2rem]">
-          <DialogHeader><DialogTitle>Modifier le mot de passe</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Modifier le mémo mot de passe</DialogTitle></DialogHeader>
           <div className="py-4 space-y-4">
-            <Label>Nouveau mot de passe</Label>
+            <Label>Nouveau mot de passe d'affichage</Label>
             <Input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="rounded-xl font-bold" />
-            <AlertCircle className="w-4 h-4 text-amber-500 mr-2" />
-            <p className="text-[10px] text-muted-foreground">Attention : cela met à jour l'affichage "Mémo". Pour changer l'accès réel, utilisez l'envoi de mail.</p>
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
+              <p className="text-[10px] text-amber-900 leading-tight">Attention : cette action modifie uniquement le rappel visuel. Pour changer l'accès réel, l'utilisateur doit utiliser l'option "Oublié" ou vous devez envoyer un mail de reset.</p>
+            </div>
           </div>
           <DialogFooter><Button onClick={handleUpdatePassword} className="rounded-full bg-primary px-8">Enregistrer</Button></DialogFooter>
         </DialogContent>
