@@ -39,7 +39,7 @@ export default function RegisterPage() {
 
   const generateLoginId = (fullName: string) => {
     const parts = fullName.trim().split(/\s+/);
-    if (parts.length < 2) return parts[0]; // Cas où seul le nom est fourni
+    if (parts.length < 2) return parts[0]; 
     const firstName = parts[0];
     const lastName = parts.slice(1).join('');
     return (firstName.charAt(0).toUpperCase() + lastName.charAt(0).toUpperCase() + lastName.slice(1)).replace(/[^a-zA-Z0-9]/g, '');
@@ -52,7 +52,6 @@ export default function RegisterPage() {
     setError(null);
 
     try {
-      // 1. Génération et Vérification de l'ID
       const generatedId = generateLoginId(name);
       const lowerId = generatedId.toLowerCase();
 
@@ -64,11 +63,9 @@ export default function RegisterPage() {
         throw new Error(`L'identifiant "${generatedId}" est déjà utilisé. Veuillez modifier légèrement votre nom (ex: ajouter un chiffre).`);
       }
 
-      // 2. Création Auth Firebase
       const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password.trim());
       const uid = userCredential.user.uid;
 
-      // 3. Création Entreprise
       const finalCompanyId = normalizeId(companyName);
       const companyRef = doc(db, 'companies', finalCompanyId);
       
@@ -86,19 +83,18 @@ export default function RegisterPage() {
         }
       }, { merge: true });
 
-      // 4. Création Utilisateur (Patron)
       const userData = {
         uid: uid,
         isProfile: true,
         companyId: finalCompanyId,
         companyName: companyName.trim(),
-        role: 'admin', // Patron
+        role: 'admin', 
         adminMode: true,
         isCategoryModifier: true,
         name: name.trim(),
         loginId: generatedId,
         loginId_lower: lowerId,
-        password: password.trim(), // Mémo pour le répertoire
+        password: password.trim(), 
         email: email.trim(),
         subscriptionStatus: 'active',
         createdAt: new Date().toISOString()
@@ -213,12 +209,12 @@ export default function RegisterPage() {
             <DialogTitle className="text-2xl font-black uppercase text-primary">Inscription Réussie !</DialogTitle>
             <DialogDescription className="text-lg font-medium py-4">
               Votre identifiant de connexion est :
-              <div className="my-4 p-4 bg-primary/5 rounded-2xl border-2 border-dashed border-primary/20 text-3xl font-black text-primary tracking-widest">
+              <span className="block my-4 p-4 bg-primary/5 rounded-2xl border-2 border-dashed border-primary/20 text-3xl font-black text-primary tracking-widest">
                 {successId}
-              </div>
-              <p className="text-sm text-muted-foreground mt-2">
+              </span>
+              <span className="block text-sm text-muted-foreground mt-2">
                 Notez-le bien, il vous servira à vous connecter à votre espace Grow&Go.
-              </p>
+              </span>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
