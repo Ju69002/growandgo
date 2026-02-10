@@ -1,4 +1,3 @@
-
 'use client';
 
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
@@ -7,7 +6,7 @@ import { firebaseConfig } from '@/firebase/config';
 import { doc, collection, query, where, getDocs, setDoc, updateDoc } from 'firebase/firestore';
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
-import { User, Company, PlanType } from '@/lib/types';
+import { User, Company } from '@/lib/types';
 import { 
   Card, 
   CardContent, 
@@ -174,7 +173,6 @@ export default function TeamPage() {
       };
 
       await setDoc(doc(db, 'users', uid), newUser);
-
       await updateSubscriptionData(db, companyId, (teamMembers?.length || 0) + 1, planType);
 
       setGeneratedCreds({ loginId, password: tempPassword });
@@ -298,13 +296,15 @@ export default function TeamPage() {
           </div>
           <DialogHeader>
             <DialogTitle className="text-2xl font-black uppercase text-primary tracking-tighter">Passez au Forfait Business</DialogTitle>
-            <DialogDescription className="pt-4 space-y-4">
-              <span className="block text-base font-medium text-muted-foreground">
-                L'offre Individuel est limitée à 1 utilisateur. Débloquez la puissance de votre équipe.
-              </span>
-              <span className="block p-6 bg-muted/50 rounded-3xl border-2 border-dashed border-primary/20">
-                <span className="block text-3xl font-black text-primary">199,99€ <span className="text-sm">/ mois</span></span>
-                <span className="block text-xs font-bold text-muted-foreground mt-1 uppercase tracking-widest">+ 14,99€ par employé supplémentaire</span>
+            <DialogDescription asChild>
+              <span className="block pt-4 space-y-4">
+                <span className="block text-base font-medium text-muted-foreground">
+                  L'offre Individuel est limitée à 1 utilisateur. Débloquez la puissance de votre équipe.
+                </span>
+                <span className="block p-6 bg-muted/50 rounded-3xl border-2 border-dashed border-primary/20">
+                  <span className="block text-3xl font-black text-primary">199,99€ <span className="text-sm">/ mois</span></span>
+                  <span className="block text-xs font-bold text-muted-foreground mt-1 uppercase tracking-widest">+ 14,99€ par employé supplémentaire</span>
+                </span>
               </span>
             </DialogDescription>
           </DialogHeader>
@@ -365,35 +365,37 @@ export default function TeamPage() {
           </div>
           <DialogHeader>
             <DialogTitle className="text-2xl font-black uppercase text-primary">Accès Générés !</DialogTitle>
-            <DialogDescription className="space-y-4 pt-4">
-              <span className="block text-sm font-medium text-muted-foreground">Transmettez ces informations à votre nouveau collaborateur :</span>
-              
-              <span className="grid gap-3">
-                <span className="block p-4 bg-muted/50 rounded-2xl border-2 border-dashed border-primary/20 relative group">
-                  <span className="block text-[10px] font-black uppercase opacity-40 mb-1">Identifiant</span>
-                  <span className="block text-2xl font-black text-primary tracking-widest">{generatedCreds.loginId}</span>
-                  <Button 
-                    variant="ghost" size="icon" className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={() => copyToClipboard(generatedCreds.loginId)}
-                  >
-                    <Copy className="w-4 h-4" />
-                  </Button>
+            <DialogDescription asChild>
+              <span className="block space-y-4 pt-4">
+                <span className="block text-sm font-medium text-muted-foreground">Transmettez ces informations à votre nouveau collaborateur :</span>
+                
+                <span className="grid gap-3">
+                  <span className="block p-4 bg-muted/50 rounded-2xl border-2 border-dashed border-primary/20 relative group">
+                    <span className="block text-[10px] font-black uppercase opacity-40 mb-1">Identifiant</span>
+                    <span className="block text-2xl font-black text-primary tracking-widest">{generatedCreds.loginId}</span>
+                    <Button 
+                      variant="ghost" size="icon" className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => copyToClipboard(generatedCreds.loginId)}
+                    >
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                  </span>
+
+                  <span className="block p-4 bg-muted/50 rounded-2xl border-2 border-dashed border-primary/20 relative group">
+                    <span className="block text-[10px] font-black uppercase opacity-40 mb-1">Mot de passe temporaire</span>
+                    <span className="block text-2xl font-black text-primary tracking-widest">{generatedCreds.password}</span>
+                    <Button 
+                      variant="ghost" size="icon" className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => copyToClipboard(generatedCreds.password)}
+                    >
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                  </span>
                 </span>
 
-                <span className="block p-4 bg-muted/50 rounded-2xl border-2 border-dashed border-primary/20 relative group">
-                  <span className="block text-[10px] font-black uppercase opacity-40 mb-1">Mot de passe temporaire</span>
-                  <span className="block text-2xl font-black text-primary tracking-widest">{generatedCreds.password}</span>
-                  <Button 
-                    variant="ghost" size="icon" className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={() => copyToClipboard(generatedCreds.password)}
-                  >
-                    <Copy className="w-4 h-4" />
-                  </Button>
+                <span className="block text-[10px] text-rose-600 font-bold bg-rose-50 p-3 rounded-xl">
+                  Note : Pour des raisons de sécurité, ces informations ne seront plus affichées. Copiez-les maintenant.
                 </span>
-              </span>
-
-              <span className="block text-[10px] text-rose-600 font-bold bg-rose-50 p-3 rounded-xl">
-                Note : Pour des raisons de sécurité, ces informations ne seront plus affichées. Copiez-les maintenant.
               </span>
             </DialogDescription>
           </DialogHeader>

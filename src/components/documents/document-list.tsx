@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -104,7 +103,6 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
           setSafeUrl(viewingDoc.fileUrl);
         }
       } catch (e) {
-        console.error("Error creating blob URL", e);
         setSafeUrl(viewingDoc.fileUrl);
       } finally {
         setIsBlobLoading(false);
