@@ -24,8 +24,9 @@ function ThemeInjector({ children }: { children: React.ReactNode }) {
     setMounted(true);
   }, []);
 
+  // Protection des routes : on autorise explicitement /login et /register sans session
   useEffect(() => {
-    if (mounted && !isUserLoading && !user && pathname !== '/login') {
+    if (mounted && !isUserLoading && !user && pathname !== '/login' && pathname !== '/register') {
       router.push('/login');
     }
   }, [mounted, user, isUserLoading, pathname, router]);
@@ -49,7 +50,10 @@ function ThemeInjector({ children }: { children: React.ReactNode }) {
     return <div className="min-h-screen bg-[#F5F2EA] flex items-center justify-center"><Loader2 className="animate-spin opacity-20" /></div>;
   }
 
-  if (pathname === '/login') return <div className="min-h-screen bg-[#F5F2EA]">{children}</div>;
+  // Pas d'injection de thème complexe sur les pages d'auth
+  if (pathname === '/login' || pathname === '/register') {
+    return <div className="min-h-screen bg-[#F5F2EA]">{children}</div>;
+  }
 
   const isGlobalAdmin = profile?.companyId === 'admin_global';
   const isInactive = profile?.subscriptionStatus === 'inactive' && !isGlobalAdmin;
