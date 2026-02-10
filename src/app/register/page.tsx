@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -208,7 +209,7 @@ export default function RegisterPage() {
           <DialogHeader>
             <DialogTitle className="text-2xl font-black uppercase text-primary">Inscription Réussie !</DialogTitle>
             <DialogDescription className="text-lg font-medium py-4">
-              Votre identifiant de connexion est :
+              <span className="block mb-2">Votre identifiant de connexion est :</span>
               <span className="block my-4 p-4 bg-primary/5 rounded-2xl border-2 border-dashed border-primary/20 text-3xl font-black text-primary tracking-widest">
                 {successId}
               </span>

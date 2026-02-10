@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { FirebaseClientProvider } from '@/firebase';
 import { useFirestore, useDoc, useUser, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
-import { User, Company } from '@/lib/types';
+import { User, Company } from '@/types';
 import { Toaster } from '@/components/ui/toaster';
 import { Ban, ShieldAlert, LogOut, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
