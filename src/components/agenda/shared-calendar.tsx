@@ -16,6 +16,7 @@ import {
 import { 
   useFirestore, 
   useCollection, 
+  useDoc,
   useMemoFirebase, 
   useUser, 
   addDocumentNonBlocking,
