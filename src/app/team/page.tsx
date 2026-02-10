@@ -4,10 +4,10 @@
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { useUser, useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
 import { firebaseConfig } from '@/firebase/config';
-import { doc, collection, query, where, getDocs, setDoc } from 'firebase/firestore';
-import { initializeApp, getApp, getApps } from 'firebase/app';
+import { doc, collection, query, where, getDocs, setDoc, updateDoc } from 'firebase/firestore';
+import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
-import { User, UserRole } from '@/lib/types';
+import { User, Company, PlanType } from '@/lib/types';
 import { 
   Card, 
   CardContent, 
@@ -33,7 +33,9 @@ import {
   Calendar,
   CheckCircle2,
   Copy,
-  AlertCircle
+  AlertCircle,
+  Zap,
+  ArrowUpCircle
 } from 'lucide-react';
 import { 
   Dialog, 
@@ -45,9 +47,10 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { updateSubscriptionData } from '@/services/billing-sync';
 
 export default function TeamPage() {
   const { user: currentUser } = useUser();
@@ -55,8 +58,10 @@ export default function TeamPage() {
   const { toast } = useToast();
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isUpgrading, setIsUpgrading] = useState(false);
 
   // Form states
   const [firstName, setFirstName] = useState('');
@@ -74,6 +79,13 @@ export default function TeamPage() {
   const { data: profile } = useDoc<User>(userProfileRef);
   const companyId = profile?.companyId;
 
+  const companyRef = useMemoFirebase(() => {
+    if (!db || !companyId) return null;
+    return doc(db, 'companies', companyId);
+  }, [db, companyId]);
+
+  const { data: company } = useDoc<Company>(companyRef);
+
   const teamQuery = useMemoFirebase(() => {
     if (!db || !companyId) return null;
     return query(
@@ -84,6 +96,39 @@ export default function TeamPage() {
   }, [db, companyId]);
 
   const { data: teamMembers, isLoading: isTeamLoading } = useCollection<User>(teamQuery);
+
+  const planType = company?.subscription?.planType || 'individual';
+  const isIndividual = planType === 'individual';
+
+  const handleOpenAddMember = () => {
+    if (isIndividual && companyId !== 'admin_global') {
+      setIsUpgradeModalOpen(true);
+    } else {
+      setIsAddModalOpen(true);
+    }
+  };
+
+  const handleUpgradeToBusiness = async () => {
+    if (!db || !companyId) return;
+    setIsUpgrading(true);
+    try {
+      const ref = doc(db, 'companies', companyId);
+      await updateDoc(ref, {
+        'subscription.planType': 'business',
+        'subscription.basePrice': 199.99,
+        'subscription.pricePerUser': 14.99
+      });
+      // Recalculer le prix immédiatement
+      await updateSubscriptionData(db, companyId, teamMembers?.length || 1, 'business');
+      setIsUpgradeModalOpen(false);
+      setIsAddModalOpen(true);
+      toast({ title: "Forfait Business activé !" });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Échec de l'upgrade" });
+    } finally {
+      setIsUpgrading(false);
+    }
+  };
 
   const generateTempPassword = () => {
     return `Grow-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
@@ -103,12 +148,10 @@ export default function TeamPage() {
     setIsLoading(true);
 
     try {
-      // 1. Génération des accès
       const baseId = (firstName.charAt(0) + lastName).replace(/[^a-zA-Z]/g, '');
       const loginId = await checkLoginIdUniqueness(baseId);
       const tempPassword = generateTempPassword();
 
-      // 2. Création Auth via instance secondaire pour éviter la déconnexion du patron
       const secondaryAppName = `secondary-${Date.now()}`;
       const secondaryApp = getApps().find(app => app.name === secondaryAppName) || initializeApp(firebaseConfig, secondaryAppName);
       const secondaryAuth = getAuth(secondaryApp);
@@ -116,7 +159,6 @@ export default function TeamPage() {
       const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email.trim(), tempPassword);
       const uid = userCredential.user.uid;
 
-      // 3. Création Firestore
       const newUser: Partial<User> = {
         uid: uid,
         companyId: companyId,
@@ -136,11 +178,13 @@ export default function TeamPage() {
 
       await setDoc(doc(db, 'users', uid), newUser);
 
+      // Recalculer la facturation après ajout
+      await updateSubscriptionData(db, companyId, (teamMembers?.length || 0) + 1, planType);
+
       setGeneratedCreds({ loginId, password: tempPassword });
       setIsAddModalOpen(false);
       setIsSuccessModalOpen(true);
       
-      // Reset form
       setFirstName('');
       setLastName('');
       setEmail('');
@@ -169,18 +213,28 @@ export default function TeamPage() {
               <Users className="w-8 h-8" />
               Mon Équipe
             </h1>
-            <p className="text-muted-foreground font-medium flex items-center gap-2">
-              Collaborateurs de votre espace {profile?.companyName}
-            </p>
+            <div className="flex items-center gap-3">
+              <Badge variant="outline" className="font-black uppercase text-[10px] border-primary/20 bg-primary/5 text-primary">
+                Forfait {planType}
+              </Badge>
+              <p className="text-muted-foreground text-sm font-medium">
+                {isIndividual ? "Solo - Limité à 1 utilisateur" : `${teamMembers?.length || 1} membres actifs`}
+              </p>
+            </div>
           </div>
           {isPatron && (
-            <Button 
-              onClick={() => setIsAddModalOpen(true)}
-              className="rounded-full h-12 px-8 font-bold bg-primary shadow-lg gap-2"
-            >
-              <UserPlus className="w-5 h-5" />
-              Ajouter un membre
-            </Button>
+            <div className="flex flex-col items-end gap-2">
+              <Button 
+                onClick={handleOpenAddMember}
+                className="rounded-full h-12 px-8 font-bold bg-primary shadow-lg gap-2"
+              >
+                <UserPlus className="w-5 h-5" />
+                Ajouter un membre
+              </Button>
+              {isIndividual && companyId !== 'admin_global' && (
+                <p className="text-[10px] font-black uppercase text-muted-foreground mr-4">+14,99€ / employé (Forfait Business)</p>
+              )}
+            </div>
           )}
         </div>
 
@@ -241,6 +295,38 @@ export default function TeamPage() {
         </Card>
       </div>
 
+      {/* Upgrade Modal */}
+      <Dialog open={isUpgradeModalOpen} onOpenChange={setIsUpgradeModalOpen}>
+        <DialogContent className="rounded-[2.5rem] sm:max-w-md p-8 text-center">
+          <div className="w-20 h-20 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+            <Zap className="w-10 h-10" />
+          </div>
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-black uppercase text-primary tracking-tighter">Passez au Forfait Business</DialogTitle>
+            <DialogDescription className="pt-4 space-y-4">
+              <span className="block text-base font-medium text-muted-foreground">
+                L'offre Individuel est limitée à 1 utilisateur. Débloquez la puissance de votre équipe.
+              </span>
+              <span className="block p-6 bg-muted/50 rounded-3xl border-2 border-dashed border-primary/20">
+                <span className="block text-3xl font-black text-primary">199,99€ <span className="text-sm">/ mois</span></span>
+                <span className="block text-xs font-bold text-muted-foreground mt-1 uppercase tracking-widest">+ 14,99€ par employé supplémentaire</span>
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-8 flex flex-col gap-3">
+            <Button 
+              onClick={handleUpgradeToBusiness} 
+              disabled={isUpgrading}
+              className="w-full h-14 bg-primary rounded-2xl font-bold text-lg shadow-xl gap-2"
+            >
+              {isUpgrading ? <Loader2 className="animate-spin" /> : <ArrowUpCircle className="w-5 h-5" />}
+              Activer mon offre Business
+            </Button>
+            <Button variant="ghost" onClick={() => setIsUpgradeModalOpen(false)} className="font-bold text-muted-foreground uppercase text-[10px] tracking-widest">Plus tard</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Modal Ajout */}
       <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
         <DialogContent className="rounded-[2.5rem] sm:max-w-md">
@@ -289,7 +375,7 @@ export default function TeamPage() {
             <DialogDescription className="space-y-4 pt-4">
               <span className="block text-sm font-medium text-muted-foreground">Transmettez ces informations à votre nouveau collaborateur :</span>
               
-              <span className="block grid gap-3">
+              <span className="grid gap-3">
                 <span className="block p-4 bg-muted/50 rounded-2xl border-2 border-dashed border-primary/20 relative group">
                   <span className="block text-[10px] font-black uppercase opacity-40 mb-1">Identifiant</span>
                   <span className="block text-2xl font-black text-primary tracking-widest">{generatedCreds.loginId}</span>

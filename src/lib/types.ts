@@ -1,8 +1,9 @@
 
-export type UserRole = 'super_admin' | 'admin' | 'employee';
+export type UserRole = 'super_admin' | 'admin' | 'employee' | 'individuel';
 export type DocumentStatus = 'pending_analysis' | 'waiting_verification' | 'waiting_validation' | 'archived';
 export type CategoryType = 'standard' | 'custom';
 export type SubscriptionStatus = 'active' | 'inactive';
+export type PlanType = 'individual' | 'business';
 
 export interface Company {
   id: string;
@@ -12,6 +13,8 @@ export interface Company {
   backgroundColor?: string;
   foregroundColor?: string;
   subscription?: {
+    planType: PlanType;
+    basePrice: number;
     pricePerUser: number;
     activeUsersCount: number;
     totalMonthlyAmount: number;

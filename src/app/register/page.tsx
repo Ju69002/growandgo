@@ -70,14 +70,17 @@ export default function RegisterPage() {
       const finalCompanyId = normalizeId(companyName);
       const companyRef = doc(db, 'companies', finalCompanyId);
       
+      // Initialisation avec le forfait INDIVIDUAL par défaut
       await setDoc(companyRef, {
         id: finalCompanyId,
         name: companyName.trim(),
         subscriptionStatus: 'active',
         subscription: {
-          pricePerUser: 39.99,
+          planType: 'individual',
+          basePrice: 19.99,
+          pricePerUser: 0,
           activeUsersCount: 1,
-          totalMonthlyAmount: 39.99,
+          totalMonthlyAmount: 19.99,
           currency: 'EUR',
           status: 'active',
           nextBillingDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 8).toISOString()

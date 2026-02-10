@@ -2,28 +2,43 @@
 'use client';
 
 import { Firestore, doc, collection, query, where, getDocs, addDoc } from 'firebase/firestore';
-import { User } from '@/lib/types';
+import { User, Company, PlanType } from '@/lib/types';
 import { updateDocumentNonBlocking } from '@/firebase';
 import { format } from 'date-fns';
 
 /**
  * Service pour recalculer et mettre à jour les données d'abonnement d'une entreprise.
- * Appelé lorsque le nombre d'utilisateurs change.
  */
-export async function updateSubscriptionData(db: Firestore, companyId: string, activeUsersCount: number) {
+export async function updateSubscriptionData(db: Firestore, companyId: string, activeUsersCount: number, currentPlan?: PlanType) {
   if (!db || !companyId) return;
 
   try {
-    // L'administrateur global ne paie rien
     const isGlobalAdmin = companyId === 'admin_global';
-    const pricePerUser = isGlobalAdmin ? 0 : 39.99;
-    const totalMonthlyAmount = activeUsersCount * pricePerUser;
+    
+    let plan: PlanType = currentPlan || 'individual';
+    let basePrice = 19.99;
+    let pricePerUser = 0;
+
+    if (isGlobalAdmin) {
+      basePrice = 0;
+      pricePerUser = 0;
+      plan = 'business';
+    } else if (plan === 'business') {
+      basePrice = 199.99;
+      pricePerUser = 14.99;
+    }
+
+    // Le total mensuel = basePrice + (employés additionnels * pricePerUser)
+    // On considère que le patron est inclus dans le basePrice
+    const additionalUsers = Math.max(0, activeUsersCount - 1);
+    const totalMonthlyAmount = basePrice + (additionalUsers * pricePerUser);
 
     const companyRef = doc(db, 'companies', companyId);
     
-    // Mise à jour de l'objet subscription dans le document entreprise
     updateDocumentNonBlocking(companyRef, {
       subscription: {
+        planType: plan,
+        basePrice,
         pricePerUser,
         activeUsersCount,
         totalMonthlyAmount,
@@ -41,18 +56,15 @@ export async function updateSubscriptionData(db: Firestore, companyId: string, a
 
 /**
  * Synchronise les tâches de facturation pour toutes les entreprises.
- * Utilisé par le Super Admin pour générer les rappels de paiement.
  */
 export async function syncBillingTasks(db: Firestore, adminUid: string, allUsers: User[]) {
   const monthId = format(new Date(), 'yyyy-MM');
-  // On récupère toutes les entreprises uniques représentées par les utilisateurs
   const companies = Array.from(new Set(allUsers.map(u => u.companyId).filter(id => id && id !== 'admin_global')));
 
   for (const companyId of companies) {
     const normalizedId = companyId.toLowerCase();
     const eventsRef = collection(db, 'companies', normalizedId, 'events');
     
-    // On vérifie si une tâche de facturation existe déjà pour ce mois
     const q = query(
       eventsRef, 
       where('isBillingEvent', '==', true), 
@@ -62,7 +74,6 @@ export async function syncBillingTasks(db: Firestore, adminUid: string, allUsers
     const snap = await getDocs(q);
 
     if (snap.empty) {
-      // Création de l'événement de facturation (par défaut le 8 du mois)
       const debut = new Date();
       debut.setDate(8);
       debut.setHours(9, 0, 0, 0);

@@ -2,7 +2,7 @@
 'use client';
 
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
-import { CreditCard, Ban, CheckCircle2, Users, FileDown, Loader2, Info, Euro } from 'lucide-react';
+import { CreditCard, Ban, CheckCircle2, Users, FileDown, Loader2, Info, Zap } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -60,9 +60,9 @@ export default function BillingPage() {
 
   useEffect(() => {
     if (db && companyId && teamMembers && profile?.role === 'admin') {
-      updateSubscriptionData(db, companyId, teamMembers.length);
+      updateSubscriptionData(db, companyId, teamMembers.length, company?.subscription?.planType);
     }
-  }, [db, companyId, teamMembers, profile]);
+  }, [db, companyId, teamMembers, profile, company?.subscription?.planType]);
 
   const handleDownloadInvoice = () => {
     if (!profile || !company) return;
@@ -92,10 +92,13 @@ export default function BillingPage() {
   const isPatron = profile?.role === 'admin' || isGlobalAdmin;
   const isActive = company?.subscriptionStatus !== 'inactive';
   
-  // L'administrateur global ne paie rien
-  const pricePerUser = isGlobalAdmin ? 0 : 39.99;
+  const sub = company?.subscription;
+  const planLabel = sub?.planType === 'business' ? 'Forfait Business' : 'Forfait Individuel';
+  const basePrice = sub?.basePrice || 0;
+  const pricePerUser = sub?.pricePerUser || 0;
   const userCount = teamMembers?.length || 1;
-  const totalAmount = isGlobalAdmin ? 0 : (userCount * pricePerUser);
+  const additionalUsers = Math.max(0, userCount - 1);
+  const totalAmount = sub?.totalMonthlyAmount || 0;
 
   return (
     <DashboardLayout>
@@ -107,11 +110,10 @@ export default function BillingPage() {
             </div>
             <div>
               <h1 className="text-4xl font-black tracking-tighter text-primary uppercase">Abonnement</h1>
-              {isGlobalAdmin ? (
-                <p className="text-emerald-600 font-bold uppercase tracking-widest text-xs">Accès administrateur gratuit</p>
-              ) : (
-                <p className="text-muted-foreground font-medium">Tarification unique de 39,99€ par collaborateur.</p>
-              )}
+              <div className="flex items-center gap-2">
+                <Badge className="bg-primary text-white font-black uppercase text-[10px] tracking-widest">{planLabel}</Badge>
+                {isGlobalAdmin && <span className="text-emerald-600 font-bold uppercase tracking-widest text-[10px]">Accès Admin Gratuit</span>}
+              </div>
             </div>
           </div>
         </div>
@@ -125,21 +127,35 @@ export default function BillingPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-8 space-y-6">
-              <div className="flex items-center justify-between p-6 bg-muted/30 rounded-2xl border-2 border-dashed">
-                <div>
-                  <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Utilisateurs actifs</p>
-                  <p className="text-3xl font-black text-primary">{userCount} collaborateurs</p>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-6 bg-muted/30 rounded-2xl border-2 border-dashed">
+                  <div>
+                    <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Base de l'offre ({sub?.planType})</p>
+                    <p className="text-2xl font-black text-primary">{basePrice.toFixed(2)}€ / mois</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Inclus</p>
+                    <p className="text-sm font-bold">1 Utilisateur (Patron)</p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Prix par tête</p>
-                  <p className="text-xl font-bold">{pricePerUser.toFixed(2)}€ / mois</p>
-                </div>
+
+                {sub?.planType === 'business' && additionalUsers > 0 && (
+                  <div className="flex items-center justify-between p-6 bg-primary/5 rounded-2xl border border-primary/10">
+                    <div>
+                      <p className="text-[10px] font-black uppercase text-primary/60 tracking-widest">Collaborateurs additionnels</p>
+                      <p className="text-xl font-black text-primary">{(additionalUsers * pricePerUser).toFixed(2)}€ <span className="text-sm opacity-40">({additionalUsers} × {pricePerUser}€)</span></p>
+                    </div>
+                    <div className="p-2 bg-white rounded-xl shadow-sm">
+                      <Zap className="w-5 h-5 text-primary" />
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="pt-4 flex items-center justify-between">
                 <div>
                   <h3 className="text-lg font-bold">Total mensuel</h3>
-                  <p className="text-sm text-muted-foreground">Calculé automatiquement selon l'équipe.</p>
+                  <p className="text-sm text-muted-foreground italic">Facturé chaque 8 du mois.</p>
                 </div>
                 <div className="text-4xl font-black text-primary">
                   {totalAmount.toFixed(2).replace('.', ',')}€
@@ -179,7 +195,7 @@ export default function BillingPage() {
               <div className="p-4 bg-primary/5 rounded-2xl flex items-start gap-3 text-left">
                 <Info className="w-4 h-4 text-primary mt-0.5 shrink-0" />
                 <p className="text-[10px] leading-relaxed font-bold text-primary/70">
-                  {isGlobalAdmin ? "Votre compte administrateur bénéficie d'une gratuité totale illimitée." : "Le Patron est responsable du paiement. Tout nouvel employé ajouté sera facturé au prorata."}
+                  {isGlobalAdmin ? "Votre compte administrateur bénéficie d'une gratuité totale illimitée." : "Les collaborateurs ajoutés sont facturés au prorata sur le forfait Business."}
                 </p>
               </div>
             </CardContent>
