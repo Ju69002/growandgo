@@ -4,6 +4,7 @@
 /**
  * @fileOverview Moteur d'extraction universel Grow&Go V2.
  * Debug : Nettoyage Base64 & Transparence d'erreurs techniques.
+ * Optimisé pour Gemini 2.5 Flash Lite pour la rapidité et la stabilité.
  */
 
 import {ai} from '@/ai/genkit';
@@ -39,9 +40,29 @@ export async function universalDocumentExtractor(input: z.infer<typeof Universal
 
 const extractorPrompt = ai.definePrompt({
   name: 'universalExtractorPrompt',
-  model: 'googleai/gemini-1.5-pro',
+  model: 'googleai/gemini-2.5-flash-lite',
   input: { schema: UniversalExtractorInputSchema },
   output: { schema: UniversalExtractorOutputSchema },
+  config: {
+    safetySettings: [
+      {
+        category: 'HARM_CATEGORY_HARASSMENT',
+        threshold: 'BLOCK_NONE',
+      },
+      {
+        category: 'HARM_CATEGORY_HATE_SPEECH',
+        threshold: 'BLOCK_NONE',
+      },
+      {
+        category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+        threshold: 'BLOCK_NONE',
+      },
+      {
+        category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
+        threshold: 'BLOCK_NONE',
+      },
+    ],
+  },
   prompt: `Tu es le Cerveau de Grow&Go V2.
   
   MISSION : Analyse ce document nommé "{{fileName}}" (Type: {{fileType}}).
@@ -118,7 +139,7 @@ const universalDocumentExtractorFlow = ai.defineFlow(
 
       // 3. APPEL API AVEC GESTION D'ERREUR RÉELLE (Mode Debug)
       const {output} = await extractorPrompt(finalInput);
-      if (!output) throw new Error("L'API Gemini Pro n'a pas pu générer de données structurées.");
+      if (!output) throw new Error("L'API Gemini n'a pas pu générer de données structurées. Le contenu est peut-être trop complexe ou a été bloqué par les filtres de sécurité.");
       
       return output;
     } catch (e: any) {
