@@ -1,70 +1,59 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Fonctions utilitaires de base
     function isSignedIn() {
       return request.auth != null;
-    }
-
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
     }
 
     function getUserData() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
-    function isGlobalAdmin() {
-      return isSignedIn() && (
-        getUserData().companyId == 'admin_global' ||
-        getUserData().role == 'admin'
-      );
+    // ======================================================
+    // RÈGLE D'OR : ACCÈS TOTAL POUR LE RÔLE ADMIN
+    // ======================================================
+    match /{document=**} {
+      allow read, write: if isSignedIn() && getUserData().role == 'admin';
     }
 
-    function isPatronOrFamily() {
-      return isSignedIn() && (
-        getUserData().role == 'patron' || 
-        getUserData().role == 'family'
-      );
-    }
+    // ======================================================
+    // RÈGLES SPÉCIFIQUES POUR LES AUTRES RÔLES
+    // ======================================================
 
     // Gestion des profils utilisateurs
     match /users/{userId} {
       allow read: if isSignedIn(); 
-      allow write: if isSignedIn() || isGlobalAdmin(); 
+      allow write: if isSignedIn() && request.auth.uid == userId; 
       
       match /received_invoices/{invoiceId} {
-        allow read: if isOwner(userId) || isGlobalAdmin();
+        allow read: if isSignedIn() && request.auth.uid == userId;
         allow write: if isSignedIn();
       }
     }
 
-    // Gestion des entreprises et de leurs sous-collections
+    // Gestion des entreprises (Dossiers, Documents, Agenda)
     match /companies/{companyId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn() || isGlobalAdmin();
+      
+      // Seuls le Patron et la Famille peuvent modifier la structure de l'entreprise
+      allow write: if isSignedIn() && (
+        getUserData().role == 'patron' || 
+        getUserData().role == 'family'
+      );
 
-      match /events/{eventId} {
-        allow read: if isSignedIn();
-        allow write: if isSignedIn() || isGlobalAdmin() || isPatronOrFamily();
-      }
-
-      match /documents/{docId} {
-        allow read: if isSignedIn();
-        allow write: if isSignedIn() || isGlobalAdmin() || isPatronOrFamily();
-      }
-
-      match /categories/{catId} {
-        allow read: if isSignedIn();
-        allow write: if isSignedIn() || isGlobalAdmin() || isPatronOrFamily();
-      }
-
+      // Accès récursif pour toutes les sous-collections (events, documents, categories)
       match /{allSubcollections=**} {
-        allow read, write: if isSignedIn() || isGlobalAdmin() || isPatronOrFamily();
+        allow read: if isSignedIn();
+        allow write: if isSignedIn() && (
+          getUserData().role == 'patron' || 
+          getUserData().role == 'family'
+        );
       }
     }
 
+    // Accès public aux modules (lecture seule)
     match /modules/{moduleId} {
       allow read: if true;
     }
