@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -26,7 +27,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { BusinessDocument, DocumentStatus, User } from '@/lib/types';
+import { BusinessDocument, DocumentStatus, User, Category } from '@/lib/types';
 import { useFirestore, useCollection, useMemoFirebase, deleteDocumentNonBlocking, useUser, useDoc } from '@/firebase';
 import { collection, query, where, doc } from 'firebase/firestore';
 
@@ -57,34 +58,37 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
   const { data: profile } = useDoc<User>(userProfileRef);
   const companyId = profile?.companyId; 
 
+  const categoryRef = useMemoFirebase(() => {
+    if (!db || !companyId || !categoryId) return null;
+    return doc(db, 'companies', companyId, 'categories', categoryId);
+  }, [db, companyId, categoryId]);
+  const { data: category } = useDoc<Category>(categoryRef);
+
   const docsQuery = useMemoFirebase(() => {
-    if (!db || !companyId) return null;
+    if (!db || !companyId || !categoryId) return null;
+    
+    // Détection automatique du type de filtrage (Client vs Métier)
+    const filterField = category?.isClientFolder ? 'clientId' : 'categoryId';
     
     let q = query(
       collection(db, 'companies', companyId, 'documents'),
-      where('categoryId', '==', categoryId)
+      where(filterField, '==', categoryId)
     );
 
-    if (subCategory) {
+    if (subCategory && subCategory !== 'all') {
       q = query(q, where('subCategory', '==', subCategory));
     }
 
     return q;
-  }, [db, categoryId, companyId, subCategory]);
+  }, [db, categoryId, companyId, subCategory, category?.isClientFolder]);
 
   const { data: documents, isLoading } = useCollection<BusinessDocument>(docsQuery);
 
   React.useEffect(() => {
     let url: string | null = null;
-    
     const prepareDoc = async () => {
-      if (!viewingDoc?.fileUrl) {
-        setSafeUrl(null);
-        return;
-      }
-
+      if (!viewingDoc?.fileUrl) { setSafeUrl(null); return; }
       setIsBlobLoading(true);
-      
       try {
         if (viewingDoc.fileUrl.startsWith('data:')) {
           const parts = viewingDoc.fileUrl.split(',');
@@ -108,23 +112,14 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
         setIsBlobLoading(false);
       }
     };
-
     prepareDoc();
-
-    return () => {
-      if (url) URL.revokeObjectURL(url);
-    };
+    return () => { if (url) URL.revokeObjectURL(url); };
   }, [viewingDoc]);
 
   const handleDelete = (docId: string) => {
     if (!db || !companyId) return;
     const docRef = doc(db, 'companies', companyId, 'documents', docId);
     deleteDocumentNonBlocking(docRef);
-  };
-
-  const isPDF = (doc: BusinessDocument | null) => {
-    if (!doc) return false;
-    return doc.fileUrl.toLowerCase().includes('pdf') || doc.fileUrl.toLowerCase().startsWith('data:application/pdf');
   };
 
   if (isLoading) {
@@ -136,7 +131,7 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
       <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed rounded-xl bg-muted/10 text-muted-foreground">
         <FolderOpen className="w-12 h-12 mb-4 opacity-20" />
         <p className="font-medium text-lg">Dossier vide</p>
-        <p className="text-sm">Aucun document n'a encore été classé dans {subCategory || 'cette section'}.</p>
+        <p className="text-sm">Aucun document n'a encore été classé ici.</p>
       </div>
     );
   }
@@ -150,7 +145,7 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
               <TableHead className="w-[350px]">Document</TableHead>
               <TableHead>Sous-dossier</TableHead>
               <TableHead>Statut</TableHead>
-              <TableHead>Date d'import / SIREN</TableHead>
+              <TableHead>Date / SIREN</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -181,7 +176,7 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm">
                     <div className="flex flex-col gap-1">
-                      <span>{doc.createdAt}</span>
+                      <span>{new Date(doc.createdAt).toLocaleDateString()}</span>
                       {doc.extractedData?.siren && (
                         <div className="flex items-center gap-1.5 px-2 py-0.5 bg-primary/5 text-primary rounded-md border border-primary/10 w-fit">
                           <Hash className="w-3 h-3" />
@@ -208,12 +203,6 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
                             <Eye className="w-4 h-4 mr-2" />
                             Ouvrir
                           </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <a href={doc.fileUrl} download={doc.name} className="flex items-center w-full">
-                              <Download className="w-4 h-4 mr-2" />
-                              Télécharger
-                            </a>
-                          </DropdownMenuItem>
                           <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(doc.id)}>
                             Supprimer
                           </DropdownMenuItem>
@@ -232,7 +221,7 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
         <DialogContent className="sm:max-w-[95vw] h-[95vh] p-0 flex flex-col gap-0 overflow-hidden bg-slate-950 border-none">
           <div className="sr-only">
             <DialogTitle>Visualisation de document</DialogTitle>
-            <DialogDescription>Aperçu du fichier sélectionné avec options de téléchargement.</DialogDescription>
+            <DialogDescription>Aperçu du fichier sélectionné.</DialogDescription>
           </div>
           <DialogHeader className="p-4 border-b bg-card flex flex-row items-center justify-between space-y-0 z-20">
             <div className="flex-1 min-w-0 pr-4">
@@ -241,7 +230,7 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
                 {viewingDoc?.name}
               </div>
               <div className="truncate text-xs text-muted-foreground">
-                {viewingDoc?.subCategory || 'Général'} • Importé le {viewingDoc?.createdAt}
+                {viewingDoc?.subCategory || 'Général'} • Client : {viewingDoc?.clientName}
               </div>
             </div>
             <div className="flex gap-2 flex-shrink-0">
@@ -251,12 +240,6 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
                     Ouvrir externe
                   </a>
                </Button>
-               <Button variant="outline" size="sm" asChild>
-                  <a href={safeUrl || viewingDoc?.fileUrl} download={viewingDoc?.name}>
-                    <Download className="w-4 h-4 mr-2" />
-                    Télécharger
-                  </a>
-               </Button>
                <Button variant="ghost" size="icon" onClick={() => setViewingDoc(null)} className="text-muted-foreground hover:bg-muted">
                   <X className="w-5 h-5" />
                </Button>
@@ -264,43 +247,19 @@ export function DocumentList({ categoryId, subCategory }: DocumentListProps) {
           </DialogHeader>
           <div className="flex-1 bg-slate-900 flex flex-col items-center justify-center overflow-hidden relative">
             {isBlobLoading ? (
-              <div className="flex flex-col items-center gap-4 text-white">
-                <Loader2 className="w-12 h-12 animate-spin opacity-50 text-primary" />
-                <p className="text-sm font-medium animate-pulse">Préparation sécurisée du document...</p>
-              </div>
+              <Loader2 className="w-12 h-12 animate-spin opacity-50 text-primary" />
             ) : viewingDoc && safeUrl ? (
-              isPDF(viewingDoc) ? (
-                <div className="w-full h-full flex flex-col">
-                  <div className="bg-amber-500/15 text-amber-200 px-6 py-3 text-xs flex flex-col md:flex-row md:items-center gap-3 border-b border-amber-500/30">
-                    <div className="flex items-center gap-2 font-bold">
-                      <AlertCircle className="w-4 h-4" />
-                      AIDE À L'AFFICHAGE
-                    </div>
-                    <p className="flex-1 opacity-90">
-                      Si Chrome affiche un écran gris ou bloque l'aperçu, cliquez sur <strong>Ouvrir externe</strong> ou <strong>Télécharger</strong> en haut à droite.
-                    </p>
-                  </div>
-                  <iframe
-                    src={`${safeUrl}#toolbar=0&navpanes=0`}
-                    className="flex-1 w-full border-none bg-white"
-                    title={viewingDoc.name}
-                  />
-                </div>
+              viewingDoc.fileUrl.toLowerCase().includes('pdf') || viewingDoc.fileUrl.startsWith('data:application/pdf') ? (
+                <iframe src={`${safeUrl}#toolbar=0&navpanes=0`} className="flex-1 w-full border-none bg-white" title={viewingDoc.name} />
               ) : (
-                <div className="relative w-full h-full flex items-center justify-center p-8">
-                  <img
-                    src={safeUrl}
-                    alt={viewingDoc.name}
-                    className="max-w-full max-h-full object-contain rounded-lg shadow-[0_0_50px_rgba(0,0,0,0.5)] border border-white/10"
-                  />
-                </div>
+                <img src={safeUrl} alt={viewingDoc.name} className="max-w-full max-h-full object-contain rounded-lg shadow-2xl border border-white/10" />
               )
             ) : (
                <div className="flex flex-col items-center gap-4 text-white p-8 text-center">
                   <EyeOff className="w-12 h-12 opacity-30" />
-                  <p className="max-w-md">Impossible d'afficher l'aperçu direct dans le navigateur.</p>
+                  <p>Aperçu indisponible directement.</p>
                   <Button variant="secondary" asChild>
-                     <a href={viewingDoc?.fileUrl} target="_blank" rel="noopener noreferrer">Ouvrir dans un nouvel onglet</a>
+                     <a href={viewingDoc?.fileUrl} target="_blank" rel="noopener noreferrer">Ouvrir externe</a>
                   </Button>
                </div>
             )}

@@ -25,7 +25,9 @@ import {
   ShieldCheck,
   History,
   FolderSync,
-  FileCode
+  FileCode,
+  FolderPlus,
+  Building2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,6 +44,13 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function DocumentsCentralHub() {
   const { user } = useUser();
@@ -104,7 +113,6 @@ export default function DocumentsCentralHub() {
         setAnalysis(result);
         setIsValidating(true);
       } catch (err: any) {
-        // Affichage de l'erreur technique réelle (Correction Debug)
         toast({ 
           variant: "destructive", 
           title: "Échec du traitement", 
@@ -119,7 +127,7 @@ export default function DocumentsCentralHub() {
   };
 
   const finalizeUpload = async () => {
-    if (!db || !companyId || !currentFile || !analysis || !team) return;
+    if (!db || !companyId || !currentFile || !analysis || !team || !categories) return;
     
     let finalFileUrl = currentFile.url;
     let storageType: any = 'firebase';
@@ -127,19 +135,43 @@ export default function DocumentsCentralHub() {
     if (team.length > 1) {
       storageType = 'private_server';
       finalFileUrl = `https://private-server.internal/${normalizeId(analysis.clientName)}/${currentFile.name}`;
+    } else if (storage) {
+      const fileRef = ref(storage, `companies/${companyId}/docs/${Date.now()}_${currentFile.name}`);
+      const blob = await (await fetch(currentFile.url)).blob();
+      await uploadBytes(fileRef, blob);
+      finalFileUrl = await getDownloadURL(fileRef);
+    }
+
+    const selectedCategoryLabel = analysis.suggestedCategoryId;
+    const existingCategory = categories.find(c => c.label === selectedCategoryLabel || c.id === selectedCategoryLabel);
+    const targetCategoryId = existingCategory?.id || normalizeId(selectedCategoryLabel);
+
+    // 1. Gérer la catégorie métier
+    if (!existingCategory) {
+      const newCatRef = doc(db, 'companies', companyId, 'categories', targetCategoryId);
+      setDocumentNonBlocking(newCatRef, {
+        id: targetCategoryId,
+        label: selectedCategoryLabel,
+        type: 'custom',
+        visibleToEmployees: true,
+        companyId: companyId,
+        icon: 'default',
+        subCategories: [analysis.suggestedSubCategory],
+        badgeCount: 0
+      }, { merge: true });
     } else {
-      if (storage) {
-        const fileRef = ref(storage, `companies/${companyId}/docs/${Date.now()}_${currentFile.name}`);
-        const blob = await (await fetch(currentFile.url)).blob();
-        await uploadBytes(fileRef, blob);
-        finalFileUrl = await getDownloadURL(fileRef);
+      const currentSubs = existingCategory.subCategories || [];
+      if (!currentSubs.includes(analysis.suggestedSubCategory)) {
+        const catRef = doc(db, 'companies', companyId, 'categories', existingCategory.id);
+        setDocumentNonBlocking(catRef, {
+          subCategories: [...currentSubs, analysis.suggestedSubCategory]
+        }, { merge: true });
       }
     }
 
-    const targetCategoryId = analysis.suggestedCategoryId;
+    // 2. Gérer le dossier client
     const clientName = analysis.clientName || "Client Inconnu";
     const clientId = normalizeId(clientName);
-
     const clientFolderRef = doc(db, 'companies', companyId, 'categories', clientId);
     setDocumentNonBlocking(clientFolderRef, {
       id: clientId,
@@ -152,6 +184,7 @@ export default function DocumentsCentralHub() {
       badgeCount: 0
     }, { merge: true });
 
+    // 3. Enregistrer le document
     const docsRef = collection(db, 'companies', companyId, 'documents');
     addDocumentNonBlocking(docsRef, {
       name: analysis.documentTitle || currentFile.name,
@@ -170,7 +203,7 @@ export default function DocumentsCentralHub() {
     });
 
     setIsValidating(false);
-    toast({ title: "Document classé !" });
+    toast({ title: "Document classé avec succès !" });
   };
 
   return (
@@ -194,7 +227,7 @@ export default function DocumentsCentralHub() {
             className="rounded-full h-16 px-10 bg-primary hover:scale-105 transition-all shadow-2xl gap-3 text-lg font-bold"
           >
             {isUploading ? <Loader2 className="animate-spin w-6 h-6" /> : <FileUp className="w-6 h-6" />}
-            Importer n'importe quel fichier
+            Importer un fichier
           </Button>
         </div>
 
@@ -203,7 +236,7 @@ export default function DocumentsCentralHub() {
             <div className="relative">
               <Search className="absolute left-4 top-3.5 w-5 h-5 text-muted-foreground" />
               <Input 
-                placeholder="Rechercher partout (parsing binaire inclus)..." 
+                placeholder="Rechercher dans l'historique..." 
                 className="pl-12 h-14 rounded-2xl bg-white border-none shadow-xl text-lg"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -282,31 +315,26 @@ export default function DocumentsCentralHub() {
           <div className="space-y-6">
             <div className="bg-primary text-white p-8 rounded-[2.5rem] shadow-xl space-y-4">
               <Zap className="w-10 h-10" />
-              <h3 className="text-xl font-bold uppercase tracking-tighter">Moteur Adaptatif</h3>
+              <h3 className="text-xl font-bold uppercase tracking-tighter">Cerveau d'Archivage</h3>
               <p className="text-xs leading-relaxed opacity-80 font-medium">
-                Le système bascule entre **Parsing Binaire** (pour 100% de précision sur tableurs) et **Vision IA 1.5 Pro** (pour le reste).
+                Le système mémorise vos dossiers et privilégie la structure existante pour éviter le désordre.
               </p>
-              <div className="pt-2 flex flex-wrap gap-2">
-                <Badge className="bg-white/20 text-white border-none font-bold uppercase text-[9px]">XLSX PARSER</Badge>
-                <Badge className="bg-white/20 text-white border-none font-bold uppercase text-[9px]">GEMINI PRO</Badge>
-              </div>
             </div>
 
             <div className="p-6 bg-muted/30 rounded-[2rem] border-2 border-dashed border-primary/10 space-y-4">
               <ShieldCheck className="w-6 h-6 text-primary opacity-40" />
               <div className="space-y-1">
-                <p className="text-[10px] font-black uppercase text-primary/60">Accès Universel</p>
-                <p className="text-[11px] font-medium text-muted-foreground italic">Aucun format n'est rejeté sans tentative d'analyse préalable.</p>
+                <p className="text-[10px] font-black uppercase text-primary/60">Double Indexation</p>
+                <p className="text-[11px] font-medium text-muted-foreground italic">Chaque fichier est trié par Métier ET par Client automatiquement.</p>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* MODAL DE VALIDATION HUMAINE */}
       <Dialog open={isValidating} onOpenChange={setIsValidating}>
         <DialogContent className="sm:max-w-[1000px] p-0 overflow-hidden border-none shadow-2xl rounded-[3rem] bg-background">
-          <div className="grid grid-cols-1 md:grid-cols-2 h-[80vh]">
+          <div className="grid grid-cols-1 md:grid-cols-2 h-[85vh]">
             <div className="bg-slate-900 flex items-center justify-center p-4 relative">
               {currentFile?.type.includes('image') ? (
                 <img src={currentFile.url} className="max-w-full max-h-full object-contain rounded-xl shadow-2xl" alt="Preview" />
@@ -314,28 +342,22 @@ export default function DocumentsCentralHub() {
                 <div className="text-white text-center space-y-4">
                   {analysis?.confidenceScore === 100 ? <FileCode className="w-20 h-20 mx-auto text-emerald-400" /> : <FileText className="w-20 h-20 mx-auto opacity-20" />}
                   <p className="font-bold">{currentFile?.name}</p>
-                  <p className="text-xs opacity-50">{analysis?.confidenceScore === 100 ? "Contenu extrait mathématiquement" : "Analyse visuelle en cours"}</p>
                 </div>
               )}
               <div className="absolute top-6 left-6">
-                <Badge className="bg-primary text-white border-none h-8 px-4 font-black uppercase tracking-widest text-[10px]">Document Original</Badge>
+                <Badge className="bg-primary text-white border-none h-8 px-4 font-black uppercase tracking-widest text-[10px]">Validation Humaine</Badge>
               </div>
             </div>
 
-            <div className="p-10 flex flex-col justify-between bg-white">
+            <div className="p-10 flex flex-col justify-between bg-white overflow-y-auto">
               <div className="space-y-8">
-                <div className="flex items-center justify-between">
-                  <DialogHeader>
-                    <DialogTitle className="text-3xl font-black uppercase tracking-tighter text-primary">Validation IA</DialogTitle>
-                  </DialogHeader>
-                  <Badge className={`h-10 px-6 font-black uppercase tracking-widest text-[10px] border-none ${analysis?.confidenceScore === 100 ? 'bg-emerald-500 text-white' : 'bg-amber-100 text-amber-700'}`}>
-                    {analysis?.confidenceScore === 100 ? '100% Fidélité (Parsing)' : `${analysis?.confidenceScore}% Confiance`}
-                  </Badge>
-                </div>
+                <DialogHeader>
+                  <DialogTitle className="text-3xl font-black uppercase tracking-tighter text-primary">Cerveau d'Archivage V2</DialogTitle>
+                </DialogHeader>
 
                 <div className="grid gap-6">
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-black uppercase opacity-40 ml-1">Titre Identifié</Label>
+                    <Label className="text-[10px] font-black uppercase opacity-40 ml-1">Titre du document</Label>
                     <Input 
                       value={analysis?.documentTitle} 
                       onChange={(e) => setAnalysis({ ...analysis, documentTitle: e.target.value })}
@@ -345,7 +367,9 @@ export default function DocumentsCentralHub() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-black uppercase opacity-40 ml-1">Client (Dossier Client)</Label>
+                      <Label className="text-[10px] font-black uppercase opacity-40 ml-1 flex items-center gap-2">
+                        <Building2 className="w-3 h-3" /> Nom du Client (Dossier Client)
+                      </Label>
                       <Input 
                         value={analysis?.clientName} 
                         onChange={(e) => setAnalysis({ ...analysis, clientName: e.target.value })}
@@ -353,20 +377,47 @@ export default function DocumentsCentralHub() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-black uppercase opacity-40 ml-1">Catégorie Métier</Label>
-                      <Input 
-                        value={analysis?.suggestedCategoryId} 
-                        readOnly
-                        className="h-12 rounded-xl font-bold border-primary/10 bg-muted/50 cursor-not-allowed"
-                      />
+                      <Label className="text-[10px] font-black uppercase opacity-40 ml-1 flex items-center gap-2">
+                        <FolderPlus className="w-3 h-3" /> Catégorie Métier
+                      </Label>
+                      <Select 
+                        value={categories?.some(c => c.label === analysis?.suggestedCategoryId || c.id === analysis?.suggestedCategoryId) ? analysis?.suggestedCategoryId : "new"} 
+                        onValueChange={(v) => setAnalysis({ ...analysis, suggestedCategoryId: v === "new" ? analysis?.suggestedCategoryId : v })}
+                      >
+                        <SelectTrigger className="h-12 rounded-xl font-bold border-primary/10">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categories?.map(c => (
+                            <SelectItem key={c.id} value={c.label}>{c.label}</SelectItem>
+                          ))}
+                          <SelectItem value="new">+ Nouveau dossier...</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {!categories?.some(c => c.label === analysis?.suggestedCategoryId) && (
+                        <Input 
+                          placeholder="Nom de la nouvelle catégorie..."
+                          value={analysis?.suggestedCategoryId}
+                          onChange={(e) => setAnalysis({ ...analysis, suggestedCategoryId: e.target.value })}
+                          className="h-10 rounded-xl font-bold text-xs border-dashed border-primary/30"
+                        />
+                      )}
                     </div>
                   </div>
 
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase opacity-40 ml-1">Sous-dossier (Classement précis)</Label>
+                    <Input 
+                      value={analysis?.suggestedSubCategory} 
+                      onChange={(e) => setAnalysis({ ...analysis, suggestedSubCategory: e.target.value })}
+                      placeholder="Ex: Factures, Contrats..."
+                      className="h-12 rounded-xl font-bold border-primary/10"
+                    />
+                  </div>
+
                   <div className="p-6 bg-primary/5 rounded-2xl border-2 border-dashed border-primary/10 space-y-3">
-                    <p className="text-[10px] font-black uppercase text-primary">Données Extraites (Full Context)</p>
-                    <div className="max-h-[150px] overflow-y-auto text-[11px] font-medium leading-relaxed opacity-70">
-                      <pre>{JSON.stringify(analysis?.extractedData, null, 2)}</pre>
-                    </div>
+                    <p className="text-[10px] font-black uppercase text-primary">Résumé Flash</p>
+                    <p className="text-xs font-medium leading-relaxed opacity-70 italic">"{analysis?.summary}"</p>
                   </div>
                 </div>
               </div>
