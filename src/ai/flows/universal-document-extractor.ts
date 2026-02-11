@@ -3,7 +3,7 @@
 
 /**
  * @fileOverview Moteur d'extraction universel Grow&Go V2.
- * Debug : Nettoyage Base64 & Transparence d'erreurs techniques.
+ * Correction : Passage en mode "Texte + Parsing Manuel" pour éviter l'erreur 400 (response_schema empty).
  * Optimisé pour Gemini 2.5 Flash Lite pour la rapidité et la stabilité.
  */
 
@@ -34,7 +34,9 @@ const UniversalExtractorOutputSchema = z.object({
   isNewClient: z.boolean().describe("Indique si ce client semble nouveau pour l'entreprise."),
 });
 
-export async function universalDocumentExtractor(input: z.infer<typeof UniversalExtractorInputSchema>) {
+export type UniversalExtractorOutput = z.infer<typeof UniversalExtractorOutputSchema>;
+
+export async function universalDocumentExtractor(input: z.infer<typeof UniversalExtractorInputSchema>): Promise<UniversalExtractorOutput> {
   return universalDocumentExtractorFlow(input);
 }
 
@@ -42,7 +44,8 @@ const extractorPrompt = ai.definePrompt({
   name: 'universalExtractorPrompt',
   model: 'googleai/gemini-2.5-flash-lite',
   input: { schema: UniversalExtractorInputSchema },
-  output: { schema: UniversalExtractorOutputSchema },
+  // On ne définit pas de schema de sortie complexe ici pour éviter le bug 400 (response_schema empty)
+  // On passe par un parsing manuel du texte pour plus de robustesse.
   config: {
     safetySettings: [
       {
@@ -88,7 +91,17 @@ const extractorPrompt = ai.definePrompt({
      - Si 'rawData' est présent, le score est obligatoirement 100.
      - Sinon, évalue la lisibilité visuelle de 0 à 100.
   
-  Réponds uniquement en JSON valide.`,
+  RÉPONSE : Réponds UNIQUEMENT avec un objet JSON brut, sans balises Markdown, respectant cette structure exacte :
+  {
+    "documentTitle": "string",
+    "clientName": "string",
+    "suggestedCategoryId": "string",
+    "suggestedSubCategory": "string",
+    "extractedData": { "clé": "valeur", ... },
+    "confidenceScore": 100,
+    "summary": "string",
+    "isNewClient": false
+  }`,
 });
 
 const universalDocumentExtractorFlow = ai.defineFlow(
@@ -101,18 +114,18 @@ const universalDocumentExtractorFlow = ai.defineFlow(
     let finalInput = { ...input };
 
     try {
-      // 1. NETTOYAGE STRICT DU BASE64 (Correction Debug)
+      // 1. NETTOYAGE STRICT DU BASE64
       const fileUrlParts = input.fileUrl.split(',');
       const base64Data = fileUrlParts[1] || fileUrlParts[0];
       const mimeType = input.fileType || (fileUrlParts[0].match(/:(.*?);/)?.[1]) || 'application/octet-stream';
       
-      // Reconstruction propre du Data URI pour Gemini (Genkit {{media}} nécessite le schéma complet)
+      // Reconstruction propre du Data URI pour Gemini
       finalInput.fileUrl = `data:${mimeType};base64,${base64Data}`;
       finalInput.fileType = mimeType;
 
       const buffer = Buffer.from(base64Data, 'base64');
 
-      // 2. DÉTECTION DU MEILLEUR OUTIL
+      // 2. DÉTECTION DU MEILLEUR OUTIL (XLSX)
       const isSpreadsheet = mimeType.includes('spreadsheet') || 
                             mimeType.includes('excel') || 
                             mimeType.includes('csv') ||
@@ -137,14 +150,33 @@ const universalDocumentExtractorFlow = ai.defineFlow(
         finalInput.rawData = buffer.toString('utf-8');
       }
 
-      // 3. APPEL API AVEC GESTION D'ERREUR RÉELLE (Mode Debug)
-      const {output} = await extractorPrompt(finalInput);
-      if (!output) throw new Error("L'API Gemini n'a pas pu générer de données structurées. Le contenu est peut-être trop complexe ou a été bloqué par les filtres de sécurité.");
-      
-      return output;
+      // 3. APPEL API EN MODE TEXTE + PARSING MANUEL
+      const response = await extractorPrompt(finalInput);
+      let text = response.text;
+
+      // Nettoyage des éventuelles balises Markdown ```json ... ```
+      text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+
+      try {
+        const parsed = JSON.parse(text);
+        
+        // On retourne l'objet nettoyé et validé par rapport au schéma de sortie du flow
+        return {
+          documentTitle: parsed.documentTitle || input.fileName,
+          clientName: parsed.clientName || "Client Inconnu",
+          suggestedCategoryId: parsed.suggestedCategoryId || "admin",
+          suggestedSubCategory: parsed.suggestedSubCategory || "Général",
+          extractedData: parsed.extractedData || {},
+          confidenceScore: Number(parsed.confidenceScore) || 50,
+          summary: parsed.summary || "Document analysé par le Cerveau V2.",
+          isNewClient: !!parsed.isNewClient
+        };
+      } catch (jsonError) {
+        console.error("Erreur de parsing JSON IA. Réponse brute :", text);
+        throw new Error("L'IA a renvoyé un format de données invalide. Veuillez réessayer.");
+      }
     } catch (e: any) {
       console.error("[DEBUG] Universal Extractor Technical Error:", e);
-      // On propage l'erreur technique exacte pour l'affichage en interface
       throw new Error(e.message || "Erreur technique lors de l'extraction.");
     }
   }
