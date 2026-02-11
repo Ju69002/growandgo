@@ -1,7 +1,8 @@
+
 'use server';
 
 /**
- * @fileOverview Assistant IA Expert Design pour Grow&Go via Gemini 2.5 Flash Lite.
+ * @fileOverview Assistant IA Expert Design pour Grow&Go via Gemini 1.5 Flash.
  * Gère les transformations structurelles et le choix des icônes en Mode Patron.
  */
 
@@ -39,7 +40,7 @@ export type BossAiDataAnalysisOutput = z.infer<typeof BossAiDataAnalysisOutputSc
 
 const bossPrompt = ai.definePrompt({
   name: 'bossAiDataAnalysisPrompt',
-  model: 'googleai/gemini-2.5-flash-lite',
+  model: 'googleai/gemini-1.5-flash',
   input: {schema: BossAiDataAnalysisInputSchema},
   output: {schema: BossAiDataAnalysisOutputSchema},
   system: `Tu es l'Expert Organisation de Grow&Go Studio. Tu accompagnes le Patron dans la gestion de sa structure documentaire.

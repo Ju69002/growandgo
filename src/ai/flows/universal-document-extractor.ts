@@ -42,7 +42,7 @@ export async function universalDocumentExtractor(input: z.infer<typeof Universal
 
 const extractorPrompt = ai.definePrompt({
   name: 'universalExtractorPrompt',
-  model: 'googleai/gemini-2.5-flash-lite',
+  model: 'googleai/gemini-1.5-flash',
   input: { schema: UniversalExtractorInputSchema },
   config: {
     safetySettings: [

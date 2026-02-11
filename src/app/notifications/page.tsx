@@ -5,7 +5,7 @@ import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { FileText, Clock, AlertCircle, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { FileText, Clock, AlertCircle, ArrowRight, CheckCircle2, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useFirestore, useUser, useDoc, useMemoFirebase, useCollection } from '@/firebase';
 import { doc, collection, query, where } from 'firebase/firestore';
@@ -46,7 +46,7 @@ export default function NotificationsPage() {
 
         <div className="grid gap-4">
           {isLoading ? (
-            <div className="p-20 text-center"><Loader2 className="animate-spin mx-auto" /></div>
+            <div className="p-20 text-center"><Loader2 className="animate-spin mx-auto text-primary opacity-20" /></div>
           ) : tasks.length > 0 ? (
             tasks.map((task) => (
               <Card key={task.id} className="border-none shadow-sm rounded-2xl overflow-hidden bg-white">

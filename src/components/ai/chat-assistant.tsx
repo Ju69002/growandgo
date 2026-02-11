@@ -12,6 +12,7 @@ import { bossAiDataAnalysis } from '@/ai/flows/boss-ai-data-analysis';
 import { useUser, useFirestore, setDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking, useDoc, useMemoFirebase, useCollection } from '@/firebase';
 import { doc, collection, query } from 'firebase/firestore';
 import { User, Category } from '@/lib/types';
+import { useToast } from '@/hooks/use-toast';
 
 type Message = {
   role: 'user' | 'assistant';
@@ -24,6 +25,7 @@ export function ChatAssistant() {
   const [isOpen, setIsOpen] = React.useState(false);
   const { user } = useUser();
   const db = useFirestore();
+  const { toast } = useToast();
   const [messages, setMessages] = React.useState<Message[]>([
     { role: 'assistant', content: "Bonjour ! Je suis le Cerveau Grow&Go V2. Comment puis-je organiser votre espace aujourd'hui ?" }
   ]);
@@ -31,6 +33,12 @@ export function ChatAssistant() {
   const [newSubCat, setNewSubCat] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
   const [pendingAction, setPendingAction] = React.useState<any | null>(null);
+
+  React.useEffect(() => {
+    const handleOpen = () => setIsOpen(true);
+    window.addEventListener('open-chat-category-creation', handleOpen);
+    return () => window.removeEventListener('open-chat-category-creation', handleOpen);
+  }, []);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -52,7 +60,6 @@ export function ChatAssistant() {
   const handleAddSubCat = () => {
     if (!newSubCat.trim() || !pendingAction) return;
     
-    // Vérification anti-doublon case-insensitive
     const currentSubs = pendingAction.subCategories || [];
     const isDuplicate = currentSubs.some((s: string) => s.toLowerCase() === newSubCat.trim().toLowerCase());
     
@@ -86,7 +93,6 @@ export function ChatAssistant() {
 
     try {
       if (type === 'create_category' && label) {
-        // Vérification finale des doublons sur les catégories existantes
         if (existingCategories?.some(c => c.id === targetId)) {
           throw new Error("Ce dossier existe déjà dans votre espace.");
         }
