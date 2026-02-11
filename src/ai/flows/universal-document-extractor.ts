@@ -2,8 +2,8 @@
 'use server';
 
 /**
- * @fileOverview Moteur d'extraction universel Grow&Go V2 avec Contexte Structurel.
- * Optimisé pour Gemini 2.5 Flash Lite.
+ * @fileOverview Moteur d'Analyse Sémantique Totale Grow&Go V2.
+ * Intelligence Contextuelle Agnostique pour extraction "à la carte" et auto-organisation.
  */
 
 import {ai} from '@/ai/genkit';
@@ -11,26 +11,27 @@ import {z} from 'genkit';
 import * as XLSX from 'xlsx';
 
 const UniversalExtractorInputSchema = z.object({
-  fileUrl: z.string().describe("Data URI du document."),
+  fileUrl: z.string().describe("Data URI du document (Base64)."),
   fileName: z.string().describe("Nom original du fichier."),
   fileType: z.string().describe("MIME type du fichier."),
   availableCategories: z.array(z.object({
     id: z.string(),
     label: z.string(),
     subCategories: z.array(z.string())
-  })).describe("Structure actuelle des dossiers de l'entreprise."),
-  rawData: z.string().optional().describe("Données textuelles extraites programmatiquement."),
+  })).describe("Structure actuelle des dossiers métier."),
+  rawData: z.string().optional().describe("Données textuelles extraites programmatiquement (XLSX)."),
 });
 
 const UniversalExtractorOutputSchema = z.object({
-  documentTitle: z.string().describe("Titre propre pour le document."),
-  clientName: z.string().describe("Nom du client identifié dans le document."),
-  suggestedCategoryId: z.string().describe("ID ou Label de la catégorie métier la plus adaptée."),
-  suggestedSubCategory: z.string().describe("Nom du sous-dossier suggéré."),
-  extractedData: z.record(z.any()).describe("Données textuelles et numériques extraites."),
-  confidenceScore: z.number().describe("Indice de confiance (0 à 100)."),
-  summary: z.string().describe("Résumé flash du contenu."),
-  isNewClient: z.boolean().describe("Indique si ce client semble nouveau."),
+  clientName: z.string().describe("Sujet principal du document (ex: Client ou Patient)."),
+  issuerEntity: z.string().describe("Organisme émetteur ou contrepartie."),
+  documentDate: z.string().describe("Date du document (YYYY-MM-DD)."),
+  category: z.string().describe("Catégorie métier suggérée (Priorité aux 6 Piliers)."),
+  subcategory: z.string().describe("Sous-dossier suggéré."),
+  metadata: z.record(z.any()).describe("Métadonnées extraites à la carte."),
+  summary_flash: z.string().describe("Résumé flash intelligent (Qui, Quoi, Pourquoi)."),
+  confidenceScore: z.number().describe("Indice de confiance visuel."),
+  documentTitle: z.string().describe("Titre propre et descriptif."),
 });
 
 export type UniversalExtractorOutput = z.infer<typeof UniversalExtractorOutputSchema>;
@@ -51,39 +52,41 @@ const extractorPrompt = ai.definePrompt({
       { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
     ],
   },
-  prompt: `Tu es le Cerveau d'Archivage de Grow&Go V2.
-  
-  CONTEXTE ACTUEL (Dossiers existants) :
-  {{#each availableCategories}}
-  - {{label}} (ID: {{id}}) > Sous-dossiers : {{#each subCategories}}"{{this}}" {{/each}}
-  {{/each}}
+  prompt: `Tu es le Cerveau d'Archivage Grow&Go V2. Tu effectues une analyse sémantique totale.
 
-  MISSION : Analyse ce document "{{fileName}}" et décide de son rangement.
-  
-  {{#if rawData}}
-  DONNÉES FIABLES (Parsing) :
-  {{{rawData}}}
-  {{else}}
-  VISION IA : Analyse visuelle du média joint : {{media url=fileUrl}}
-  {{/if}}
-  
-  RÈGLES DE CLASSEMENT :
-  1. PRIORITÉ ABSOLUE : Utilise un dossier EXISTANT (label ou ID) si le document correspond sémantiquement.
-  2. CRÉATION : Si aucun dossier ne convient, suggère un nom PERTINENT et COURT (ex: "Logistique").
-  3. CLIENT : Identifie l'entité cliente ou le fournisseur principal.
-  4. EXTRACTION : Récupère les montants, dates, SIREN et références.
-  
-  RÉPONSE JSON UNIQUEMENT (SANS MARKDOWN) :
-  {
-    "documentTitle": "string",
-    "clientName": "string",
-    "suggestedCategoryId": "id_ou_label_existant_ou_nouveau",
-    "suggestedSubCategory": "nom_sous_dossier_existant_ou_nouveau",
-    "extractedData": { ... },
-    "confidenceScore": 100,
-    "summary": "string",
-    "isNewClient": false
-  }`,
+CONTEXTE ACTUEL :
+{{#each availableCategories}}
+- {{label}} (ID: {{id}}) > Sous-dossiers : {{#each subCategories}}"{{this}}" {{/each}}
+{{/each}}
+
+MISSION :
+1. ANALYSE : Détermine la nature exacte (bail, facture, contrat, ordonnance, amende, etc.) : "{{fileName}}".
+2. RÔLES : Identifie le "client_name" (sujet principal, ex: la personne facturée) et "issuer_entity" (l'émetteur).
+3. EXTRACTION À LA CARTE : Récupère toutes les données critiques (montants, dates, références, SIREN, objets).
+4. RANGEMENT PROACTIF :
+   - PRIORITÉ ABSOLUE : Utilise les 6 piliers classiques (Commercial, Communication, Finances, Fournisseurs, Juridique, RH).
+   - RÉTABLISSEMENT : Si un sous-dossier standard manque, suggère-le impérativement (ex: "Statuts" pour un Kbis).
+   - INTELLIGENCE : Si rien ne correspond, crée une paire Catégorie/Sous-dossier logique et courte.
+
+{{#if rawData}}
+DONNÉES STRUCTURÉES (Parsing XLSX) :
+{{{rawData}}}
+{{else}}
+VISION IA (Média joint) : {{media url=fileUrl}}
+{{/if}}
+
+RÉPONSE JSON UNIQUEMENT (SANS MARKDOWN) :
+{
+  "clientName": "string",
+  "issuerEntity": "string",
+  "documentDate": "YYYY-MM-DD",
+  "category": "string",
+  "subcategory": "string",
+  "metadata": { "champ_1": "valeur", "...": "..." },
+  "summary_flash": "Résumé flash (Qui, Quoi, Pourquoi).",
+  "confidenceScore": 100,
+  "documentTitle": "Titre propre"
+}`,
 });
 
 const universalDocumentExtractorFlow = ai.defineFlow(
@@ -96,6 +99,7 @@ const universalDocumentExtractorFlow = ai.defineFlow(
     let finalInput = { ...input };
 
     try {
+      // Nettoyage Base64 strict
       const fileUrlParts = input.fileUrl.split(',');
       const base64Data = fileUrlParts[1] || fileUrlParts[0];
       const mimeType = input.fileType || (fileUrlParts[0].match(/:(.*?);/)?.[1]) || 'application/octet-stream';
@@ -103,8 +107,7 @@ const universalDocumentExtractorFlow = ai.defineFlow(
       finalInput.fileUrl = `data:${mimeType};base64,${base64Data}`;
       finalInput.fileType = mimeType;
 
-      const buffer = Buffer.from(base64Data, 'base64');
-
+      // Parsing XLSX/CSV direct pour 100% de fidélité
       const isSpreadsheet = mimeType.includes('spreadsheet') || 
                             mimeType.includes('excel') || 
                             mimeType.includes('csv') ||
@@ -113,36 +116,35 @@ const universalDocumentExtractorFlow = ai.defineFlow(
 
       if (isSpreadsheet) {
         try {
+          const buffer = Buffer.from(base64Data, 'base64');
           const workbook = XLSX.read(buffer, { type: 'buffer' });
           const firstSheetName = workbook.SheetNames[0];
           const worksheet = workbook.Sheets[firstSheetName];
           finalInput.rawData = XLSX.utils.sheet_to_csv(worksheet);
-        } catch (parseError) {
-          // Fallback to Vision
-        }
+        } catch (e) {}
       }
 
       const response = await extractorPrompt(finalInput);
-      let text = response.text;
-      text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+      let text = response.text.replace(/```json/g, '').replace(/```/g, '').trim();
 
       try {
         const parsed = JSON.parse(text);
         return {
-          documentTitle: parsed.documentTitle || input.fileName,
-          clientName: parsed.clientName || "Client Inconnu",
-          suggestedCategoryId: parsed.suggestedCategoryId || "admin",
-          suggestedSubCategory: parsed.suggestedSubCategory || "Général",
-          extractedData: parsed.extractedData || {},
-          confidenceScore: Number(parsed.confidenceScore) || 50,
-          summary: parsed.summary || "Analysé par le Cerveau V2.",
-          isNewClient: !!parsed.isNewClient
+          clientName: parsed.clientName || "Inconnu",
+          issuerEntity: parsed.issuerEntity || "Inconnu",
+          documentDate: parsed.documentDate || new Date().toISOString().split('T')[0],
+          category: parsed.category || "Administratif",
+          subcategory: parsed.subcategory || "Général",
+          metadata: parsed.metadata || {},
+          summary_flash: parsed.summary_flash || "Document analysé par le Cerveau V2.",
+          confidenceScore: isSpreadsheet ? 100 : (Number(parsed.confidenceScore) || 80),
+          documentTitle: parsed.documentTitle || input.fileName
         };
-      } catch (jsonError) {
-        throw new Error("Erreur de parsing JSON IA.");
+      } catch (e) {
+        throw new Error("Erreur de formatage JSON IA.");
       }
     } catch (e: any) {
-      throw new Error(e.message || "Erreur technique lors de l'extraction.");
+      throw new Error(e.message || "Échec de l'analyse sémantique.");
     }
   }
 );

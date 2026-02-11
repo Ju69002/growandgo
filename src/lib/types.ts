@@ -68,7 +68,7 @@ export interface Category {
   subCategories?: string[];
   color?: string;
   icon?: string;
-  isClientFolder?: boolean; // Pour distinguer les dossiers clients des dossiers métiers
+  isClientFolder?: boolean;
 }
 
 export interface BusinessDocument {
@@ -76,12 +76,15 @@ export interface BusinessDocument {
   name: string;
   categoryId: string;
   subCategory?: string;
-  clientName?: string; // Double classement : nom du client extrait
-  clientId?: string;   // Lien vers le dossier client
+  clientName?: string; 
+  clientId?: string;   
+  issuerEntity?: string; // Entité émettrice identifiée
+  documentDate?: string;
   status: DocumentStatus;
-  confidenceScore?: number; // Score de confiance OCR (0-100)
-  isDataParsed?: boolean;   // True pour Excel/CSV (100% fiable)
-  extractedData?: any;      // Données brutes JSON issues de scanned_context
+  confidenceScore?: number; 
+  isDataParsed?: boolean;   
+  extractedData?: any;      // Métadonnées à la carte
+  summary_flash?: string;   // Résumé flash de l'IA
   fileUrl: string;
   createdAt: string;
   companyId: string;
