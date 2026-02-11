@@ -12,7 +12,7 @@ import {
   addDocumentNonBlocking,
   setDocumentNonBlocking
 } from '@/firebase';
-import { doc, collection, query, orderBy, where } from 'firebase/firestore';
+import { doc, collection, query, orderBy } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { User, BusinessDocument, Category } from '@/lib/types';
 import { 
@@ -26,11 +26,9 @@ import {
   History,
   FolderSync,
   Building2,
-  CheckCircle2,
-  AlertCircle,
-  Hash,
   ArrowRight,
-  Info
+  Info,
+  ExternalLink
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -67,6 +65,7 @@ export default function DocumentsCentralHub() {
   const [isUploading, setIsUploading] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
   const [currentFile, setCurrentFile] = useState<{ url: string; name: string; type: string } | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<UniversalExtractorOutput | null>(null);
 
   const userProfileRef = useMemoFirebase(() => {
@@ -89,12 +88,24 @@ export default function DocumentsCentralHub() {
   }, [db, companyId]);
   const { data: documents, isLoading: isDocsLoading } = useCollection<BusinessDocument>(docsQuery);
 
+  // Nettoyage de l'URL Blob pour éviter les fuites mémoire
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
+
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !companyId || !categories) return;
 
     setIsUploading(true);
     toast({ title: "Analyse Sémantique...", description: "Compréhension du document en cours." });
+
+    // Créer une URL Blob pour l'aperçu sécurisé (évite les erreurs sandbox)
+    const blobUrl = URL.createObjectURL(file);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(blobUrl);
 
     const reader = new FileReader();
     reader.onload = async (event) => {
@@ -112,6 +123,8 @@ export default function DocumentsCentralHub() {
         setIsValidating(true);
       } catch (err: any) {
         toast({ variant: "destructive", title: "Échec de l'analyse", description: err.message });
+        URL.revokeObjectURL(blobUrl);
+        setPreviewUrl(null);
       } finally {
         setIsUploading(false);
         if (fileInputRef.current) fileInputRef.current.value = "";
@@ -135,7 +148,6 @@ export default function DocumentsCentralHub() {
     const existingCategory = categories.find(c => c.label === selectedCategoryLabel || c.id === normalizeId(selectedCategoryLabel));
     const targetCategoryId = existingCategory?.id || normalizeId(selectedCategoryLabel);
 
-    // 1. Assurer la catégorie
     if (!existingCategory) {
       const newCatRef = doc(db, 'companies', companyId, 'categories', targetCategoryId);
       setDocumentNonBlocking(newCatRef, {
@@ -158,7 +170,6 @@ export default function DocumentsCentralHub() {
       }
     }
 
-    // 2. Assurer le dossier client
     const clientName = analysis.clientName || "Client Inconnu";
     const clientId = normalizeId(clientName);
     const clientFolderRef = doc(db, 'companies', companyId, 'categories', clientId);
@@ -173,7 +184,6 @@ export default function DocumentsCentralHub() {
       badgeCount: 0
     }, { merge: true });
 
-    // 3. Enregistrement Final
     const docsRef = collection(db, 'companies', companyId, 'documents');
     addDocumentNonBlocking(docsRef, {
       name: analysis.documentTitle,
@@ -195,6 +205,10 @@ export default function DocumentsCentralHub() {
     });
 
     setIsValidating(false);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
     toast({ title: "Document archivé avec succès !" });
   };
 
@@ -325,17 +339,23 @@ export default function DocumentsCentralHub() {
         </div>
       </div>
 
-      <Dialog open={isValidating} onOpenChange={setIsValidating}>
+      <Dialog open={isValidating} onOpenChange={(open) => {
+        setIsValidating(open);
+        if (!open && previewUrl) {
+          URL.revokeObjectURL(previewUrl);
+          setPreviewUrl(null);
+        }
+      }}>
         <DialogContent className="sm:max-w-[1100px] p-0 overflow-hidden border-none shadow-2xl rounded-[3rem] bg-background">
           <div className="grid grid-cols-1 md:grid-cols-2 h-[90vh]">
             {/* Colonne Gauche : Viewer Universel */}
             <div className="bg-slate-950 flex flex-col relative overflow-hidden">
               <div className="flex-1 w-full h-full">
-                {currentFile?.type === 'application/pdf' ? (
-                  <iframe src={`${currentFile.url}#toolbar=0`} className="w-full h-full border-none bg-white" title="PDF Viewer" />
-                ) : currentFile?.type.includes('image') ? (
+                {currentFile?.type === 'application/pdf' && previewUrl ? (
+                  <iframe src={`${previewUrl}#toolbar=0`} className="w-full h-full border-none bg-white" title="PDF Viewer" />
+                ) : currentFile?.type.includes('image') && previewUrl ? (
                   <div className="w-full h-full flex items-center justify-center p-4">
-                    <img src={currentFile.url} className="max-w-full max-h-full object-contain rounded-xl shadow-2xl" alt="Preview" />
+                    <img src={previewUrl} className="max-w-full max-h-full object-contain rounded-xl shadow-2xl" alt="Preview" />
                   </div>
                 ) : (
                   <div className="w-full h-full flex flex-col items-center justify-center text-white gap-4 opacity-30">
@@ -349,6 +369,15 @@ export default function DocumentsCentralHub() {
                 <Badge className="bg-white/10 text-white border-none h-8 px-4 font-black uppercase tracking-widest text-[10px] backdrop-blur-md">
                   {analysis?.confidenceScore}% Fidélité
                 </Badge>
+              </div>
+              {/* Bouton de secours pour l'ouverture externe */}
+              <div className="absolute bottom-6 right-6">
+                <Button variant="secondary" size="sm" className="rounded-full shadow-lg gap-2" asChild>
+                  <a href={previewUrl || '#'} target="_blank" rel="noreferrer">
+                    <ExternalLink className="w-4 h-4" />
+                    Ouvrir l'original
+                  </a>
+                </Button>
               </div>
             </div>
 
@@ -451,7 +480,13 @@ export default function DocumentsCentralHub() {
               </ScrollArea>
 
               <DialogFooter className="p-8 border-t bg-muted/10 gap-4">
-                <Button variant="ghost" onClick={() => setIsValidating(false)} className="rounded-full h-14 px-8 font-bold">Annuler</Button>
+                <Button variant="ghost" onClick={() => {
+                  setIsValidating(false);
+                  if (previewUrl) {
+                    URL.revokeObjectURL(previewUrl);
+                    setPreviewUrl(null);
+                  }
+                }} className="rounded-full h-14 px-8 font-bold">Annuler</Button>
                 <Button onClick={finalizeUpload} className="rounded-full h-14 px-12 bg-primary font-black uppercase tracking-widest text-sm shadow-xl flex-1">
                   Confirmer & Archiver
                 </Button>
