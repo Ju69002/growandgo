@@ -3,8 +3,7 @@
 
 /**
  * @fileOverview Moteur d'extraction universel Grow&Go V2.
- * Architecture Adaptative : Alterne entre Parsing Mathématique (XLSX/CSV) 
- * et Analyse IA (Gemini 1.5 Pro) pour garantir la meilleure fidélité.
+ * Debug : Nettoyage Base64 & Transparence d'erreurs techniques.
  */
 
 import {ai} from '@/ai/genkit';
@@ -81,20 +80,28 @@ const universalDocumentExtractorFlow = ai.defineFlow(
     let finalInput = { ...input };
 
     try {
-      // DÉTECTION DU MEILLEUR OUTIL : Parsing Mathématique pour les tableurs/textes
-      const base64Data = input.fileUrl.split(',')[1];
+      // 1. NETTOYAGE STRICT DU BASE64 (Correction Debug)
+      const fileUrlParts = input.fileUrl.split(',');
+      const base64Data = fileUrlParts[1] || fileUrlParts[0];
+      const mimeType = input.fileType || (fileUrlParts[0].match(/:(.*?);/)?.[1]) || 'application/octet-stream';
+      
+      // Reconstruction propre du Data URI pour Gemini (Genkit {{media}} nécessite le schéma complet)
+      finalInput.fileUrl = `data:${mimeType};base64,${base64Data}`;
+      finalInput.fileType = mimeType;
+
       const buffer = Buffer.from(base64Data, 'base64');
 
-      const isSpreadsheet = input.fileType.includes('spreadsheet') || 
-                            input.fileType.includes('excel') || 
-                            input.fileType.includes('csv') ||
-                            input.fileName.endsWith('.xlsx') ||
-                            input.fileName.endsWith('.csv');
+      // 2. DÉTECTION DU MEILLEUR OUTIL
+      const isSpreadsheet = mimeType.includes('spreadsheet') || 
+                            mimeType.includes('excel') || 
+                            mimeType.includes('csv') ||
+                            input.fileName.toLowerCase().endsWith('.xlsx') ||
+                            input.fileName.toLowerCase().endsWith('.csv');
 
-      const isText = input.fileType.includes('text/') || 
-                     input.fileType.includes('json') ||
-                     input.fileName.endsWith('.txt') ||
-                     input.fileName.endsWith('.log');
+      const isText = mimeType.includes('text/') || 
+                     mimeType.includes('json') ||
+                     input.fileName.toLowerCase().endsWith('.txt') ||
+                     input.fileName.toLowerCase().endsWith('.log');
 
       if (isSpreadsheet) {
         try {
@@ -102,20 +109,22 @@ const universalDocumentExtractorFlow = ai.defineFlow(
           const firstSheetName = workbook.SheetNames[0];
           const worksheet = workbook.Sheets[firstSheetName];
           finalInput.rawData = XLSX.utils.sheet_to_csv(worksheet);
-        } catch (parseError) {
-          console.warn("Échec parsing XLSX, repli sur Vision IA");
+        } catch (parseError: any) {
+          console.warn("Échec parsing XLSX, repli sur Vision IA:", parseError.message);
         }
       } else if (isText) {
         finalInput.rawData = buffer.toString('utf-8');
       }
 
+      // 3. APPEL API AVEC GESTION D'ERREUR RÉELLE (Mode Debug)
       const {output} = await extractorPrompt(finalInput);
-      if (!output) throw new Error("Échec de l'analyse Gemini Pro.");
+      if (!output) throw new Error("L'API Gemini Pro n'a pas pu générer de données structurées.");
       
       return output;
-    } catch (e) {
-      console.error("Universal Extractor Error:", e);
-      throw e;
+    } catch (e: any) {
+      console.error("[DEBUG] Universal Extractor Technical Error:", e);
+      // On propage l'erreur technique exacte pour l'affichage en interface
+      throw new Error(e.message || "Erreur technique lors de l'extraction.");
     }
   }
 );

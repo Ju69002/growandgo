@@ -87,7 +87,7 @@ export default function DocumentsCentralHub() {
     if (!file || !companyId || !categories) return;
 
     setIsUploading(true);
-    toast({ title: "Traitement universel...", description: "Le système évalue la meilleure méthode d'extraction." });
+    toast({ title: "Traitement universel...", description: "Analyse adaptative en cours." });
 
     const reader = new FileReader();
     reader.onload = async (event) => {
@@ -103,11 +103,12 @@ export default function DocumentsCentralHub() {
         setCurrentFile({ url: dataUrl, name: file.name, type: file.type });
         setAnalysis(result);
         setIsValidating(true);
-      } catch (err) {
+      } catch (err: any) {
+        // Affichage de l'erreur technique réelle (Correction Debug)
         toast({ 
           variant: "destructive", 
           title: "Échec du traitement", 
-          description: "Ce fichier n'a pas pu être lu par l'intelligence universelle." 
+          description: `Erreur : ${err.message || "Cause technique inconnue."}` 
         });
       } finally {
         setIsUploading(false);
@@ -124,12 +125,10 @@ export default function DocumentsCentralHub() {
     let storageType: any = 'firebase';
 
     if (team.length > 1) {
-      toast({ title: "Routage Privé", description: "Fichier binaire routé vers le Serveur Entreprise." });
       storageType = 'private_server';
       finalFileUrl = `https://private-server.internal/${normalizeId(analysis.clientName)}/${currentFile.name}`;
     } else {
       if (storage) {
-        toast({ title: "Stockage Solo", description: "Envoi sur Firebase Storage europe-west9." });
         const fileRef = ref(storage, `companies/${companyId}/docs/${Date.now()}_${currentFile.name}`);
         const blob = await (await fetch(currentFile.url)).blob();
         await uploadBytes(fileRef, blob);
@@ -171,7 +170,7 @@ export default function DocumentsCentralHub() {
     });
 
     setIsValidating(false);
-    toast({ title: "Document classé !", description: `Double classement : ${targetCategoryId} + Dossier ${clientName}` });
+    toast({ title: "Document classé !" });
   };
 
   return (
