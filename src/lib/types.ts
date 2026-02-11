@@ -36,11 +36,6 @@ export interface Company {
       email?: string;
     };
   };
-  modulesConfig?: {
-    showRh: boolean;
-    showFinance: boolean;
-    customLabels: Record<string, string>;
-  };
 }
 
 export interface User {
@@ -73,6 +68,7 @@ export interface Category {
   subCategories?: string[];
   color?: string;
   icon?: string;
+  isClientFolder?: boolean; // Pour distinguer les dossiers clients des dossiers métiers
 }
 
 export interface BusinessDocument {
@@ -80,34 +76,25 @@ export interface BusinessDocument {
   name: string;
   categoryId: string;
   subCategory?: string;
-  projectColumn: 'technical' | 'administrative' | 'budget';
+  clientName?: string; // Double classement : nom du client extrait
+  clientId?: string;   // Lien vers le dossier client
   status: DocumentStatus;
-  extractedData?: {
-    date?: string;
-    montant?: string;
-    emetteur?: string;
-    reference?: string;
-    siren?: string;
-    expiryDate?: string;
-    deliveryDate?: string;
-  };
+  confidenceScore?: number; // Score de confiance OCR (0-100)
+  isDataParsed?: boolean;   // True pour Excel/CSV (100% fiable)
+  extractedData?: any;      // Données brutes JSON issues de scanned_context
   fileUrl: string;
   createdAt: string;
   companyId: string;
-  isBillingTask?: boolean;
-  billingMonthId?: string;
-  targetUserId?: string;
-  storageType?: 'firebase' | 'google_drive' | 'one_drive';
-  driveFileId?: string;
+  storageType: 'firebase' | 'private_server' | 'google_drive' | 'one_drive';
 }
 
 export interface CalendarEvent {
   id: string;
   id_externe: string;
   companyId: string;
-  userId: string; // Creator ID (Owner)
-  assignedTo?: string; // Assigned User ID
-  assignedToName?: string; // Cache for display
+  userId: string;
+  assignedTo?: string;
+  assignedToName?: string;
   titre: string;
   description?: string;
   debut: string; 

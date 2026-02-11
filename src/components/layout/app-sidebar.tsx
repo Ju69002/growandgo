@@ -22,6 +22,7 @@ import {
   KeyRound,
   UserCheck,
   Cloud,
+  FolderSync,
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -54,7 +55,7 @@ export function AppSidebar() {
   const { data: company } = useDoc<Company>(companyRef);
 
   const role = profile?.role;
-  const isAdmin = role === 'admin' || profile?.companyId === 'admin_global';
+  const isAdmin = role === 'admin';
   const isPatron = role === 'patron';
   const isFamily = role === 'family';
   const isBusiness = company?.subscription?.planType === 'business' || isAdmin || isFamily;
@@ -63,6 +64,7 @@ export function AppSidebar() {
 
   const mainItems = [
     { title: 'Tableau de bord', icon: LayoutDashboard, url: '/' },
+    { title: 'Documents V2', icon: FolderSync, url: '/documents' },
     { title: 'Équipe', icon: Users, url: '/team' },
   ];
 
